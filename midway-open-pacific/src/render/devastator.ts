@@ -7,7 +7,7 @@
  * SBD is untouched: `createDouglas` still owns it.
  */
 import * as T from "three";
-import { mergeParts, softCircleDataTexture } from "@threenative/core";
+import { mergeByMaterial, softCircleDataTexture } from "@threenative/core";
 import { emblem } from "./assets.js";
 import { createSeatedStation, SEATED_PELVIS, type ISeatedStation } from "./aircrew.js";
 import { createCockpitInterior, getCockpitMaterials, type CockpitInterior } from "./cockpit-detail.js";
@@ -95,14 +95,16 @@ function buildModel(detail: "hero" | "ai"): DevastatorModel {
   const parts: Record<string, T.Object3D> = {};
   const surfaces: Surface[] = [];
   const M: MaterialMap = materials();
-  const mesh = (geo: T.BufferGeometry, mat: T.Material, parent: T.Object3D = root, name = ""): T.Mesh => {
-    const o = new T.Mesh(geo, mat);
+  /** A piece gets its name, its parent and the shadow flags every part of this airframe has. */
+  const adopt = (o: T.Mesh, mat: T.Material, parent: T.Object3D, name: string): T.Mesh => {
     o.name = name;
     o.castShadow = mat !== M.glass;
     o.receiveShadow = true;
     parent.add(o);
     return o;
   };
+  const mesh = (geo: T.BufferGeometry, mat: T.Material, parent: T.Object3D = root, name = ""): T.Mesh =>
+    adopt(new T.Mesh(geo, mat), mat, parent, name);
   const box = (
     size: [number, number, number],
     pos: [number, number, number],
@@ -162,31 +164,26 @@ function buildModel(detail: "hero" | "ai"): DevastatorModel {
     );
   // Every procedural geometry here carries normal and uv already: Box, Sphere, Cylinder, Tube,
   // Torus and Extrude geometries generate both, and `geometry()` computes normals and writes uv.
-  // So the merge preserves the authored channels with no game-side fallback, and `mergeParts`
-  // refuses loudly if a future part ever arrives without one instead of inventing a default.
+  // So the engine's merge needs no game-side fallback for the authored channels, and it refuses
+  // loudly if a future part ever arrives without one instead of inventing a default.
   const batch = (group: T.Object3D): void => {
-    const sets = new Map<T.Material, T.Mesh[]>();
+    // The engine walks the whole subtree and groups by material; `skip` keeps this to the direct
+    // children it always merged, and leaves a material with fewer than three of them alone —
+    // merging a pair or a lone piece saves no draw call, costs a geometry copy, and renames the
+    // pieces a script finds by name (`airframebody` and the fuselage insignia, both read by
+    // scripts/check-aircraft.mjs and tools/capture-airframes.mjs).
+    const counts = new Map<T.Material, number>();
+    for (const c of group.children as T.Mesh[])
+      if (c.isMesh && !Array.isArray(c.material)) counts.set(c.material, (counts.get(c.material) ?? 0) + 1);
+    const skip = (m: T.Mesh) => m.parent !== group || (counts.get(m.material as T.Material) ?? 0) < 3;
+    const merged = mergeByMaterial(group, { label: group.name || "devastator", skip });
+    // It does not touch the root, so the sources are dropped here or the airframe draws twice.
     for (const c of [...group.children] as T.Mesh[])
-      if (c.isMesh && !Array.isArray(c.material)) {
-        if (!sets.has(c.material)) sets.set(c.material, []);
-        sets.get(c.material)!.push(c);
-      }
-    for (const [material, children] of sets) {
-      if (children.length < 3) continue;
-      const parts = children.map((c) => {
-        c.updateMatrix();
-        return { geometry: c.geometry, matrix: c.matrix };
-      });
-      const g = mergeParts(parts, {
-        label: group.name || "devastator",
-        preserve: ["uv", "normal"],
-      });
-      for (const c of children) {
+      if (c.isMesh && !skip(c)) {
         group.remove(c);
         c.geometry.dispose();
       }
-      mesh(g, material, group, group.name + "_details");
-    }
+    for (const m of merged) adopt(m, m.material as T.Material, group, group.name + "_details");
   };
   const geometry = (p: number[], uv: number[], index: number[]): T.BufferGeometry => {
     const g = new T.BufferGeometry();

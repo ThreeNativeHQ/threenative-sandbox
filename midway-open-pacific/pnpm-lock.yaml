@@ -9,14 +9,14 @@ importers:
   .:
     dependencies:
       '@threenative/core':
-        specifier: 0.3.3
-        version: 0.3.3(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
+        specifier: file:/home/joao/.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz
+        version: file:../../../../../../../.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
       '@threenative/physics':
         specifier: 0.3.3
-        version: 0.3.3(@threenative/core@0.3.3(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(three@0.185.1)
+        version: 0.3.3(@threenative/core@file:../../../../../../../.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(three@0.185.1)
       '@threenative/ui':
         specifier: 0.3.3
-        version: 0.3.3(@threenative/core@0.3.3(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        version: 0.3.3(@threenative/core@file:../../../../../../../.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react:
         specifier: 19.2.0
         version: 19.2.0
@@ -957,8 +957,9 @@ packages:
   '@threenative/assets@0.3.3':
     resolution: {integrity: sha512-fNAkYAGohnFoJhKLJq++mCG1T41d/Fg5deeIJZ7HCur8lpwSwqOKGAeAtAgvvxAq8Kiw1CW/oc4QjgBIjiNMbg==}
 
-  '@threenative/core@0.3.3':
-    resolution: {integrity: sha512-tLHFEsRXcjwIAzvEnlNS0SJeSeqwSFkkQcVp/p8PeYvg25ttjZELh5IEX/Xd46qaHIaSDQmJtusp/fHmwwqNgQ==}
+  '@threenative/core@file:../../../../../../../.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz':
+    resolution: {integrity: sha512-gOIL7Zi/hr7aAoCvBWdH8uMTnmQFj0Ei5ZlQC50mwwrD7yLl4+vYP8kes7/Vd02XXMTzRcv5gQaK+Fqtmm94eQ==, tarball: file:../../../../../../../.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz}
+    version: 0.3.3
     peerDependencies:
       '@threenative/playtest': '>=0.3.3 <0.4.0'
       react: '>=19.2.0 <20'
@@ -973,6 +974,7 @@ packages:
 
   '@threenative/physics@0.3.3':
     resolution: {integrity: sha512-crmEM2ff0PYqrIG6oiFVu10wgdKI0C6iPY6BEVJyScCng8UUea1nSyaBVR5QLfw95uqwPUVsrp1/Lmo0rSTwog==}
+    version: 0.3.3
     peerDependencies:
       '@threenative/core': '>=0.3.3 <0.4.0'
       three: '>=0.185.0 <0.186.0'
@@ -994,6 +996,7 @@ packages:
 
   '@threenative/ui@0.3.3':
     resolution: {integrity: sha512-4PeOCcUxqj+xqq0gxkPZBUFqqbYHT0CNHMlxfJniw4DuPihwq6iCCcPhonx6UkN0DgPLhLIVUY2fGDCGIOVNTA==}
+    version: 0.3.3
     peerDependencies:
       '@threenative/core': '>=0.3.3 <0.4.0'
       react: '>=19.2.0 <20'
@@ -3056,7 +3059,7 @@ snapshots:
     transitivePeerDependencies:
       - '@types/node'
 
-  '@threenative/core@0.3.3(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)':
+  '@threenative/core@file:../../../../../../../.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)':
     dependencies:
       three: 0.185.1
       three-mesh-bvh: 0.9.14(three@0.185.1)
@@ -3075,10 +3078,10 @@ snapshots:
       - supports-color
       - use-sync-external-store
 
-  '@threenative/physics@0.3.3(@threenative/core@0.3.3(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(three@0.185.1)':
+  '@threenative/physics@0.3.3(@threenative/core@file:../../../../../../../.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(three@0.185.1)':
     dependencies:
       '@dimforge/rapier3d-compat': 0.19.3
-      '@threenative/core': 0.3.3(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
+      '@threenative/core': file:../../../../../../../.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
       recast-navigation: 0.43.1
       three: 0.185.1
 
@@ -3093,9 +3096,9 @@ snapshots:
     dependencies:
       pngjs: 7.0.0
 
-  '@threenative/ui@0.3.3(@threenative/core@0.3.3(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@threenative/ui@0.3.3(@threenative/core@file:../../../../../../../.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
     dependencies:
-      '@threenative/core': 0.3.3(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
+      '@threenative/core': file:../../../../../../../.cache/threenative-staging/prd-451/threenative-core-0.3.3-e8e1020e4bd3.tgz(@threenative/playtest@0.3.3(playwright@1.62.1)(three@0.185.1))(@types/node@26.5.1)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
 

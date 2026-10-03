@@ -1,6 +1,6 @@
 /** Procedural geometry and textures. No copyrighted game assets or image downloads. */
 import * as THREE from "three";
-import { mergeParts, type IMergePart } from "@threenative/core";
+import { mergeByMaterial } from "@threenative/core";
 
 const materialCache = new Map<string, THREE.MeshStandardMaterial>();
 
@@ -116,44 +116,25 @@ function flatTexture(): THREE.Texture {
   return tx;
 }
 
-/** Merge static components by material to avoid a draw call for every bolt and window. */
-export function consolidate(group: THREE.Object3D): THREE.Group {
-  group.updateMatrixWorld(true);
-  const batches = new Map<
-    string,
-    { material: THREE.Material; parts: IMergePart[]; temps: THREE.BufferGeometry[] }
-  >();
-  group.traverse((o) => {
-    const mesh = o as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    const material = mesh.material as THREE.Material;
-    let b = batches.get(material.uuid);
-    if (!b) {
-      b = { material, parts: [], temps: [] };
-      batches.set(material.uuid, b);
-    }
-    // `mergeParts` refuses a listed channel a piece does not carry, so a missing uv is a game data
-    // decision made here on the way in rather than something the engine invents. The zero-uv copy
-    // is ours to release after the merge; `mergeParts` clones again and never touches the input.
-    let geometry = mesh.geometry;
-    if (!geometry.getAttribute("uv")) {
-      const uv = new THREE.Float32BufferAttribute(geometry.getAttribute("position").count * 2, 2);
-      geometry = mesh.geometry.clone().setAttribute("uv", uv);
-      b.temps.push(geometry);
-    }
-    b.parts.push({ geometry, matrix: mesh.matrixWorld });
-  });
-  const result = new THREE.Group();
-  for (const b of batches.values()) {
-    const g = mergeParts(b.parts, { label: "consolidate", preserve: ["uv", "normal"] });
-    for (const geometry of b.temps) geometry.dispose();
-    g.computeBoundingSphere();
-    const m = new THREE.Mesh(g, b.material);
-    m.castShadow = true;
-    m.receiveShadow = true;
-    result.add(m);
+/**
+ * Merge static components by material to avoid a draw call for every bolt and window.
+ *
+ * The grouping, the baked transforms and the per-material mesh are the engine's `mergeByMaterial`;
+ * the two appearance decisions are ours and stay here: every merged mesh casts and receives, and the
+ * group is the group it was given, so the call sites that added a returned group keep working. The
+ * sources are dropped afterwards — `mergeByMaterial` does not mutate the root, and leaving them would
+ * draw the whole hierarchy twice.
+ */
+export function consolidate(group: THREE.Group): THREE.Group {
+  const merged = mergeByMaterial(group, { label: "consolidate" });
+  for (const child of [...group.children]) group.remove(child);
+  for (const mesh of merged) {
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.geometry.computeBoundingSphere();
+    group.add(mesh);
   }
-  return result;
+  return group;
 }
 
 function roundel(team: string): THREE.Texture {

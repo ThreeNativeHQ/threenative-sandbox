@@ -1,6 +1,6 @@
 /** The battle's Three.js world, built into the scene the framework owns. */
 import * as T from "three";
-import { mergeParts } from "@threenative/core";
+import { lodPixelScale, mergeParts } from "@threenative/core";
 import { shipClass } from "../sim/catalog.js";
 import { ROLE_AIRFRAMES } from "../sim/battle.js";
 import { REAR_RELOAD_SECONDS } from "../sim/armament.js";
@@ -57,36 +57,6 @@ export const SHADOW_PROXY_LAYER = 2;
 
 /** Reused so the per-frame camera orbit allocates nothing. */
 const WORLD_UP = new T.Vector3(0, 1, 0);
-
-/**
- * Nodes whose subtree was skipped while hidden, to be force-refreshed the first frame they show.
- *
- * `WorldView.updateVisibleMatrixWorld` does not recurse into a hidden node, so a hidden ancestor's
- * descendants keep whatever world matrices they last had. This set remembers which hidden nodes were
- * (or would have been) forced, so the frame one becomes visible again its whole subtree is recomputed
- * with `force = true` before anything reads or draws it.
- */
-const staleWhileHidden = new WeakSet<T.Object3D>();
-
-/**
- * Whether a Bone sits anywhere under `node`, decided once per node and remembered: a skinned rig is
- * built whole (the deck crew at load, a pooled airframe's seated crew when it is cloned), so its
- * shape does not change after the first time a hidden walk meets it.
- */
-const bonesBelow = new WeakMap<T.Object3D, boolean>();
-/** The base walk, to tell a class that overrides `updateMatrixWorld` (SkinnedMesh, Camera) apart. */
-const BASE_UPDATE_MATRIX_WORLD = T.Object3D.prototype.updateMatrixWorld;
-function holdsBones(node: T.Object3D): boolean {
-  let known = bonesBelow.get(node);
-  if (known === undefined) {
-    known = false;
-    node.traverse((object) => {
-      if ((object as T.Bone).isBone) known = true;
-    });
-    bonesBelow.set(node, known);
-  }
-  return known;
-}
 
 /** The tracer ellipsoid's long axis, rotated onto each round's velocity every frame. */
 const TRACER_LONG = new T.Vector3(0, 0, 1);
@@ -1188,59 +1158,6 @@ export class WorldView {
       }
   }
 
-  /**
-   * `Object3D.updateMatrixWorld(force)`, but a hidden node's subtree is not walked.
-   *
-   * Three recurses into every child of every node and multiplies a world matrix for each, so a
-   * hidden subtree — a hull's full body while the merged stand-in draws, a hidden LOD level, a parked
-   * or hangared aircraft — pays the walk even though nothing under it can draw. This mirrors three
-   * exactly for a visible node (`matrixAutoUpdate` -> `updateMatrix`, then the
-   * `matrixWorldNeedsUpdate || force` recompute, respecting `matrixWorldAutoUpdate` and a null
-   * parent, then force the children). A node with `visible === false` is visited but not recursed
-   * into; when it was forced or carried a dirty flag it is remembered, so the first frame it is
-   * visible again its whole subtree is refreshed with `force = true`.
-   *
-   * The camera is never in this walk: `updateCamera` updates it directly.
-   */
-  updateVisibleMatrixWorld(root: T.Object3D = this.scene, force = false): void {
-    // A hidden node that holds bones is still walked: a visible SkinnedMesh draws with its
-    // skeleton's bone matrices wherever the bones sit, and a rig's armature can be hidden while the
-    // skinned mesh draws.
-    //
-    // A class that extends the walk runs its own: `SkinnedMesh` refreshes `bindMatrixInverse` from
-    // its new world matrix, `Camera` its `matrixWorldInverse`. Re-implementing only the base walk
-    // skipped both, and every deck-crew sailor that had moved since load drew with a stale bind
-    // matrix and vanished. Their subtrees are small, so walking them whole costs nothing.
-    if (root.updateMatrixWorld !== BASE_UPDATE_MATRIX_WORLD) {
-      const stale = staleWhileHidden.delete(root);
-      root.updateMatrixWorld(force || stale);
-      return;
-    }
-    if (root.matrixAutoUpdate) root.updateMatrix();
-    if (root.matrixWorldNeedsUpdate || force) {
-      if (root.matrixWorldAutoUpdate === true) {
-        if (root.parent === null) root.matrixWorld.copy(root.matrix);
-        else root.matrixWorld.multiplyMatrices(root.parent.matrixWorld, root.matrix);
-      }
-      root.matrixWorldNeedsUpdate = false;
-      force = true;
-    }
-    if (root.visible === false && !holdsBones(root)) {
-      // The recompute above cleared the flag, so `force` is true exactly when this node's own world
-      // matrix (and so its subtree) is dirty. Nothing under it can draw while hidden; defer it.
-      if (force) staleWhileHidden.add(root);
-      return;
-    }
-    if (staleWhileHidden.has(root)) {
-      staleWhileHidden.delete(root);
-      force = true;
-    }
-    const children = root.children;
-    for (let i = 0, l = children.length; i < l; i += 1) {
-      this.updateVisibleMatrixWorld(children[i]!, force);
-    }
-  }
-
   makeTracers(): void {
     const geom = new T.SphereGeometry(1, 8, 6);
     const mat = new T.MeshBasicMaterial({ transparent: true, opacity: 0.95, depthWrite: false, blending: T.AdditiveBlending });
@@ -1309,10 +1226,12 @@ export class WorldView {
     this.setAirframe();
     this.wallTime = wallTime;
     const time = briefing ? wallTime : b.time;
-    // Pixels per radian for the render camera: an object's projected diameter is twice its
-    // bounding-sphere radius times this over its distance. Read once, before both the hull and the
-    // aircraft gates, because both are the same camera's projection.
-    const focalPx = (this.host.viewport.size.height * 0.5) / Math.tan((this.camera.fov * Math.PI) / 360);
+    // Pixels per world unit at a given range, for this camera and viewport: an object's projected
+    // diameter is twice its bounding-sphere radius times this. Read from the engine's own projected
+    // scale rather than a private focal-length copy, and shared, because both the hull and the
+    // aircraft gates below are the same camera's projection.
+    const viewportH = this.host.viewport.size.height;
+    const pixelScale = (depth: number): number => lodPixelScale(this.camera, viewportH, Math.max(1, depth));
     const hullPixels = mergedHullPixels();
     this.updateTimes.setup = performance.now() - t;
     t = performance.now();
@@ -1342,7 +1261,7 @@ export class WorldView {
       // sinking hull changes shape with `s.sink` and is watched from close up, so it too keeps detail.
       const low = m.userData.hullLow as T.Mesh | undefined;
       if (low) {
-        const px = (2 * (m.userData.hullRadius as number) * focalPx) / Math.max(1, camD);
+        const px = 2 * (m.userData.hullRadius as number) * pixelScale(camD);
         const merged = m.visible && s !== b.home && s.sink <= 0 && px < hullPixels;
         (m.userData.hullBody as T.Object3D).visible = !merged;
         low.visible = merged;
@@ -1475,7 +1394,7 @@ export class WorldView {
         else aiGun.rotation.set(0, 0, 0);
       }
       const camD = Math.hypot(a.x - camPos.x, a.y - camPos.y, a.z - camPos.z);
-      const projectedPx = (2 * (m.userData.radius as number) * focalPx) / Math.max(1, camD);
+      const projectedPx = 2 * (m.userData.radius as number) * pixelScale(camD);
       // Below the merged line the airframe is one draw: hide the full content — model, gear, stores
       // and damage, all under `body` — in a single write and show the static stand-in instead. Above
       // it nothing changes and every animator runs, so a resolvable aircraft is never frozen.
@@ -1803,7 +1722,7 @@ export class WorldView {
     // what make the pilot's own fire readable.
     const me = this.camera.matrixWorld.elements;
     const ex = me[12], ey = me[13], ez = me[14];
-    const focalPx = (this.host.viewport.size.height * 0.5) / Math.tan((this.camera.fov * Math.PI) / 360);
+    const tracerPixelScale = (depth: number): number => lodPixelScale(this.camera, this.host.viewport.size.height, depth);
     let i = 0;
     for (const a of b.bullets) {
       if (i >= 1000) break;
@@ -1815,7 +1734,8 @@ export class WorldView {
       const half = Math.max((a.type === "flak" ? 0.02 : 0.012) * speed, 0.02) * 0.5;
       // The head holds ~1.25 px whatever the range (a world length that grows with distance), so a
       // far round is a dot and never a balloon: the only clamp is a sane floor and ceiling.
-      const radius = T.MathUtils.clamp((Math.hypot(a.x - ex, a.y - ey, a.z - ez) * 1.25) / focalPx, 0.015, 0.45);
+      const range = Math.hypot(a.x - ex, a.y - ey, a.z - ez);
+      const radius = T.MathUtils.clamp((range * 1.25) / tracerPixelScale(Math.max(1, range)), 0.015, 0.45);
       this.tracerQuat.setFromUnitVectors(TRACER_LONG, this.tracerDir);
       // The ellipsoid is centred half a length BEHIND the ballistic head, so the visible streak
       // trails the round instead of reaching past it.

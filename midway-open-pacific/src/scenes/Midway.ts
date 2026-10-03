@@ -1,4 +1,4 @@
-import { Scene, onLaunchFailure } from "@threenative/core";
+import { Scene, exposeDebug, onLaunchFailure } from "@threenative/core";
 import { AudioBus } from "@threenative/core";
 import { Vector3 } from "three";
 import type { ICtx } from "@threenative/core";
@@ -241,6 +241,14 @@ export class Midway extends Scene<GameState, undefined> {
 
   enter(ctx: ICtx<GameState, undefined>): void {
     this.ctx = ctx;
+    /**
+     * Publish this scene for the capture scripts, in dev builds only. A script that needed the
+     * scene used to re-`import()` `/src/game.ts` and walk the resource timeline for the module URL
+     * the dev server already had — the same twenty-odd lines per script, and a second module
+     * instance whenever that URL resolved to another copy. The engine puts the handle where a page
+     * script reads it: `window.__THREENATIVE__.debug.scene`. A production build publishes nothing.
+     */
+    exposeDebug("scene", this);
     this.battle = new Battle();
     this.world = new WorldView({ scene: ctx.scene, camera: ctx.camera as T.PerspectiveCamera, renderer: ctx.renderer, viewport: ctx.viewport, add: (object) => ctx.add(object) }, this.battle);
     // The render-side world updates once per DRAWN frame, not once per fixed tick. `battle.step`
@@ -261,22 +269,12 @@ export class Midway extends Scene<GameState, undefined> {
     // engine's own beforeRender phase keeps the packing off the particle meshes: an own mesh
     // onBeforeRender marks the whole scene un-batchable at the full roster.
     this.cleanups.push(ctx.beforeRender(() => this.world.particles.prepare(this.world.camera.position)));
-    // Midway has one main camera and buffer-only draw hooks. Prepare world transforms once per
-    // world draw in the engine's beforeRender seam, which runs before the render projection
-    // reconciles and hands the renderer the mirror scene; an authored-scene onBeforeRender never
-    // fires while projecting, so the walk would go stale. Shadow and reflection passes (which draw
-    // through their own cameras) reuse the transforms prepared here. The pass skips hidden subtrees
-    // — a hull's full body while the merged stand-in shows, hidden LOD levels, parked aircraft —
-    // which three's own walk would still recurse into and multiply for.
-    const scene = ctx.scene;
-    const savedAutoUpdate = scene.matrixWorldAutoUpdate;
-    if (savedAutoUpdate) {
-      scene.matrixWorldAutoUpdate = false;
-      this.cleanups.push(ctx.beforeRender(() => this.world.updateVisibleMatrixWorld()));
-      this.cleanups.push(() => {
-        scene.matrixWorldAutoUpdate = savedAutoUpdate;
-      });
-    }
+    // World transforms are the engine's walk: it sets `matrixWorldAutoUpdate = false` on the scene
+    // at construction and runs `MatrixWorldPass` over the draw root each frame, which is the same
+    // visible-only pass this game used to own — a hidden subtree is not recursed into, a class that
+    // overrides `updateMatrixWorld` runs its own, and a hidden node holding a Bone is walked whole.
+    // So this scene registers no second pass; `renderer.matrixWorld: "all"` is the named override
+    // that restores three's every-node walk.
     this.hud = shell.hud(this.battle, this.world);
     // HUD state, timers and input feedback update on every fixed simulation tick; the canvas is
     // drawn once per presented frame from the latest state. `hud.update` used to clear and redraw

@@ -73,20 +73,11 @@ try {
   await page.goto(URL);
   await page.waitForSelector("#loading.hidden", { state: "attached", timeout: 180000 });
   await page.waitForSelector("#briefing:not(.hidden)");
-  await page.evaluate(async () => {
-    const urls = performance
-      .getEntriesByType("resource")
-      .map((e) => e.name)
-      .filter((n) => /\/src\/game\.ts(?:\?|$)/.test(n))
-      .reverse();
-    for (const url of urls) {
-      const s = (await import(url)).default.scene;
-      if (s?.battle) {
-        window.midway = s;
-        return;
-      }
-    }
-    throw new Error("no scene");
+  // The scene publishes itself on entry in a dev build, so nothing has to re-import `/src/game.ts`
+  // and walk the resource timeline to find a second copy of the module.
+  await page.evaluate(() => {
+    window.midway = window.__THREENATIVE__?.debug?.scene;
+    if (!window.midway?.battle) throw new Error("no scene under window.__THREENATIVE__.debug.scene");
   });
 
   const adapter = await page.evaluate(async () => {

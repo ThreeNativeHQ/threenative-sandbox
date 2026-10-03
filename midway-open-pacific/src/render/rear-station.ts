@@ -14,6 +14,7 @@
  * pilot cockpit are untouched. Pure render code: no sim, input or camera state is read here.
  */
 import * as T from "three";
+import { createRandom, mergeByMaterial } from "@threenative/core";
 import { canvasTexture } from "./assets.js";
 import { REAR_GUN_MOUNTS, type RearGunMount } from "../sim/gun-mount.js";
 
@@ -63,16 +64,6 @@ function tex(
   t.repeat.set(repeat, repeat);
   t.anisotropy = 8;
   return t;
-}
-
-function rng(seed: number): () => number {
-  let s = seed | 0;
-  return () => {
-    s = (s + 0x6d2b79f5) | 0;
-    let t = Math.imul(s ^ (s >>> 15), 1 | s);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -424,7 +415,7 @@ function normalFromHeight(c: HTMLCanvasElement, strength = 1.8): T.Texture | nul
 
 function metalSurface(base: string, seed: number, wear = 0.45): Partial<T.MeshStandardMaterialParameters> {
   if (!canCanvas()) return { color: base };
-  const rand = rng(seed);
+  const rand = createRandom(seed);
   const s = 1024;
   const height = document.createElement("canvas");
   height.width = 512;
@@ -500,7 +491,7 @@ function metalSurface(base: string, seed: number, wear = 0.45): Partial<T.MeshSt
 
 function clothSurface(base: string, seed: number, straps = false): Partial<T.MeshStandardMaterialParameters> {
   if (!canCanvas()) return { color: base };
-  const rand = rng(seed);
+  const rand = createRandom(seed);
   const h = document.createElement("canvas");
   h.width = 512;
   h.height = 512;
@@ -603,7 +594,7 @@ function label(
 ): T.Object3D {
   if (!canCanvas()) return group(parent, `${lines[0]} label (skipped)`);
   const { background = null, color = "#cecbb4", font = "monospace", size = 42, border = false, align = "center", wear = 0.25 } = options;
-  const rand = rng(591 + lines.join("").length);
+  const rand = createRandom(591 + lines.join("").length);
   const c = document.createElement("canvas");
   c.width = 1024;
   c.height = Math.max(128, Math.round((1024 * h) / w));
@@ -993,7 +984,7 @@ function srgb(t: T.Texture): T.Texture {
 
 function surfaceMap(kind: "paint" | "steel" | "brass", seed: number): T.Texture | null {
   if (!canCanvas()) return null;
-  const rand = rng(seed);
+  const rand = createRandom(seed);
   const base = kind === "paint" ? [91, 96, 66] : kind === "brass" ? [148, 116, 64] : [67, 72, 77];
   return tex(512, 512, (ctx) => {
     const image = ctx.createImageData(512, 512);
@@ -1290,41 +1281,33 @@ function gperforatedJacket(radius = 0.144, length = 2.34): T.BufferGeometry {
   return g;
 }
 
-/** Merge a gun subassembly's static meshes per material, keeping named moving groups. */
+/**
+ * Merge a gun subassembly's static meshes per material, keeping named moving groups.
+ *
+ * The walk, the grouping by material, the baked transforms and the one buffer per material are the
+ * engine's `mergeByMaterial`. What stays here is the two appearance decisions this airframe owns:
+ * every merged surface takes the subassembly's `-surface` name and the cast/receive flags `gmesh`
+ * gives every other part. It does not touch the root, so the pieces it took are dropped here —
+ * leaving them would draw the subassembly twice.
+ */
 function gbake(root: T.Object3D): void {
-  root.updateMatrixWorld(true);
-  const inverse = root.matrixWorld.clone().invert();
-  const batches = new Map<T.Material, T.BufferGeometry[]>();
-  const originals: T.Mesh[] = [];
+  const merged = mergeByMaterial(root, { label: root.name || "gun" });
+  const materials = new Set(merged.map((m) => m.material));
+  const sources: T.Mesh[] = [];
   root.traverse((o) => {
     const m = o as T.Mesh;
-    if (!m.isMesh || (m as unknown as T.InstancedMesh).isInstancedMesh) return;
-    const geo = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
-    geo.applyMatrix4(inverse.clone().multiply(m.matrixWorld));
-    if (!batches.has(m.material as T.Material)) batches.set(m.material as T.Material, []);
-    batches.get(m.material as T.Material)!.push(geo);
-    originals.push(m);
+    if (m.isMesh && !(m as unknown as T.InstancedMesh).isInstancedMesh && materials.has(m.material as T.Material))
+      sources.push(m);
   });
-  for (const o of originals) {
-    o.removeFromParent();
-    o.geometry.dispose();
+  for (const m of sources) {
+    m.removeFromParent();
+    m.geometry.dispose();
   }
-  for (const [mat, geos] of batches) {
-    const geo = new T.BufferGeometry();
-    for (const [name, size] of [["position", 3], ["normal", 3], ["uv", 2]] as const) {
-      const count = geos.reduce((n, g) => n + g.attributes.position!.count, 0);
-      const data = new Float32Array(count * size);
-      let offset = 0;
-      for (const g of geos) {
-        const attr = g.attributes[name];
-        if (attr) data.set(attr.array as Float32Array, offset);
-        offset += g.attributes.position!.count * size;
-      }
-      geo.setAttribute(name, new T.BufferAttribute(data, size));
-    }
-    geo.computeBoundingSphere();
-    gmesh(root, geo, mat, 0, 0, 0, `${root.name}-surface`);
-    geos.forEach((g) => g.dispose());
+  for (const m of merged) {
+    m.name = `${root.name}-surface`;
+    m.castShadow = true;
+    m.receiveShadow = true;
+    root.add(m);
   }
 }
 

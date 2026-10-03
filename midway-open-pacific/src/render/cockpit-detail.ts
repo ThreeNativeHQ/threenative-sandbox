@@ -7,6 +7,7 @@
 import * as T from "three";
 import { Fn, cos, mix, sin, texture, uniform, uv, vec2, vec3 } from "three/tsl";
 import { MeshStandardNodeMaterial } from "three/webgpu";
+import type { IAssetLoader } from "@threenative/core";
 
 const PBR = [
   "olive-frame",
@@ -38,35 +39,27 @@ export const EYE: [number, number, number] = [0, 1.42, 1.6];
 
 export type CockpitMaterials = Record<string, any> & { textures: Record<string, T.Texture> };
 
-export async function loadCockpitMaterials(base = "/assets/cockpit/", anisotropy = 8): Promise<CockpitMaterials> {
-  // Load by CAPABILITY, never by browser sniff. The native runtime has `window` and `document`
-  // but no `Image`/`HTMLImageElement`, so `TextureLoader` (which builds an <img>) cannot run
-  // there — while `fetch` + `createImageBitmap` both exist, which is exactly what
-  // `ImageBitmapLoader` uses. Sniffing for `Image` silently skipped every cockpit texture on
-  // native, and because `pbr()` takes its colour from the basecolor map alone, the whole interior
-  // rendered white and fully metallic.
-  const canImage = typeof Image !== "undefined";
-  const canBitmap = typeof createImageBitmap === "function";
-  const bitmapLoader = canImage ? undefined : new T.ImageBitmapLoader();
-  // An ImageBitmap ignores `texture.flipY`, so the flip has to happen during decode instead.
-  bitmapLoader?.setOptions({ imageOrientation: "flipY" });
-  const loader = new T.TextureLoader();
+export async function loadCockpitMaterials(
+  assets: Pick<IAssetLoader, "texture">,
+  base = "/assets/cockpit/",
+  anisotropy = 8,
+): Promise<CockpitMaterials> {
+  // Load by CAPABILITY, never by browser sniff, and through the engine's own loader, which decodes
+  // by capability: `fetch` + `createImageBitmap` with the orientation the platform needs. The native
+  // runtime has `window` and `document` but no `Image`/`HTMLImageElement`, so a `TextureLoader`
+  // (which builds an <img>) cannot run there — and because `pbr()` takes its colour from the
+  // basecolor map alone, every cockpit texture silently missing on native rendered the whole
+  // interior white and fully metallic. Colour space, wrap and anisotropy ride along in the one
+  // call: an albedo is sRGB and a normal/orm is data, which is the trap the options close.
   const textures: Record<string, T.Texture> = {};
-  const load = async (name: string, file: string, srgb: boolean) => {
-    const t = bitmapLoader === undefined
-      ? await loader.loadAsync(base + file)
-      : new T.Texture(await bitmapLoader.loadAsync(base + file) as unknown as HTMLImageElement);
-    if (bitmapLoader !== undefined) t.flipY = false;
+  const load = async (name: string, file: string, srgb: boolean, wrap: T.Wrapping = T.RepeatWrapping) => {
+    const t = await assets.texture(base + file, { data: !srgb, wrap, anisotropy });
     t.name = name;
-    t.wrapS = t.wrapT = T.RepeatWrapping;
-    t.anisotropy = anisotropy;
-    if (srgb) t.colorSpace = T.SRGBColorSpace;
-    t.needsUpdate = true;
     textures[name] = t;
   };
   // Headless CPU checks import this module with no image decoder at all; those build the same
   // materials map-lessly. Any target that can decode an image loads the real ones.
-  if (canImage || canBitmap) {
+  if (typeof createImageBitmap === "function" || typeof Image !== "undefined") {
     await Promise.all([
       ...PBR.flatMap((id) => [
         load(`${id}-basecolor`, `${id}-basecolor.jpg`, true),
@@ -78,7 +71,7 @@ export async function loadCockpitMaterials(base = "/assets/cockpit/", anisotropy
       load("attitude-moving", "attitude-moving.png", true),
       load("attitude-overlay", "attitude-overlay.png", true),
       ...DIALS.map((d) => load(`dial-${d}`, `dial-${d}.png`, true)),
-      ...LABELS.map((l) => load(`label-${l}`, `label-${l}.png`, true)),
+      ...LABELS.map((l) => load(`label-${l}`, `label-${l}.png`, true, T.ClampToEdgeWrapping)),
     ]);
   }
 
@@ -162,7 +155,6 @@ export async function loadCockpitMaterials(base = "/assets/cockpit/", anisotropy
   }
   for (const l of LABELS) {
     const t = textures[`label-${l}`];
-    if (t) t.wrapS = t.wrapT = T.ClampToEdgeWrapping;
     const a = new T.MeshStandardMaterial({ map: t, roughness: 0.75, metalness: 0.12 });
     a.name = `Placard label-${l}`;
     m.labels[l] = a;
@@ -181,8 +173,11 @@ let cachedMaterials: CockpitMaterials | undefined;
 let loadingMaterials: Promise<CockpitMaterials> | undefined;
 
 /** Cockpit textures are loaded once per session and shared by every aircraft that mounts the rig. */
-export function ensureCockpitMaterials(anisotropy = 8): Promise<CockpitMaterials> {
-  loadingMaterials ??= loadCockpitMaterials("/assets/cockpit/", anisotropy).then((loaded) => (cachedMaterials = loaded));
+export function ensureCockpitMaterials(
+  assets: Pick<IAssetLoader, "texture">,
+  anisotropy = 8,
+): Promise<CockpitMaterials> {
+  loadingMaterials ??= loadCockpitMaterials(assets, "/assets/cockpit/", anisotropy).then((loaded) => (cachedMaterials = loaded));
   return loadingMaterials;
 }
 

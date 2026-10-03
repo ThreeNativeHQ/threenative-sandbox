@@ -137,7 +137,7 @@ export async function loadImportedAircraft(ctx: Pick<ICtx, "assets" | "renderer"
   ];
   const [models] = await Promise.all([
     Promise.all(urls.map((url) => ctx.assets.model<GLTF>(url))),
-    ensureCockpitMaterials(anisotropy),
+    ensureCockpitMaterials(ctx.assets, anisotropy),
   ]);
   urls.forEach((url, i) => {
     const model = models[i]!;
