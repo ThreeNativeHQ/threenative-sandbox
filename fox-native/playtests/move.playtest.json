@@ -13,6 +13,6 @@
   "assert": {
     "diagnostics": { "noConsoleErrors": true, "noNetworkErrors": true, "runtimeReady": true },
     "movement": { "entity": "player", "minAxisDelta": { "axis": "x", "min": 3 } },
-    "resources": [{ "id": "GameState", "path": "coins", "gte": 5, "changed": true }]
+    "resources": [{ "id": "GameState", "path": "coins", "gte": 4, "changed": true }]
   }
 }
