@@ -4,14 +4,18 @@ allowBuilds:
   esbuild: true
   sharp: false
 minimumReleaseAgeExclude:
-  - '@threenative/core@0.3.3'
-  - '@threenative/physics@0.3.3'
-  - '@threenative/ui@0.3.3'
-  - '@threenative/assets@0.3.3'
-  - '@threenative/playtest@0.3.3'
-  - '@threenative/runtime-native@0.3.3'
-  - '@threenative/raw-unreal@0.1.3'
-  - '@threenative/ueformat@0.1.3'
-  - threenative-blender-mcp@0.1.3
-  - threenative-engine-mcp@0.2.3
-  - create-threenative@0.2.6
+  - '@threenative/core@0.3.6'
+  - '@threenative/physics@0.3.6'
+  - '@threenative/ui@0.3.6'
+  - '@threenative/assets@0.3.7'
+  - '@threenative/playtest@0.3.6'
+  - '@threenative/runtime-native@0.3.6'
+  - '@threenative/raw-unreal@0.1.6'
+  - '@threenative/ueformat@0.1.6'
+  - '@threenative/terrain@0.1.2'
+  - '@threenative/metahuman@0.1.2'
+  - '@threenative/procedural-animals@0.1.2'
+  - '@threenative/three-native@0.3.6'
+  - create-threenative@0.2.10
+  - threenative-engine-mcp@0.2.6
+  - threenative-blender-mcp@0.1.6
