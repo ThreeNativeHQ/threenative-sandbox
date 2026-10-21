@@ -17,7 +17,6 @@
   "assert": {
     "diagnostics": {
       "noConsoleErrors": true,
-      "noNetworkErrors": false,
       "noRuntimeDiagnostics": true,
       "runtimeReady": true
     },
