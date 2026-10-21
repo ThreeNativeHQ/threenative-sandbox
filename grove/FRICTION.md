@@ -48,3 +48,11 @@
     `lodLeafCoarse == 0`; the strict 14-geometry assertion stays on web. Cause not yet isolated.
 11. **Engine fixes arrive as private tarballs** (`.packages/grove/*-veg-*.tgz`) until the next
     release; repoint `@threenative/core` and `@threenative/assets` to npm once it ships.
+
+12. **0.3.6 attempt, 2026-10-21 (PRD-637): the tarball stays.** Registry 0.3.6 installs once the old local
+    `three@0.185.1` patch is dropped (core 0.3.6 applies its own), but `pnpm test` fails: the scene
+    throws `TN_NATIVE_UNCATALOGUED_MODELWORLDMATRIX: modelWorldMatrix is not available on the Wasm
+    engine`, so the playtest bridge never starts (`TN_PLAYTEST_BRIDGE_MISSING`, 0 frames). The game
+    reads `modelWorldMatrix` in its vegetation TSL. Repoint to npm after the native engine catalogues
+    it, or after the game stops reading it. The package.json, lockfile and workspace file are back on
+    the committed lane tarball pins.
