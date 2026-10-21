@@ -6,46 +6,29 @@ settings:
 
 overrides:
   sharp: '>=0.35.4'
-  create-threenative: file:/home/joao/projects/threenative/sandbox/.packages/rain/create-threenative-0.2.7-rain-ba2e55e00589.tgz
-  '@threenative/assets': file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-assets-0.3.5-rain-faaac6e7fb34.tgz
-  threenative-blender-mcp: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-blender-mcp-0.1.4-rain-fc40a66c82fc.tgz
-  '@threenative/core': file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz
-  threenative-engine-mcp: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-engine-mcp-0.2.4-rain-0cfcbaa565c5.tgz
-  '@threenative/metahuman': file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-metahuman-0.1.0-rain-dbef7a95f2b9.tgz
-  '@threenative/physics': file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-physics-0.3.4-rain-11f8602269f1.tgz
-  '@threenative/playtest': file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz
-  '@threenative/raw-unreal': file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-raw-unreal-0.1.4-rain-ccd21f9f65fd.tgz
-  '@threenative/runtime-native': file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-runtime-native-0.3.4-rain-ec118a78231f.tgz
-  '@threenative/ueformat': file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-ueformat-0.1.4-rain-cfe1e2d44803.tgz
-  '@threenative/ui': file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-ui-0.3.4-rain-9012185f0e6a.tgz
-
-patchedDependencies:
-  three@0.185.1:
-    hash: 987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91
-    path: patches/three@0.185.1.patch
 
 importers:
 
   .:
     dependencies:
       '@threenative/core':
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz
-        version: file:../.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz(@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
+        specifier: 0.3.6
+        version: 0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
       '@threenative/metahuman':
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-metahuman-0.1.0-rain-dbef7a95f2b9.tgz
-        version: file:../.packages/rain/threenative-metahuman-0.1.0-rain-dbef7a95f2b9.tgz(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))
+        specifier: 0.1.2
+        version: 0.1.2(three@0.185.1)
       '@threenative/physics':
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-physics-0.3.4-rain-11f8602269f1.tgz
-        version: file:../.packages/rain/threenative-physics-0.3.4-rain-11f8602269f1.tgz(@threenative/core@file:../.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz(@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))
+        specifier: 0.3.6
+        version: 0.3.6(@threenative/core@0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(three@0.185.1)
       '@threenative/raw-unreal':
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-raw-unreal-0.1.4-rain-ccd21f9f65fd.tgz
-        version: file:../.packages/rain/threenative-raw-unreal-0.1.4-rain-ccd21f9f65fd.tgz
+        specifier: 0.1.6
+        version: 0.1.6
       '@threenative/ueformat':
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-ueformat-0.1.4-rain-cfe1e2d44803.tgz
-        version: file:../.packages/rain/threenative-ueformat-0.1.4-rain-cfe1e2d44803.tgz
+        specifier: 0.1.6
+        version: 0.1.6
       '@threenative/ui':
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-ui-0.3.4-rain-9012185f0e6a.tgz
-        version: file:../.packages/rain/threenative-ui-0.3.4-rain-9012185f0e6a.tgz(@threenative/core@file:../.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz(@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+        specifier: 0.3.6
+        version: 0.3.6(@threenative/core@0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       react:
         specifier: 19.2.0
         version: 19.2.0
@@ -57,23 +40,23 @@ importers:
         version: 0.33.0(react@19.2.0)
       three:
         specifier: 0.185.1
-        version: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
+        version: 0.185.1
       threenative-blender-mcp:
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-blender-mcp-0.1.4-rain-fc40a66c82fc.tgz
-        version: file:../.packages/rain/threenative-blender-mcp-0.1.4-rain-fc40a66c82fc.tgz
+        specifier: 0.1.6
+        version: 0.1.6
     devDependencies:
       '@gltf-transform/cli':
         specifier: 4.4.2
         version: 4.4.2(@types/node@26.6.3)
       '@tailwindcss/vite':
         specifier: 4.3.3
-        version: 4.3.3(vite@8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0))
+        version: 4.3.3(vite@8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)(yaml@2.9.1))
       '@threenative/assets':
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-assets-0.3.5-rain-faaac6e7fb34.tgz
-        version: file:../.packages/rain/threenative-assets-0.3.5-rain-faaac6e7fb34.tgz(@types/node@26.6.3)
+        specifier: 0.3.7
+        version: 0.3.7(@types/node@26.6.3)
       '@threenative/playtest':
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz
-        version: file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))
+        specifier: 0.3.6
+        version: 0.3.6(playwright@1.62.1)(three@0.185.1)
       '@types/react':
         specifier: 19.2.0
         version: 19.2.0
@@ -85,10 +68,10 @@ importers:
         version: 0.185.3
       '@vitejs/plugin-react':
         specifier: 6.0.5
-        version: 6.0.5(vite@8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0))
+        version: 6.0.5(vite@8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)(yaml@2.9.1))
       create-threenative:
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/create-threenative-0.2.7-rain-ba2e55e00589.tgz
-        version: file:../.packages/rain/create-threenative-0.2.7-rain-ba2e55e00589.tgz(@threenative/assets@file:../.packages/rain/threenative-assets-0.3.5-rain-faaac6e7fb34.tgz(@types/node@26.6.3))(@types/node@26.6.3)
+        specifier: 0.2.10
+        version: 0.2.10(@threenative/assets@0.3.7(@types/node@26.6.3))(@types/node@26.6.3)
       esbuild:
         specifier: 0.27.0
         version: 0.27.0
@@ -99,18 +82,18 @@ importers:
         specifier: 4.3.3
         version: 4.3.3
       threenative-engine-mcp:
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-engine-mcp-0.2.4-rain-0cfcbaa565c5.tgz
-        version: file:../.packages/rain/threenative-engine-mcp-0.2.4-rain-0cfcbaa565c5.tgz
+        specifier: 0.2.6
+        version: 0.2.6
       typescript:
         specifier: 5.9.3
         version: 5.9.3
       vite:
         specifier: 8.2.0
-        version: 8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)
+        version: 8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)(yaml@2.9.1)
     optionalDependencies:
       '@threenative/runtime-native':
-        specifier: file:/home/joao/projects/threenative/sandbox/.packages/rain/threenative-runtime-native-0.3.4-rain-ec118a78231f.tgz
-        version: file:../.packages/rain/threenative-runtime-native-0.3.4-rain-ec118a78231f.tgz
+        specifier: 0.3.6
+        version: 0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)(three@0.185.1)
 
 packages:
 
@@ -496,8 +479,8 @@ packages:
     resolution: {integrity: sha512-pJCEwGG7Lfr/+PQp9ZTwKXNeO5wzbfKL7H3MYpCorM4oFBoQrdjnBgEoqG+RjhsvS1FKrDbKux+M1HhlnGWqcA==}
     engines: {node: '>=20'}
 
-  '@modelcontextprotocol/sdk@1.30.0':
-    resolution: {integrity: sha512-xKd8OIzlqNzcqcNumGAa6g+PW2kjD5vrpcKOnfldAUPP3j7lnqMPwlTXQm8gF+UwH72z0lqaRbjr9hqGz0eITA==}
+  '@modelcontextprotocol/sdk@1.31.0':
+    resolution: {integrity: sha512-UvTMgnNlnIBO/22ob2RcVGDlcvOslQs8T59+FTGdA0L27a39fdGF/EDETNtDVK4DZGpwomlsYpRdA8UXcVL/pw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -715,15 +698,13 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@threenative/assets@file:../.packages/rain/threenative-assets-0.3.5-rain-faaac6e7fb34.tgz':
-    resolution: {integrity: sha512-JI57ZVX6eomuMXbtR7ZJLmIMmSMqkUPXOSwtrRVWKuOVvQgC2PfwYY27AXjkoL9WFRIH1dV7/s42kpv2E/8B2Q==, tarball: file:../.packages/rain/threenative-assets-0.3.5-rain-faaac6e7fb34.tgz}
-    version: 0.3.5
+  '@threenative/assets@0.3.7':
+    resolution: {integrity: sha512-dRoy8yO2H6f5xz8Lm4DNQAQ7jbAKRGPIgnfHyjhMMWrq90PY22aWMpaDJPy01ymp0ewVzgnWKTOG5Ccs1F6p5Q==}
 
-  '@threenative/core@file:../.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz':
-    resolution: {integrity: sha512-S2Dz8A51J5LnQ0IPJ2yMPmfCaLyPmootvqr/i/cn3KFB5mPsP6UQWzjO4TBUkvor8W1SEar/IKZmkiQAXcEVkg==, tarball: file:../.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz}
-    version: 0.3.4
+  '@threenative/core@0.3.6':
+    resolution: {integrity: sha512-lQViQHOVGkwq9i7Bb6+Q5FWWHkZ+Db0TZCHjpFzwfr6g10JUp2qRS3JQ8lIW1dTqMVWsObNyoHr8uDZbo5Fg9w==}
     peerDependencies:
-      '@threenative/playtest': '>=0.3.4 <0.4.0'
+      '@threenative/playtest': '>=0.3.6 <0.4.0'
       react: '>=19.2.0 <20'
       react-reconciler: '>=0.33.0 <0.34'
     peerDependenciesMeta:
@@ -734,22 +715,19 @@ packages:
       react-reconciler:
         optional: true
 
-  '@threenative/metahuman@file:../.packages/rain/threenative-metahuman-0.1.0-rain-dbef7a95f2b9.tgz':
-    resolution: {integrity: sha512-vQEsF5/YFwGKTQG9xsuWWJ+rSNmnVewOgcDW0tYfVDXNGEad3bkpann9HuTpatCV0Oy+GgU/Pt682QISwC7tqQ==, tarball: file:../.packages/rain/threenative-metahuman-0.1.0-rain-dbef7a95f2b9.tgz}
-    version: 0.1.0
+  '@threenative/metahuman@0.1.2':
+    resolution: {integrity: sha512-xbPaKVYrwqrAvfbTXHGg/0+daGz1bmBaMTFbBGhermEhwJVg0ZDZgywLKSaFBd4RV1KSttuCEGBpo8UxkTjxAw==}
     peerDependencies:
       three: '>=0.185.0 <0.186.0'
 
-  '@threenative/physics@file:../.packages/rain/threenative-physics-0.3.4-rain-11f8602269f1.tgz':
-    resolution: {integrity: sha512-ZW4HVZ5Lra1i0fVk+1MtGJNcgArCoAtoAqgovmQrl1Pdrr2NBqHm2myCL2Y5NHf8MBFiCeDKR4WsF+hmOByNrQ==, tarball: file:../.packages/rain/threenative-physics-0.3.4-rain-11f8602269f1.tgz}
-    version: 0.3.4
+  '@threenative/physics@0.3.6':
+    resolution: {integrity: sha512-jrP/jbf2ddZaw9FEekyIeQl/5gGLFKcPRmYZiMuGmjRZ4jfTmWsntlYaOLyG9rjM2qSbIXkltZGmtq5I/8bq7w==}
     peerDependencies:
-      '@threenative/core': '>=0.3.4 <0.4.0'
+      '@threenative/core': '>=0.3.6 <0.4.0'
       three: '>=0.185.0 <0.186.0'
 
-  '@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz':
-    resolution: {integrity: sha512-se0KGbF/GhNmNNyACmmUlpvAgzCuutxtq+DknuE/T1Z7nK2s/08CDRxxBnBoFNIU6JT0MvBUyiLQgx1PUxAUMA==, tarball: file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz}
-    version: 0.3.4
+  '@threenative/playtest@0.3.2':
+    resolution: {integrity: sha512-v2ALGs+ZgWh2cZ9a2ekj8//UUz3D8UuMHTUfFJ5y5wln/0Q8+KDQrK+YsaIQhmAa538NXv2f3+IQOafUp+hK7g==}
     hasBin: true
     peerDependencies:
       playwright: '>=1.60.0 <2'
@@ -760,24 +738,37 @@ packages:
       three:
         optional: true
 
-  '@threenative/raw-unreal@file:../.packages/rain/threenative-raw-unreal-0.1.4-rain-ccd21f9f65fd.tgz':
-    resolution: {integrity: sha512-iOAcFoupzqt0TRqIVlQNnbgks7gCRUZhlId5wqH0xVl8hk6sYjyzAmd5kRDVfNfccuhtB2V3+y6fb5L2j6vl2Q==, tarball: file:../.packages/rain/threenative-raw-unreal-0.1.4-rain-ccd21f9f65fd.tgz}
-    version: 0.1.4
+  '@threenative/playtest@0.3.6':
+    resolution: {integrity: sha512-ATa4gW4JmwmscMseebAKDqwhpVawScHqNF3HWIBSHgOqmeqr/UuMVLUDEI5cTy6eyqe30k8bwKEBfB37nLUnvg==}
+    hasBin: true
+    peerDependencies:
+      playwright: '>=1.60.0 <2'
+      three: '>=0.185.0 <0.186.0'
+    peerDependenciesMeta:
+      playwright:
+        optional: true
+      three:
+        optional: true
 
-  '@threenative/runtime-native@file:../.packages/rain/threenative-runtime-native-0.3.4-rain-ec118a78231f.tgz':
-    resolution: {integrity: sha512-/n+9aCMuembkYsuq/tTDPnwgsrJi/M936tgJP/cURekwqEOtmeeDDBtsZiODluAw19iilfjUNf1WyT+mdZyFDw==, tarball: file:../.packages/rain/threenative-runtime-native-0.3.4-rain-ec118a78231f.tgz}
-    version: 0.3.4
+  '@threenative/raw-unreal@0.1.6':
+    resolution: {integrity: sha512-He5YLJGCmob6BhLMMYNYSCt/p4YjOjUpG79YBbl5y1y+ubzLaSHm+dOX7cqb34UGkLtmlgtOv9jtUtOoLee5rg==}
 
-  '@threenative/ueformat@file:../.packages/rain/threenative-ueformat-0.1.4-rain-cfe1e2d44803.tgz':
-    resolution: {integrity: sha512-jdtioExD+gUrNmJfB2pJTVORdVhGSgzXc3LeNUg0QibHjK0rIGZDrX59nkLjw7MTGZ9Biy4wwEPjdZii7XSQDQ==, tarball: file:../.packages/rain/threenative-ueformat-0.1.4-rain-cfe1e2d44803.tgz}
-    version: 0.1.4
+  '@threenative/runtime-native@0.3.6':
+    resolution: {integrity: sha512-ijyXorstrsFSBtHhRtf+e8q1owAl8n7FlkQkHAT3IMlNZek9R5EzfgDIWR5yXPQ4P51D1Er+GOtKfSbeSF/XIg==}
+
+  '@threenative/three-native@0.3.6':
+    resolution: {integrity: sha512-BRt0BtiU2zEXT9ypK0bFdr77VpF3sMzrQs3EkjohNQFY5G1Xm6VDL+e6CdtFMhyg9PxQoCbj8igtzUefN0/61A==}
+    peerDependencies:
+      three: 0.185.1
+
+  '@threenative/ueformat@0.1.6':
+    resolution: {integrity: sha512-8I43+p6I2OFe0n4RzG3z2HuAvAvEoY/YH4bKhTymqo/JhrZ8F916btWWpjWqPlv4JKhNRVEBDUt9vI9+SRXe7Q==}
     hasBin: true
 
-  '@threenative/ui@file:../.packages/rain/threenative-ui-0.3.4-rain-9012185f0e6a.tgz':
-    resolution: {integrity: sha512-+MP87uCfDhhaW59bYXkabqLThdui5SQL3pMEtMIUG+014uyrm86v4qcDmkZTOZ6elKveF48IM4BbBUt7p9fy+w==, tarball: file:../.packages/rain/threenative-ui-0.3.4-rain-9012185f0e6a.tgz}
-    version: 0.3.4
+  '@threenative/ui@0.3.6':
+    resolution: {integrity: sha512-lPNTHd+KbMgg1R1Rfn6gIQLZlXpdMq4E816rXWohbuJCehVHvQsFZrLifqfzvnR0LSp2xLn4CVl+e20vTkaFvw==}
     peerDependencies:
-      '@threenative/core': '>=0.3.4 <0.4.0'
+      '@threenative/core': '>=0.3.6 <0.4.0'
       react: '>=19.2.0 <20'
       react-dom: '>=19.2.0 <20'
 
@@ -847,6 +838,10 @@ packages:
     resolution: {integrity: sha512-Pt0qXwu5s9KKODY8bB93mwgOsUvkCOGt//kvHGMaUZi0u//Yge5X5/iME08eSU+Oxf9sZlwAFaJwORDSIjd8pw==}
     deprecated: This is a stub types definition. wrap-ansi provides its own type definitions, so you do not need this installed.
 
+  '@typescript/typescript6@6.0.2':
+    resolution: {integrity: sha512-mbCddXd+jm7hfx7w2YU64/Av4/NqqeG3GoRZgxPcgoTxYjhrcfJRw9ULch71SS4G+Q3bOXFhRvPqjguN0Hyp5w==}
+    hasBin: true
+
   '@vitejs/plugin-react@6.0.5':
     resolution: {integrity: sha512-BOVzne/NL162sMdResB25mUv+vWMF5NoAjNf09TeGlE7ZpszZWSD3winycicLJw72yeVsoCn/2kOhEuCvEShMA==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -873,6 +868,9 @@ packages:
   accepts@2.0.0:
     resolution: {integrity: sha512-5cvg6CtKwfgdmVqY1WIiXKc3Q1bkRqGLi+2W/6ao+6Y7gu/RCwRuAhGEzh5B4KlszSuTLgZYuqFqo5bImjNKng==}
     engines: {node: '>= 0.6'}
+
+  ag-psd@31.0.3:
+    resolution: {integrity: sha512-THDYK+WK1F5GOH4G0l4wkQRc0Cyq5tnxIwBezACKwa6idKygphnGgMISr4lmW6n0Q89ceoqpdPZQF3Y7TL1pgg==}
 
   ajv-formats@3.0.1:
     resolution: {integrity: sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==}
@@ -928,6 +926,9 @@ packages:
 
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
+
+  base64-js@1.5.1:
+    resolution: {integrity: sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==}
 
   body-parser@2.3.0:
     resolution: {integrity: sha512-2cGmJupaNgg+QUwVLAucDuWuoMZ6EX9iHDRswZ5lsNYEmwPaRknMPCLZz07yTzVq/83p4o/wzbDZbBrTvGGTIw==}
@@ -1034,13 +1035,12 @@ packages:
     resolution: {integrity: sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw==}
     engines: {node: '>= 0.10'}
 
-  create-threenative@file:../.packages/rain/create-threenative-0.2.7-rain-ba2e55e00589.tgz:
-    resolution: {integrity: sha512-zQ/vg2Oe+aBgFPy4AA/TFN4gOnORT1DRDKeclVHuNpQUChbGzg7BQL/VXUQn35N5rlh/wMM22uiixJUCTOGgaA==, tarball: file:../.packages/rain/create-threenative-0.2.7-rain-ba2e55e00589.tgz}
-    version: 0.2.7
+  create-threenative@0.2.10:
+    resolution: {integrity: sha512-hGpcfBvI2MNvWozUl+jvtsVP2Ci/5anaT34Vf2wCx8dFRN5Zp+Bm+/pI6zhhM6/rjyf8GqTfcp3pLxkSyBiGSQ==}
     engines: {node: '>=20.19.0', pnpm: '>=10.0.0'}
     hasBin: true
     peerDependencies:
-      '@threenative/assets': '>=0.3.5 <0.4.0'
+      '@threenative/assets': '>=0.3.7 <0.4.0'
 
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
@@ -1660,6 +1660,9 @@ packages:
   package-json-from-dist@1.0.1:
     resolution: {integrity: sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==}
 
+  pako@2.1.0:
+    resolution: {integrity: sha512-w+eufiZ1WuJYgPXbV/PO3NCMEc3xqylkKHzp8bxp1uW4qaSNQUkwmLLEc3kKsfz8lpV1F8Ht3U1Cm+9Srog2ug==}
+
   parseurl@1.3.3:
     resolution: {integrity: sha512-CiyeOxFT/JZyN5m0z9PfXw4SCBJ6Sygz1Dpl0wqjlhDEGGBP1GnsUVEL0p63hoG1fcj3fHynXi9NYO4nWOL+qQ==}
     engines: {node: '>= 0.8'}
@@ -1939,23 +1942,21 @@ packages:
   three@0.185.1:
     resolution: {integrity: sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg==}
 
-  threenative-asset-mcp@0.9.5:
-    resolution: {integrity: sha512-rdWnk4SSSjVlFadqZJTpcscaibLgadO7uJ7dSUsEiaQG3LzitAQ/OzmSowcqUi68VaIhpaEW8oAUbN14sSl8oA==}
+  threenative-asset-mcp@0.14.0:
+    resolution: {integrity: sha512-RlgSvGzfZX12amhuxcE5FwJIMK7vHpruTTwAG5oiKXQfCUtYLi3NSzYz5JhSlfK6kw8ZiBR1ntUiQUzqcDZVZg==}
     engines: {node: '>=20.19.0'}
     hasBin: true
 
-  threenative-blender-mcp@file:../.packages/rain/threenative-blender-mcp-0.1.4-rain-fc40a66c82fc.tgz:
-    resolution: {integrity: sha512-U1KDXIwNB8uWF6rOQ7LHQUrKvEyzvEPWBBAaijUtEt1zboBD5RzBhBloS6gciElzeKXPE6Zk/y4JHQdWwQK0dA==, tarball: file:../.packages/rain/threenative-blender-mcp-0.1.4-rain-fc40a66c82fc.tgz}
-    version: 0.1.4
+  threenative-blender-mcp@0.1.6:
+    resolution: {integrity: sha512-UDQoCVSOkukpsw0LTqi5x86Ssl0UNLI4Q7P/qpiNlTXfpfTdcBigt4LlvgMzt1Fhtfi/vx0lbsoAysKJTmMbVg==}
     hasBin: true
 
-  threenative-engine-mcp@file:../.packages/rain/threenative-engine-mcp-0.2.4-rain-0cfcbaa565c5.tgz:
-    resolution: {integrity: sha512-RkYvJcVlDHzJVVg5hHPBIVovBuhoSJHu9k2+pZWJOg+/1RLf8dwP9qvoK78fF/dkvBzgTerMlhg+wJo2NHWxIg==, tarball: file:../.packages/rain/threenative-engine-mcp-0.2.4-rain-0cfcbaa565c5.tgz}
-    version: 0.2.4
+  threenative-engine-mcp@0.2.6:
+    resolution: {integrity: sha512-0iajjgWh8SYA/XoGUQEdGkcMReGBg05yp8wQ40oYFaxw1rZ7tjW1CXGIQuaIg+mjX/VQI/Ovc8VDW70FvfPQGA==}
     hasBin: true
 
-  threenative-sculpt-mcp@0.1.1:
-    resolution: {integrity: sha512-Y/XnivhMiTDGiL1id2vQM7x60YTGMkVcQShCGRmjCn3MWQnELbGVeXAZozGqQNcEu8tQn2umlvUFuczloxJ81A==}
+  threenative-sculpt-mcp@0.2.2:
+    resolution: {integrity: sha512-oxJ2EOp9Gj5zp+l9o/iSvOcRDPiwKgBgS1VcJwk7RNk8SEqS9f390pUuQAg5s3A4RppITylpaNUpVIJjiSE77A==}
     engines: {node: '>=20.0.0'}
     hasBin: true
 
@@ -1988,6 +1989,11 @@ packages:
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -2095,6 +2101,11 @@ packages:
 
   xatlasjs@0.2.0:
     resolution: {integrity: sha512-3YxdpuDY4X2Kjn/Zm2c5648x/hYAP/X5YIx7nc1ify65kroSX+CFyzkhbBkIq9RDpjhA2prPRyhJZzYPUE1WgQ==}
+
+  yaml@2.9.1:
+    resolution: {integrity: sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
 
   zod-to-json-schema@3.25.2:
     resolution: {integrity: sha512-O/PgfnpT1xKSDeQYSCfRI5Gy3hPf91mKVDuYLUHZJMiDFptvP41MSnWofm8dnCm0256ZNfZIM7DSzuSMAFnjHA==}
@@ -2280,7 +2291,7 @@ snapshots:
 
   '@gltf-transform/extensions@4.4.2':
     dependencies:
-      '@gltf-transform/core': 4.4.2
+      '@gltf-transform/core': 4.5.1
       ktx-parse: 1.1.0
 
   '@gltf-transform/extensions@4.5.1':
@@ -2290,8 +2301,8 @@ snapshots:
 
   '@gltf-transform/functions@4.4.2(@types/node@26.6.3)':
     dependencies:
-      '@gltf-transform/core': 4.4.2
-      '@gltf-transform/extensions': 4.4.2
+      '@gltf-transform/core': 4.5.1
+      '@gltf-transform/extensions': 4.5.1
       ktx-parse: 1.1.0
       ndarray: 1.1.1
       ndarray-lanczos: 0.3.0
@@ -2452,7 +2463,7 @@ snapshots:
     dependencies:
       zod: 4.4.3
 
-  '@modelcontextprotocol/sdk@1.30.0(zod@4.3.6)':
+  '@modelcontextprotocol/sdk@1.31.0(zod@4.3.6)':
     dependencies:
       '@hono/node-server': 2.1.3(hono@4.13.12)
       ajv: 8.20.0
@@ -2612,14 +2623,14 @@ snapshots:
       '@tailwindcss/oxide-win32-arm64-msvc': 4.3.3
       '@tailwindcss/oxide-win32-x64-msvc': 4.3.3
 
-  '@tailwindcss/vite@4.3.3(vite@8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0))':
+  '@tailwindcss/vite@4.3.3(vite@8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)(yaml@2.9.1))':
     dependencies:
       '@tailwindcss/node': 4.3.3
       '@tailwindcss/oxide': 4.3.3
       tailwindcss: 4.3.3
-      vite: 8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)
+      vite: 8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)(yaml@2.9.1)
 
-  '@threenative/assets@file:../.packages/rain/threenative-assets-0.3.5-rain-faaac6e7fb34.tgz(@types/node@26.6.3)':
+  '@threenative/assets@0.3.7(@types/node@26.6.3)':
     dependencies:
       '@gltf-transform/core': 4.4.2
       '@gltf-transform/extensions': 4.4.2
@@ -2631,22 +2642,22 @@ snapshots:
       meshoptimizer: 1.1.1
       pngjs: 7.0.0
       sharp: 0.35.5(@types/node@26.6.3)
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
-      three-mesh-bvh: 0.9.14(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))
+      three: 0.185.1
+      three-mesh-bvh: 0.9.14(three@0.185.1)
       wasm-media-encoders: 0.7.0
       xatlasjs: 0.2.0
     transitivePeerDependencies:
       - '@types/node'
 
-  '@threenative/core@file:../.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz(@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)':
+  '@threenative/core@0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)':
     dependencies:
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
-      three-mesh-bvh: 0.9.14(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))
-      threenative-asset-mcp: 0.9.5(@types/node@26.6.3)
-      threenative-sculpt-mcp: 0.1.1(@types/node@26.6.3)
+      three: 0.185.1
+      three-mesh-bvh: 0.9.14(three@0.185.1)
+      threenative-asset-mcp: 0.14.0(@types/node@26.6.3)
+      threenative-sculpt-mcp: 0.2.2(@types/node@26.6.3)
       zustand: 5.0.14(@types/react@19.2.0)(react@19.2.0)
     optionalDependencies:
-      '@threenative/playtest': file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))
+      '@threenative/playtest': 0.3.6(playwright@1.62.1)(three@0.185.1)
       react: 19.2.0
       react-reconciler: 0.33.0(react@19.2.0)
     transitivePeerDependencies:
@@ -2657,48 +2668,69 @@ snapshots:
       - supports-color
       - use-sync-external-store
 
-  '@threenative/metahuman@file:../.packages/rain/threenative-metahuman-0.1.0-rain-dbef7a95f2b9.tgz(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))':
+  '@threenative/metahuman@0.1.2(three@0.185.1)':
     dependencies:
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
+      three: 0.185.1
 
-  '@threenative/physics@file:../.packages/rain/threenative-physics-0.3.4-rain-11f8602269f1.tgz(@threenative/core@file:../.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz(@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))':
+  '@threenative/physics@0.3.6(@threenative/core@0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(three@0.185.1)':
     dependencies:
       '@dimforge/rapier3d-compat': 0.19.3
-      '@threenative/core': file:../.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz(@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
+      '@threenative/core': 0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
       recast-navigation: 0.43.1
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
+      three: 0.185.1
 
-  '@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.0)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))':
+  '@threenative/playtest@0.3.2(playwright@1.62.0)(three@0.185.1)':
     dependencies:
       pngjs: 7.0.0
     optionalDependencies:
       playwright: 1.62.0
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
+      three: 0.185.1
 
-  '@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))':
+  '@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1)':
     dependencies:
       pngjs: 7.0.0
     optionalDependencies:
       playwright: 1.62.1
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
+      three: 0.185.1
 
-  '@threenative/raw-unreal@file:../.packages/rain/threenative-raw-unreal-0.1.4-rain-ccd21f9f65fd.tgz':
+  '@threenative/raw-unreal@0.1.6':
     dependencies:
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
+      three: 0.185.1
 
-  '@threenative/runtime-native@file:../.packages/rain/threenative-runtime-native-0.3.4-rain-ec118a78231f.tgz':
+  '@threenative/runtime-native@0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)(three@0.185.1)':
     dependencies:
+      '@threenative/assets': 0.3.7(@types/node@26.6.3)
+      '@threenative/core': 0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
+      '@threenative/three-native': 0.3.6(three@0.185.1)
+      esbuild: 0.27.0
       pngjs: 7.0.0
+      typescript: '@typescript/typescript6@6.0.2'
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - '@threenative/playtest'
+      - '@types/node'
+      - '@types/react'
+      - immer
+      - react
+      - react-reconciler
+      - supports-color
+      - three
+      - use-sync-external-store
     optional: true
 
-  '@threenative/ueformat@file:../.packages/rain/threenative-ueformat-0.1.4-rain-cfe1e2d44803.tgz':
+  '@threenative/three-native@0.3.6(three@0.185.1)':
+    dependencies:
+      three: 0.185.1
+    optional: true
+
+  '@threenative/ueformat@0.1.6':
     dependencies:
       fflate: 0.8.3
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
+      three: 0.185.1
 
-  '@threenative/ui@file:../.packages/rain/threenative-ui-0.3.4-rain-9012185f0e6a.tgz(@threenative/core@file:../.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz(@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@threenative/ui@0.3.6(@threenative/core@0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0))(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
     dependencies:
-      '@threenative/core': file:../.packages/rain/threenative-core-0.3.4-rain-c964a06071dd.tgz(@threenative/playtest@file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.1)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
+      '@threenative/core': 0.3.6(@threenative/playtest@0.3.6(playwright@1.62.1)(three@0.185.1))(@types/node@26.6.3)(@types/react@19.2.0)(react-reconciler@0.33.0(react@19.2.0))(react@19.2.0)
       react: 19.2.0
       react-dom: 19.2.0(react@19.2.0)
 
@@ -2770,10 +2802,15 @@ snapshots:
     dependencies:
       wrap-ansi: 8.1.0
 
-  '@vitejs/plugin-react@6.0.5(vite@8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0))':
+  '@typescript/typescript6@6.0.2':
+    dependencies:
+      '@typescript/old': typescript@6.0.3
+    optional: true
+
+  '@vitejs/plugin-react@6.0.5(vite@8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)(yaml@2.9.1))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)
+      vite: 8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)(yaml@2.9.1)
 
   '@wasm-audio-decoders/common@9.0.7':
     dependencies:
@@ -2791,6 +2828,11 @@ snapshots:
     dependencies:
       mime-types: 3.0.2
       negotiator: 1.1.0
+
+  ag-psd@31.0.3:
+    dependencies:
+      base64-js: 1.5.1
+      pako: 2.1.0
 
   ajv-formats@3.0.1(ajv@8.20.0):
     optionalDependencies:
@@ -2837,6 +2879,8 @@ snapshots:
   asynckit@0.4.0: {}
 
   balanced-match@1.0.2: {}
+
+  base64-js@1.5.1: {}
 
   body-parser@2.3.0:
     dependencies:
@@ -2945,17 +2989,18 @@ snapshots:
       object-assign: 4.1.1
       vary: 1.1.2
 
-  create-threenative@file:../.packages/rain/create-threenative-0.2.7-rain-ba2e55e00589.tgz(@threenative/assets@file:../.packages/rain/threenative-assets-0.3.5-rain-faaac6e7fb34.tgz(@types/node@26.6.3))(@types/node@26.6.3):
+  create-threenative@0.2.10(@threenative/assets@0.3.7(@types/node@26.6.3))(@types/node@26.6.3):
     dependencies:
       '@gltf-transform/core': 4.4.2
       '@gltf-transform/extensions': 4.4.2
       '@gltf-transform/functions': 4.4.2(@types/node@26.6.3)
-      '@threenative/assets': file:../.packages/rain/threenative-assets-0.3.5-rain-faaac6e7fb34.tgz(@types/node@26.6.3)
+      '@jridgewell/trace-mapping': 0.3.31
+      '@threenative/assets': 0.3.7(@types/node@26.6.3)
       draco3dgltf: 1.5.7
       ktx-parse: 1.1.0
       ktx2-encoder: 0.6.0
       meshoptimizer: 1.1.1
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
+      three: 0.185.1
     transitivePeerDependencies:
       - '@types/node'
 
@@ -3533,6 +3578,8 @@ snapshots:
 
   package-json-from-dist@1.0.1: {}
 
+  pako@2.1.0: {}
+
   parseurl@1.3.3: {}
 
   path-key@3.1.1: {}
@@ -3856,34 +3903,36 @@ snapshots:
 
   text-hex@1.0.0: {}
 
-  three-mesh-bvh@0.9.14(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)):
+  three-mesh-bvh@0.9.14(three@0.185.1):
     dependencies:
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
+      three: 0.185.1
 
-  three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91): {}
+  three@0.185.1: {}
 
-  threenative-asset-mcp@0.9.5(@types/node@26.6.3):
+  threenative-asset-mcp@0.14.0(@types/node@26.6.3):
     dependencies:
       '@gltf-transform/core': 4.4.2
       '@gltf-transform/extensions': 4.4.2
       '@gltf-transform/functions': 4.4.2(@types/node@26.6.3)
       '@modelcontextprotocol/server': 2.0.0
-      '@threenative/playtest': file:../.packages/rain/threenative-playtest-0.3.4-rain-08c029463055.tgz(playwright@1.62.0)(three@0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91))
+      '@threenative/playtest': 0.3.2(playwright@1.62.0)(three@0.185.1)
       '@zip.js/zip.js': 2.8.34
+      ag-psd: 31.0.3
       playwright: 1.62.0
       sharp: 0.35.5(@types/node@26.6.3)
-      three: 0.185.1(patch_hash=987eb3547d4f28c03a4a8ef1b3900d4158c805821e61e23572fdb248995c4d91)
+      three: 0.185.1
+      yaml: 2.9.1
       zod: 4.4.3
     transitivePeerDependencies:
       - '@types/node'
 
-  threenative-blender-mcp@file:../.packages/rain/threenative-blender-mcp-0.1.4-rain-fc40a66c82fc.tgz: {}
+  threenative-blender-mcp@0.1.6: {}
 
-  threenative-engine-mcp@file:../.packages/rain/threenative-engine-mcp-0.2.4-rain-0cfcbaa565c5.tgz: {}
+  threenative-engine-mcp@0.2.6: {}
 
-  threenative-sculpt-mcp@0.1.1(@types/node@26.6.3):
+  threenative-sculpt-mcp@0.2.2(@types/node@26.6.3):
     dependencies:
-      '@modelcontextprotocol/sdk': 1.30.0(zod@4.3.6)
+      '@modelcontextprotocol/sdk': 1.31.0(zod@4.3.6)
       sharp: 0.35.5(@types/node@26.6.3)
       zod: 4.3.6
     transitivePeerDependencies:
@@ -3916,6 +3965,9 @@ snapshots:
 
   typescript@5.9.3: {}
 
+  typescript@6.0.3:
+    optional: true
+
   undici-types@8.9.0: {}
 
   uniq@1.0.1: {}
@@ -3930,7 +3982,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0):
+  vite@8.2.0(@types/node@26.6.3)(esbuild@0.27.0)(jiti@2.7.0)(yaml@2.9.1):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.7
@@ -3942,6 +3994,7 @@ snapshots:
       esbuild: 0.27.0
       fsevents: 2.3.3
       jiti: 2.7.0
+      yaml: 2.9.1
 
   wasm-media-encoders@0.7.0:
     dependencies:
@@ -3998,6 +4051,8 @@ snapshots:
   xatlasjs@0.2.0:
     optionalDependencies:
       comlink: 4.4.2
+
+  yaml@2.9.1: {}
 
   zod-to-json-schema@3.25.2(zod@4.3.6):
     dependencies:
