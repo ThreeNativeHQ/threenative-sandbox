@@ -16,57 +16,45 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@threenative/core": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-core-0.3.4-snow-01a63a551b3b.tgz",
-    "@threenative/physics": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-physics-0.3.4-snow-0a3f03720b07.tgz",
-    "@threenative/ui": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-ui-0.3.4-snow-9012185f0e6a.tgz",
+    "@threenative/core": "0.3.6",
+    "@threenative/physics": "0.3.6",
+    "@threenative/ui": "0.3.6",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-reconciler": "0.33.0",
     "three": "0.185.1",
-    "threenative-blender-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-blender-mcp-0.1.4-snow-b8be4e4c6d84.tgz"
+    "threenative-blender-mcp": "0.1.6"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
-    "@threenative/assets": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-assets-0.3.5-snow-faaac6e7fb34.tgz",
-    "@threenative/playtest": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-playtest-0.3.4-snow-08c029463055.tgz",
+    "@threenative/assets": "0.3.7",
+    "@threenative/playtest": "0.3.6",
     "@types/react": "19.2.0",
     "@types/react-dom": "19.2.0",
     "@types/three": "0.185.3",
     "@vitejs/plugin-react": "6.0.5",
-    "create-threenative": "file:/home/joao/projects/threenative/sandbox/.packages/snow/create-threenative-0.2.7-snow-a941bce524df.tgz",
+    "create-threenative": "0.2.10",
     "esbuild": "0.27.0",
     "playwright": "1.62.1",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.3",
     "vite": "8.2.0",
     "@gltf-transform/cli": "4.4.2",
-    "threenative-engine-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-engine-mcp-0.2.4-snow-0cfcbaa565c5.tgz"
+    "threenative-engine-mcp": "0.2.6"
   },
   "optionalDependencies": {
-    "@threenative/runtime-native": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-runtime-native-0.3.4-snow-ec118a78231f.tgz"
+    "@threenative/runtime-native": "0.3.6"
   },
   "overrides": {
     "sharp": ">=0.35.4"
   },
   "pnpm": {
     "overrides": {
-      "sharp": ">=0.35.4",
-      "@threenative/core": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-core-0.3.4-snow-01a63a551b3b.tgz",
-      "@threenative/assets": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-assets-0.3.5-snow-faaac6e7fb34.tgz",
-      "@threenative/physics": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-physics-0.3.4-snow-0a3f03720b07.tgz",
-      "@threenative/playtest": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-playtest-0.3.4-snow-08c029463055.tgz",
-      "@threenative/runtime-native": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-runtime-native-0.3.4-snow-ec118a78231f.tgz",
-      "@threenative/ui": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-ui-0.3.4-snow-9012185f0e6a.tgz",
-      "threenative-blender-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-blender-mcp-0.1.4-snow-b8be4e4c6d84.tgz",
-      "threenative-engine-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/snow/threenative-engine-mcp-0.2.4-snow-0cfcbaa565c5.tgz",
-      "create-threenative": "file:/home/joao/projects/threenative/sandbox/.packages/snow/create-threenative-0.2.7-snow-a941bce524df.tgz"
+      "sharp": ">=0.35.4"
     },
     "onlyBuiltDependencies": [
       "@threenative/core",
       "@threenative/runtime-native"
-    ],
-    "patchedDependencies": {
-      "three@0.185.1": "patches/three@0.185.1.patch"
-    }
+    ]
   }
 }
