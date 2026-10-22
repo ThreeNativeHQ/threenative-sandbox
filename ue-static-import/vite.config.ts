@@ -12,9 +12,12 @@ function assetsWatchPlugin(): Plugin {
   return {
     name: "threenative-assets-watch",
     apply: "serve",
-    configureServer(server) {
+    async configureServer(server) {
       const handle = watchAssets({ config: config.assets, cwd: server.config.root });
       server.httpServer?.once("close", () => handle.close());
+      // Nothing is served before the first cook settles: until it does, `public/` has no
+      // `assets.manifest.json` and every asset answers from its source fallback.
+      await handle.ready;
     },
   };
 }
