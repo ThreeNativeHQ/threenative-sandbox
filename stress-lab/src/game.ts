@@ -40,8 +40,9 @@ const game = defineGame<GameState, IPhysicsContext>({
   render: config.renderer,
   scenes: { play: Play, stress: Stress },
   seed: 90210,
-  // The stress lab is this project's purpose; `?play` (TN_DEBUG_PLAY) opens the starter course.
-  start: debugFlag("play") ? "play" : "stress",
+  // `?stress` (TN_DEBUG_STRESS=1 natively) opens the stress lab; the starter course stays the
+  // default so the kit's own playtests keep proving it.
+  start: debugFlag("stress") ? "stress" : "play",
 });
 
 export default game;
