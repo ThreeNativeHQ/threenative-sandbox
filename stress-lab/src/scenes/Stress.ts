@@ -350,6 +350,10 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     camera.updateProjectionMatrix();
     const still = debugFlag("still");
     const closeup = debugFlag("closeup");
+    // `?freezeAt=<s>` orbits until that time, then holds: a paired capture after a real pan path.
+    const freezeAt = Number(
+      new URLSearchParams(globalThis.location?.search ?? "").get("freezeAt") ?? 0,
+    );
     let time = 0;
     let sinceDrop = 0;
     return (_frameCtx, dt) => {
@@ -357,7 +361,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       fireClock.value = time;
       // `?still` holds the first pose (camera and walkers), so a before/after capture pair frames
       // the same image; `?closeup` frames the innermost walker (open ground) for judging its shadow.
-      const clock = still ? 0 : time;
+      const clock = still ? 0 : freezeAt > 0 ? Math.min(time, freezeAt) : time;
       const orbit = (clock / ORBIT.seconds) * Math.PI * 2;
       camera.position.set(
         Math.cos(orbit) * ORBIT.radius,
