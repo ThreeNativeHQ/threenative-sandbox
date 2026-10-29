@@ -349,13 +349,16 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     camera.far = 600;
     camera.updateProjectionMatrix();
     const still = debugFlag("still");
+    const closeup = debugFlag("closeup");
     let time = 0;
     let sinceDrop = 0;
     return (_frameCtx, dt) => {
       time += dt;
       fireClock.value = time;
-      // `?still` holds the first pose, so a before/after capture pair frames the same view.
-      const orbit = still ? 0 : (time / ORBIT.seconds) * Math.PI * 2;
+      // `?still` holds the first pose (camera and walkers), so a before/after capture pair frames
+      // the same image; `?closeup` frames the innermost walker (open ground) for judging its shadow.
+      const clock = still ? 0 : time;
+      const orbit = (clock / ORBIT.seconds) * Math.PI * 2;
       camera.position.set(
         Math.cos(orbit) * ORBIT.radius,
         ORBIT.height + Math.sin(orbit * 2) * 4,
@@ -363,14 +366,20 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       );
       camera.lookAt(0, 2, 0);
       for (const walker of walkers) {
-        const angle = walker.phase + (time * walker.speed) / walker.radius;
+        const angle = walker.phase + (clock * walker.speed) / walker.radius;
         walker.holder.position.set(
           Math.cos(angle) * walker.radius,
           0,
           Math.sin(angle) * walker.radius,
         );
         walker.holder.rotation.y = -angle;
-        walker.character.update(dt);
+        walker.character.update(still ? 0 : dt);
+      }
+      const subject = closeup ? walkers.reduce((a, b) => (b.radius < a.radius ? b : a)) : undefined;
+      if (subject) {
+        const at = subject.holder.position;
+        camera.position.set(at.x * 1.12 + 2, 2.6, at.z * 1.12 + 2);
+        camera.lookAt(at.x, 0.8, at.z);
       }
       sinceDrop += dt;
       if (sinceDrop > DROP_EVERY) {
