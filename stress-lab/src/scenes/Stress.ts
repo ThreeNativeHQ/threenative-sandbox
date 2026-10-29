@@ -348,12 +348,14 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     const camera = ctx.camera as PerspectiveCamera;
     camera.far = 600;
     camera.updateProjectionMatrix();
+    const still = debugFlag("still");
     let time = 0;
     let sinceDrop = 0;
     return (_frameCtx, dt) => {
       time += dt;
       fireClock.value = time;
-      const orbit = (time / ORBIT.seconds) * Math.PI * 2;
+      // `?still` holds the first pose, so a before/after capture pair frames the same view.
+      const orbit = still ? 0 : (time / ORBIT.seconds) * Math.PI * 2;
       camera.position.set(
         Math.cos(orbit) * ORBIT.radius,
         ORBIT.height + Math.sin(orbit * 2) * 4,
