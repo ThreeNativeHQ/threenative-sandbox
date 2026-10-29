@@ -1,4 +1,10 @@
+import type { IStressReport } from "./stressReport.js";
+
 export type GameState = {
+  /** Which scene owns the HUD: the starter course or the stress lab. */
+  mode: "play" | "stress";
+  /** The pooled perf-loop report, published once per frame-budget window after warm-up. */
+  stress: IStressReport | null;
   coyoteJumps: number;
   entityCount: number;
   flagDisplacement: number;

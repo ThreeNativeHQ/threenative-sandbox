@@ -1,15 +1,23 @@
-import { defineGame, replay } from "@threenative/core";
+import { debugFlag, defineGame, replay } from "@threenative/core";
 import { playtest } from "@threenative/core/playtest";
 import type { IPhysicsContext } from "@threenative/physics";
 import { rapier } from "@threenative/physics";
 import config from "../threenative.config.js";
 import { observeQualityWindow } from "./render/postprocessing.js";
 import { Play } from "./scenes/Play.js";
+import { Stress } from "./scenes/Stress.js";
 import type { GameState } from "./state.js";
+import { stressReport } from "./stressReport.js";
 
 // game.state is the single store: the fixed-step loop writes it, and React/playtests read it.
 const game = defineGame<GameState, IPhysicsContext>({
-  frameBudget: { onWindow: (window) => observeQualityWindow(window) },
+  frameBudget: {
+    onWindow: (window) => {
+      observeQualityWindow(window);
+      const report = stressReport.observe(window);
+      if (report !== undefined) game.state.set({ stress: report });
+    },
+  },
   input: {
     // The four directions of `input.vector("move")`. Declared rather than inherited from the
     // default binding, so the axis every scene reads is visible where the game is defined.
@@ -30,9 +38,10 @@ const game = defineGame<GameState, IPhysicsContext>({
   plugins: [rapier(), replay(), playtest()],
   display: config.display,
   render: config.renderer,
-  scenes: { play: Play },
+  scenes: { play: Play, stress: Stress },
   seed: 90210,
-  start: "play",
+  // The stress lab is this project's purpose; `?play` (TN_DEBUG_PLAY) opens the starter course.
+  start: debugFlag("play") ? "play" : "stress",
 });
 
 export default game;
@@ -45,7 +54,7 @@ export default game;
  * state instead, which keeps one source of truth on the side that owns the simulation.
  */
 game.ui.onIntent((intent) => {
-  if (intent === "restart") void game.goto("play");
+  if (intent === "restart") void game.goto(game.state.getState().mode);
   if (intent === "pause") game.pause();
   if (intent === "resume") game.resume();
   game.state.set({

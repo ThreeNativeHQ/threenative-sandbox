@@ -63,6 +63,8 @@ export class Play extends Scene<GameState, IPhysicsContext> {
     flagSteps: 0,
     jumps: 0,
     levelX: -99,
+    mode: "play",
+    stress: null,
     lives: STARTING_LIVES,
     odometer: 0,
     paused: false,

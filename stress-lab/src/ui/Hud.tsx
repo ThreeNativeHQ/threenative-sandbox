@@ -15,7 +15,7 @@ export function Hud() {
   const state = useUiState<GameState>();
   // Nothing to draw until the game publishes its first snapshot, a few milliseconds in. Rendering
   // zeroes instead would put a wrong score on screen and then correct it.
-  if (state === undefined) return null;
+  if (state === undefined || state.mode === "stress") return null;
   const position = state.progress;
   const won = state.status === "won";
 
