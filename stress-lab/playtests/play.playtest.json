@@ -1,0 +1,90 @@
+{
+  "clock": "wall-clock",
+  "name": "play",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "warmupFrames": 60,
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "play-scene-loads",
+      "waitTicks": 240,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "press": "ArrowRight",
+      "holdTicks": 169,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "waitTicks": 600,
+      "release": true
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "noNetworkErrors": true,
+      "runtimeReady": true
+    },
+    "performance": {
+      "maxDrawCalls": 330,
+      "maxTriangles": 52000,
+      "minFps": 30
+    },
+    "resources": [
+      {
+        "id": "state",
+        "path": "score",
+        "gte": 1,
+        "changed": true
+      }
+    ],
+    "renderChain": {
+      "tier": "high",
+      "perAdapter": {
+        "integrated": {
+          "tier": "medium"
+        },
+        "mobile-high": {
+          "tier": "medium"
+        },
+        "mobile-low": {
+          "tier": "low"
+        },
+        "mobile-mid": {
+          "tier": "low"
+        },
+        "software": {
+          "tier": "low"
+        }
+      }
+    },
+    "tone": [
+      {
+        "region": {
+          "x": 900,
+          "y": 460,
+          "width": 60,
+          "height": 100
+        },
+        "compare": {
+          "region": {
+            "x": 1100,
+            "y": 460,
+            "width": 60,
+            "height": 100
+          },
+          "metric": "mean",
+          "minDelta": 15
+        }
+      }
+    ]
+  }
+}

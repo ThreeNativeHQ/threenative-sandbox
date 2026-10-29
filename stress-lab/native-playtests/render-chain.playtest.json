@@ -1,0 +1,105 @@
+{
+  "name": "native-render-chain",
+  "target": "desktop",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 2,
+  "startTick": 600,
+  "steps": [
+    {
+      "kind": "input",
+      "label": "move-across-the-platform",
+      "press": "ArrowUp",
+      "holdTicks": 60,
+      "release": true
+    },
+    {
+      "label": "frame-settles",
+      "waitTicks": 600
+    }
+  ],
+  "artifacts": {
+    "screenshots": "after"
+  },
+  "assert": {
+    "renderChain": {
+      "tier": "high",
+      "perAdapter": {
+        "integrated": {
+          "contributions": {
+            "graphOutputChanged": ["ambientOcclusion", "traa", "bloom", "vignette"]
+          },
+          "stages": {
+            "includes": ["ambientOcclusion", "traa", "bloom", "vignette"],
+            "excludes": ["motionBlur", "grade", "grain"],
+            "order": ["ambientOcclusion", "traa", "bloom", "vignette"]
+          },
+          "tier": "medium"
+        },
+        "mobile-high": {
+          "contributions": {
+            "graphOutputChanged": ["ambientOcclusion", "traa", "bloom", "vignette"]
+          },
+          "stages": {
+            "includes": ["ambientOcclusion", "traa", "bloom", "vignette"],
+            "excludes": ["motionBlur", "grade", "grain"],
+            "order": ["ambientOcclusion", "traa", "bloom", "vignette"]
+          },
+          "tier": "medium"
+        },
+        "mobile-low": {
+          "contributions": {
+            "graphOutputChanged": ["bloom", "vignette", "antialias"]
+          },
+          "stages": {
+            "includes": ["bloom", "vignette", "antialias"],
+            "excludes": ["ambientOcclusion", "motionBlur", "grade", "grain"],
+            "order": ["bloom", "vignette", "antialias"]
+          },
+          "tier": "low"
+        },
+        "mobile-mid": {
+          "contributions": {
+            "graphOutputChanged": ["bloom", "vignette", "antialias"]
+          },
+          "stages": {
+            "includes": ["bloom", "vignette", "antialias"],
+            "excludes": ["ambientOcclusion", "motionBlur", "grade", "grain"],
+            "order": ["bloom", "vignette", "antialias"]
+          },
+          "tier": "low"
+        },
+        "software": {
+          "contributions": {
+            "graphOutputChanged": ["bloom", "vignette", "antialias"]
+          },
+          "stages": {
+            "includes": ["bloom", "vignette", "antialias"],
+            "excludes": ["ambientOcclusion", "motionBlur", "grade", "grain"],
+            "order": ["bloom", "vignette", "antialias"]
+          },
+          "tier": "low"
+        }
+      },
+      "stages": {
+        "includes": ["ambientOcclusion", "traa", "motionBlur", "bloom", "vignette"],
+        "excludes": ["grade", "grain"],
+        "order": ["ambientOcclusion", "traa", "motionBlur", "bloom", "vignette"]
+      },
+      "contributions": {
+        "graphOutputChanged": ["ambientOcclusion", "traa", "motionBlur", "bloom", "vignette"]
+      }
+    },
+    "resources": [
+      {
+        "id": "state",
+        "path": "odometer",
+        "gte": 1,
+        "changed": true
+      }
+    ]
+  }
+}

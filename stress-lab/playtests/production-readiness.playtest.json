@@ -1,0 +1,152 @@
+{
+  "name": "starter-production-readiness",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 10,
+  "subject": "player",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "play-scene-loads",
+      "waitTicks": 600,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "collected",
+      "press": "ArrowRight",
+      "holdTicks": 142,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "restart",
+      "press": "KeyR",
+      "holdTicks": 1,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "restarted",
+      "waitTicks": 120,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "restart-2",
+      "press": "KeyR",
+      "holdTicks": 1,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "restarted-2",
+      "waitTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "restart-3",
+      "press": "KeyR",
+      "holdTicks": 1,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "restarted-3",
+      "waitTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "moved-after-restart",
+      "press": "ArrowUp",
+      "holdTicks": 120,
+      "release": true
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "movement": {
+      "entity": "player",
+      "minAxisDelta": {
+        "axis": "-z",
+        "min": 0.5
+      }
+    },
+    "resources": [
+      {
+        "id": "state",
+        "path": "score",
+        "atSteps": [
+          {
+            "label": "collected",
+            "equals": 1
+          },
+          {
+            "label": "restarted",
+            "equals": 0
+          },
+          {
+            "label": "restarted-2",
+            "equals": 0
+          },
+          {
+            "label": "restarted-3",
+            "equals": 0
+          }
+        ]
+      },
+      {
+        "id": "state",
+        "path": "entityCount",
+        "atSteps": [
+          {
+            "label": "collected",
+            "equals": 3
+          },
+          {
+            "label": "restarted",
+            "equals": 4
+          },
+          {
+            "label": "restarted-2",
+            "equals": 4
+          },
+          {
+            "label": "restarted-3",
+            "equals": 4
+          }
+        ]
+      }
+    ],
+    "visibility": [
+      {
+        "allowTrivial": "The starter scene begins with the player visible and in frame; this held visibility row accompanies the movement and restart assertions.",
+        "entity": "player",
+        "minProjectedPixels": 20
+      }
+    ],
+    "tone": [
+      {
+        "atStep": "restarted",
+        "region": {
+          "x": 400,
+          "y": 240,
+          "width": 480,
+          "height": 240
+        },
+        "mean": {
+          "min": 16
+        }
+      }
+    ]
+  }
+}

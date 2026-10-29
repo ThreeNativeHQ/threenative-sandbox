@@ -1,0 +1,21 @@
+{
+  "name": "native-react-hud",
+  "target": "desktop",
+  "schemaVersion": 1,
+  "warmupFrames": 0,
+  "steps": [
+    { "label": "ui-ready", "waitTicks": 180 },
+    { "kind": "input", "label": "move-under-live-hud", "press": "ArrowRight", "holdTicks": 20 }
+  ],
+  "assert": {
+    "tone": [{ "p50": { "min": 60, "max": 230 } }],
+    "resources": [
+      {
+        "id": "state",
+        "path": "uiReady",
+        "atSteps": [{ "label": "ui-ready", "equals": true }]
+      },
+      { "id": "state", "path": "progress", "changed": true }
+    ]
+  }
+}

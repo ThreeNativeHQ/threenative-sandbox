@@ -1,0 +1,95 @@
+{
+  "name": "stress-lab",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "studio": "threenative-studio",
+    "build": "threenative build",
+    "build:web": "threenative build --target web",
+    "build:desktop": "threenative build --target desktop",
+    "build:android": "threenative build --target android",
+    "build:ios": "threenative build --target ios",
+    "test:native": "pnpm build:desktop && node node_modules/@threenative/runtime-native/scripts/verify-starter-desktop.mjs && node node_modules/@threenative/runtime-native/scripts/verify-starter-desktop.mjs --consumer --target desktop --project .",
+    "pretest": "playwright install chromium",
+    "test": "pnpm check && pnpm build:web && threenative-playtest --scenario \"playtests/*.playtest.json\" --browser-recipe webgpu --headed --server-command \"pnpm exec vite preview --host 127.0.0.1 --port $PORT --strictPort\"",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check",
+    "lint": "eslint src",
+    "format:check": "biome format src"
+  },
+  "dependencies": {
+    "@threenative/core": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-core-0.3.7-a06969343d43.tgz",
+    "@threenative/physics": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-physics-0.3.7-aa57cc4ebfa2.tgz",
+    "@threenative/ui": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ui-0.3.7-3cd2a3abbed8.tgz",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-reconciler": "0.33.0",
+    "three": "0.185.1",
+    "threenative-blender-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-blender-mcp-0.1.7-29231e5994f4.tgz",
+    "threenative-animation-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-animation-mcp-0.1.4-166438bba337.tgz",
+    "@threenative/metahuman": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-metahuman-0.1.3-d16cf31dd78f.tgz",
+    "@threenative/procedural-animals": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-procedural-animals-0.1.3-a027005f9c63.tgz",
+    "@threenative/raw-unreal": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-raw-unreal-0.1.7-bda8ce525ad2.tgz",
+    "@threenative/three-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-three-native-0.3.7-f880769cf7f7.tgz",
+    "@threenative/terrain": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-terrain-0.1.3-5a76a8d6e640.tgz",
+    "@threenative/ueformat": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ueformat-0.1.7-4fb6c5b78c44.tgz"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@threenative/assets": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-assets-0.3.8-8733f5e8f200.tgz",
+    "@threenative/playtest": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-playtest-0.3.7-b5e64a3fd8b7.tgz",
+    "@types/react": "19.2.0",
+    "@types/react-dom": "19.2.0",
+    "@types/three": "0.185.3",
+    "@vitejs/plugin-react": "6.0.5",
+    "create-threenative": "file:/home/joao/projects/threenative/sandbox/.packages/create-threenative-0.2.11-45e140a67ad9.tgz",
+    "esbuild": "0.27.0",
+    "playwright": "1.62.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "8.2.0",
+    "@gltf-transform/cli": "4.4.2",
+    "@biomejs/biome": "1.9.4",
+    "eslint": "10.13.0",
+    "threenative-engine-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-engine-mcp-0.2.7-022083fe7395.tgz"
+  },
+  "optionalDependencies": {
+    "@threenative/runtime-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-runtime-native-0.3.7-372576eadf39.tgz"
+  },
+  "overrides": {
+    "sharp": ">=0.35.4",
+    "@vitejs/devtools": "0.4.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "sharp": ">=0.35.4",
+      "threenative-blender-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-blender-mcp-0.1.7-29231e5994f4.tgz",
+      "threenative-engine-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-engine-mcp-0.2.7-022083fe7395.tgz",
+      "create-threenative": "file:/home/joao/projects/threenative/sandbox/.packages/create-threenative-0.2.11-45e140a67ad9.tgz",
+      "@threenative/assets": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-assets-0.3.8-8733f5e8f200.tgz",
+      "@threenative/playtest": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-playtest-0.3.7-b5e64a3fd8b7.tgz",
+      "threenative-animation-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-animation-mcp-0.1.4-166438bba337.tgz",
+      "@threenative/core": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-core-0.3.7-a06969343d43.tgz",
+      "@threenative/metahuman": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-metahuman-0.1.3-d16cf31dd78f.tgz",
+      "@threenative/physics": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-physics-0.3.7-aa57cc4ebfa2.tgz",
+      "@threenative/procedural-animals": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-procedural-animals-0.1.3-a027005f9c63.tgz",
+      "@threenative/raw-unreal": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-raw-unreal-0.1.7-bda8ce525ad2.tgz",
+      "@threenative/three-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-three-native-0.3.7-f880769cf7f7.tgz",
+      "@threenative/runtime-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-runtime-native-0.3.7-372576eadf39.tgz",
+      "@threenative/terrain": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-terrain-0.1.3-5a76a8d6e640.tgz",
+      "@threenative/ueformat": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ueformat-0.1.7-4fb6c5b78c44.tgz",
+      "@threenative/ui": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ui-0.3.7-3cd2a3abbed8.tgz"
+    },
+    "onlyBuiltDependencies": [
+      "@threenative/core",
+      "@threenative/runtime-native"
+    ],
+    "patchedDependencies": {
+      "three@0.185.1": "patches/three@0.185.1.patch",
+      "vite@8.2.0": "patches/vite@8.2.0.patch",
+      "@tailwindcss/node@4.3.3": "patches/@tailwindcss__node@4.3.3.patch"
+    }
+  }
+}
