@@ -30,6 +30,11 @@ export function StressPanel() {
     ["draws main / shadow", `${m.mainDraws} / ${m.shadowDraws ?? "—"}`],
     ["main triangles", `${m.mainTrianglesM.toFixed(2)} M`],
     ["hitches / min", String(m.hitchesPerMin)],
+    ["js→wasm / host calls", `${m.bridgeCrossingsP50 ?? "—"} / ${m.hostCallsP50 ?? "—"}`],
+    [
+      "gpu upload / js alloc",
+      `${m.gpuUploadKbP50?.toFixed(0) ?? "—"} / ${m.jsAllocKbP50?.toFixed(0) ?? "—"} KB`,
+    ],
   ];
   return (
     <div className="pointer-events-none absolute left-4 top-4 rounded bg-panel p-3 font-mono text-[11px] leading-5 text-lume">

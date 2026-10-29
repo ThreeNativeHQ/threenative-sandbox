@@ -26,12 +26,22 @@ export interface IStressReport {
     hitchesPerMin: number;
     longTasks: number | null;
     loadMs: number | null;
+    /** JS->Wasm crossings per frame (p50); null when the back end does not count them. */
+    bridgeCrossingsP50: number | null;
+    /** Host (ABI) calls per frame (p50). */
+    hostCallsP50: number | null;
+    /** GPU upload KB per frame (p50). */
+    gpuUploadKbP50: number | null;
+    /** JS heap allocation KB per frame (p50); needs performance.memory. */
+    jsAllocKbP50: number | null;
   };
   counts: Record<string, number>;
 }
 
 /** Windows the report skips after the scene is ready: shader compiles and first uploads. */
 const WARMUP_WINDOWS = 2;
+
+const scaled = (bytes: number | undefined) => (bytes === undefined ? undefined : bytes / 1024);
 
 const median = (values: readonly number[]): number => {
   const sorted = [...values].sort((a, b) => a - b);
@@ -101,6 +111,10 @@ export class StressReport {
         presentedP50Ms: required("presented.p50", (w) => w.presented.p50),
         presentedP95Ms: required("presented.p95", (w) => w.presented.p95),
         fps: required("fps", (w) => w.fps),
+        bridgeCrossingsP50: pick((w) => w.counters?.bridgeCrossings?.p50),
+        hostCallsP50: pick((w) => w.counters?.hostCalls?.p50),
+        gpuUploadKbP50: pick((w) => scaled(w.counters?.gpuBytes?.p50)),
+        jsAllocKbP50: pick((w) => scaled(w.counters?.jsAllocBytes?.p50)),
         gpuP50Ms: pick((w) => w.gpu?.p50),
         gpuP95Ms: pick((w) => w.gpu?.p95),
         renderP50Ms: required("phases.render.p50", (w) => w.phases.render.p50),
