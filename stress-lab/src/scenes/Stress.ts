@@ -74,6 +74,15 @@ const PRESETS = {
     lights: 32,
   },
 } as const;
+/** The layers `?load=N` multiplies; fires, fire particles and lights stay fixed. Same list in the vanilla lab. */
+const DENSITY = ["trees", "rocks", "houses", "props", "crowd", "bodies"] as const;
+
+function loadFactor(): number {
+  const raw = new URLSearchParams(globalThis.location?.search ?? "").get("load");
+  const load = raw === null ? 1 : Number(raw);
+  if (!(load > 0 && load <= 16)) throw new Error(`?load must be a number in (0, 16], got "${raw}".`);
+  return load;
+}
 const LAYERS = ["trees", "rocks", "houses", "props", "crowd", "bodies", "fires", "lights"] as const;
 type Layer = (typeof LAYERS)[number];
 
@@ -106,7 +115,11 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       throw new Error("Stress scene did not finish loading.");
     const presetName = debugFlag("max") ? "max" : "real";
     const enabled = (layer: Layer) => !debugFlag(`no${layer[0]?.toUpperCase()}${layer.slice(1)}`);
-    const size = PRESETS[presetName];
+    // `?load=N` scales the world's density for a break-point ramp; the vanilla lab reads the same knob.
+    const load = loadFactor();
+    const base = PRESETS[presetName];
+    const size: Record<keyof typeof base, number> = { ...base };
+    for (const key of DENSITY) size[key] = Math.round(base[key] * load);
     const counts: Record<string, number> = {};
     const random = createRandom(4242);
     const spot = (avoidTown: boolean): [number, number] => {
@@ -336,7 +349,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     stressReport.begin(
       {
         commit: `core@${version}`,
-        preset: presetName,
+        preset: load === 1 ? presetName : `${presetName}x${load}`,
         layers: LAYERS.filter(enabled),
         adapter: gpu === undefined ? "unknown" : `${gpu.vendor} / ${gpu.architecture}`,
         viewport: `${ctx.viewport.size.width}x${ctx.viewport.size.height}`,
