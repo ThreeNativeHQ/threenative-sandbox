@@ -1,0 +1,144 @@
+{
+  "name": "cannon-flicker",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "approach",
+      "waitTicks": 120,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "f00",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f00"
+    },
+    {
+      "kind": "wait",
+      "label": "f01",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f01"
+    },
+    {
+      "kind": "wait",
+      "label": "f02",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f02"
+    },
+    {
+      "kind": "wait",
+      "label": "f03",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f03"
+    },
+    {
+      "kind": "wait",
+      "label": "f04",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f04"
+    },
+    {
+      "kind": "wait",
+      "label": "f05",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f05"
+    },
+    {
+      "kind": "wait",
+      "label": "f06",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f06"
+    },
+    {
+      "kind": "wait",
+      "label": "f07",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f07"
+    },
+    {
+      "kind": "wait",
+      "label": "f08",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f08"
+    },
+    {
+      "kind": "wait",
+      "label": "f09",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f09"
+    },
+    {
+      "kind": "wait",
+      "label": "f10",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f10"
+    },
+    {
+      "kind": "wait",
+      "label": "f11",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f11"
+    },
+    {
+      "kind": "wait",
+      "label": "f12",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f12"
+    },
+    {
+      "kind": "wait",
+      "label": "f13",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f13"
+    },
+    {
+      "kind": "wait",
+      "label": "f14",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f14"
+    },
+    {
+      "kind": "wait",
+      "label": "f15",
+      "waitTicks": 1,
+      "release": true,
+      "screenshot": "f15"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "enemies",
+        "component": "shotsFired",
+        "gte": 1
+      }
+    ]
+  }
+}

@@ -486,7 +486,7 @@ export class Enemies {
         continue;
       }
       if (!item.course) {
-        m.rotation.y += dt * 2.2;
+        m.rotateY(dt * 2.2);
         // Drops ease toward the flight line so one is worth flying for.
         const k = 1 - Math.exp(-0.9 * dt);
         _a.negate();
@@ -820,7 +820,7 @@ export class Enemies {
     f.fireT -= dt;
     if (f.fireT <= 0 && f.position.distanceTo(tg.position) < 70) {
       f.fireT = f.fireInt;
-this.#src = "pursue";
+      this.#src = "pursue";
       this.#shot(
         f.position,
         this.#aim(w, f.position, tg, SHOT_SPEED, 0.5, _c),
@@ -847,7 +847,7 @@ this.#src = "pursue";
         if (active && f.fireT <= 0) {
           f.fireT = f.fireInt;
           const dmg = f.kind === "carrier" ? 16 : 12;
-this.#src = "fighter";
+          this.#src = "fighter";
           this.#shot(
             f.position,
             this.#aim(w, f.position, this.#shipChase, SHOT_SPEED, 1, _c),
@@ -888,11 +888,13 @@ this.#src = "fighter";
         const ahead = _a.dot(ship.forward);
         if (ship.mode === "rail" && ahead < -50) return this.#release(f);
         if (ship.mode !== "rail") return this.#release(f);
-        if (f.mesh !== null) f.mesh.rotation.y = Math.atan2(_a.x, _a.z);
+        // Quaternion, never `rotation.y`: the engine reads a pose back as XYZ Euler, which folds a yaw past
+        // 90 degrees into (180, y, 180), so a turret facing the ship flipped 180 degrees every other frame.
+        if (f.mesh !== null) f.mesh.quaternion.setFromAxisAngle(UP, Math.atan2(_a.x, _a.z));
         f.fireT -= dt;
         if (f.fireT <= 0 && ahead < (f.kind === "turret" ? 170 : 55) && ahead > -10) {
           f.fireT = f.fireInt;
-this.#src = "turret";
+          this.#src = "turret";
           this.#shot(
             f.position,
             this.#aim(w, f.position, this.#shipChase, 55, 1, _c),
@@ -943,7 +945,7 @@ this.#src = "turret";
       b.center.y + 30,
       b.center.z + Math.sin(b.theta) * 30,
     );
-    b.look.root.rotation.y = b.theta * 0.5;
+    b.look.root.quaternion.setFromAxisAngle(UP, b.theta * 0.5);
     b.look.root.updateMatrixWorld(true);
     b.look.weakPoints.forEach((o, i) => o.getWorldPosition((b.parts[i] as Foe).position));
     b.look.core.getWorldPosition(b.core.position);
@@ -1030,7 +1032,7 @@ this.#src = "turret";
     this.#aim(w, from, this.#shipChase, speed, 1.5, _c);
     for (let k = 0; k < n; k += 1) {
       _b.copy(_c).applyAxisAngle(UP, (k - (n - 1) / 2) * spread);
-this.#src = "fan";
+      this.#src = "fan";
       this.#shot(from, _b, speed, dmg, false);
     }
   }
@@ -1152,7 +1154,11 @@ this.#src = "fan";
       itemsLive: this.#items.length,
       chaserRel: this.#chaserRel(),
       src: JSON.stringify(this.dbgSrc),
-      bossHp: this.#boss === null ? 0 : this.#boss.parts.reduce((a, p) => a + Math.max(0, p.hp), 0) + Math.max(0, this.#boss.core.hp),
+      bossHp:
+        this.#boss === null
+          ? 0
+          : this.#boss.parts.reduce((a, p) => a + Math.max(0, p.hp), 0) +
+            Math.max(0, this.#boss.core.hp),
       nearestItem: this.#nearest(),
     };
   }
