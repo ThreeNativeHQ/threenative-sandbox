@@ -13,6 +13,7 @@ import { Ship } from "../entities/Ship.js";
 import { Weapons } from "../entities/Weapons.js";
 import { Wingmen } from "../entities/Wingmen.js";
 import { type IEnvironmentSample, sampleEnvironment } from "../render/environmentSampling.js";
+import { type ICockpit, createCockpit } from "../render/cockpit.js";
 import { createFx } from "../render/fx.js";
 import { createHud } from "../render/hud.js";
 import { setupLighting } from "../render/lighting.js";
@@ -167,6 +168,16 @@ export class Play extends Scene<GameState> {
         return urlAutopilot || ctx.state.getState().autopilot;
       },
     };
+    // The cockpit loads on the first frame, not in `load()`: 4 MB the spawn camera never sees.
+    // `C` works once it lands. Asking 120 frames in crashed the renderer once (TN_POST_NORMAL_UNSUPPORTED,
+    // a normal-mapped material arriving late), so this stays at the first frame.
+    let cockpit: ICockpit | undefined;
+    let sceneLive = true;
+    let cockpitRequested = false;
+    this.#dispose.push(() => {
+      sceneLive = false;
+      cockpit?.dispose();
+    });
     ctx.entities.add("ship", ship);
     ctx.entities.add("weapons", w.weapons);
     ctx.entities.add("enemies", w.enemies);
@@ -195,10 +206,19 @@ export class Play extends Scene<GameState> {
     let skipped = false;
     return (frameCtx, dt) => {
       loading.update();
+      if (!cockpitRequested) {
+        cockpitRequested = true;
+        void frameCtx.assets.model<{ scene: Object3D }>("cockpit.glb").then((model) => {
+          if (!sceneLive) return;
+          cockpit = createCockpit(model.scene, camera);
+          w.cameraRig.cockpitReady = true;
+        });
+      }
       const state = frameCtx.state.getState();
       if (state.phase === "clear" || state.phase === "down") {
         w.cameraRig.update(w, dt);
         hud.update(w, state, dt);
+        cockpit?.update(w, state, dt);
         if (frameCtx.input.justPressed("restart")) void frameCtx.goto("play");
         return;
       }
@@ -234,6 +254,7 @@ export class Play extends Scene<GameState> {
       patch.locked = w.weapons.lockedTarget !== null;
       frameCtx.state.set(patch);
       hud.update(w, frameCtx.state.getState(), dt);
+      cockpit?.update(w, frameCtx.state.getState(), dt);
     };
   }
 

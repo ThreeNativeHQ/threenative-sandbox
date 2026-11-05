@@ -7,6 +7,10 @@ node_modules/
 public/assets.manifest.json
 public/bake.receipt.json
 public/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].*
+# Cooked output in subfolders regenerates on every build; the sources live in assets/.
+public/sfx/
+public/textures/
+public/shared/
 artifacts/
 dist/
 .threenative/*.log

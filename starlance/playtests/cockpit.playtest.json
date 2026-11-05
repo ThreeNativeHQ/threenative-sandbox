@@ -1,0 +1,256 @@
+{
+  "name": "cockpit",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "chase",
+      "waitTicks": 90,
+      "release": true,
+      "screenshot": "chase"
+    },
+    {
+      "kind": "input",
+      "label": "cockpit-on",
+      "press": "KeyC",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "rest",
+      "waitTicks": 40,
+      "release": true,
+      "screenshot": "rest"
+    },
+    {
+      "kind": "input",
+      "label": "boost",
+      "press": "ShiftLeft",
+      "holdTicks": 40,
+      "release": true,
+      "screenshot": "boost"
+    },
+    {
+      "kind": "input",
+      "label": "steer-right",
+      "press": "KeyD",
+      "holdTicks": 50,
+      "release": true,
+      "screenshot": "steer-right"
+    },
+    {
+      "kind": "input",
+      "label": "pull-up",
+      "press": "KeyW",
+      "holdTicks": 40,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "fire",
+      "press": "Space",
+      "holdTicks": 40,
+      "release": true,
+      "screenshot": "fire"
+    },
+    {
+      "kind": "input",
+      "label": "charge",
+      "press": "KeyF",
+      "holdTicks": 35,
+      "release": false,
+      "screenshot": "charge"
+    },
+    {
+      "kind": "input",
+      "label": "charge-release",
+      "press": "KeyF",
+      "holdTicks": 2,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "steer-fire",
+      "press": "KeyA",
+      "holdTicks": 40,
+      "release": false
+    },
+    {
+      "kind": "input",
+      "label": "steer-fire-shoot",
+      "press": "Space",
+      "holdTicks": 30,
+      "release": false,
+      "screenshot": "steer-fire"
+    },
+    {
+      "kind": "wait",
+      "label": "settle",
+      "waitTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "cockpit-off",
+      "press": "KeyC",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "chase-again",
+      "waitTicks": 10,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "cockpit-again",
+      "press": "KeyC",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "cockpit-final",
+      "waitTicks": 20,
+      "release": true,
+      "screenshot": "cockpit-final"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "camera",
+        "component": "cockpit",
+        "atSteps": [
+          {
+            "label": "chase",
+            "equals": false
+          },
+          {
+            "label": "rest",
+            "equals": true
+          },
+          {
+            "label": "chase-again",
+            "equals": false
+          },
+          {
+            "label": "cockpit-final",
+            "equals": true
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "yokeRight",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "steer-right",
+            "equals": true
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "yokeBack",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "pull-up",
+            "equals": true
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "triggerFired",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "fire",
+            "equals": true
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "throttleForward",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "boost",
+            "equals": true
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "pedalDown",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "boost",
+            "equals": true
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "charging",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "charge",
+            "equals": true
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "mapHasContacts",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "charge",
+            "equals": true
+          }
+        ]
+      }
+    ]
+  }
+}

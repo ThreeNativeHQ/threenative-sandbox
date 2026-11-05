@@ -28,6 +28,17 @@ const config: IThreeNativeConfig = {
     backgroundColor: "#0d1b2a",
   },
   nativeEntry: "src/game.ts",
+  // cockpit.glb's moving parts are driven by name from src/render/cockpit.ts, so compaction keeps them.
+  assets: {
+    models: {
+      compact: {
+        protectedNames: [
+          "stick_L", "stick_R", "yoke", "pedal_L", "pedal_R", "throttle", "trigger_L", "trigger_R",
+          "lamp_L0", "lamp_L1", "lamp_L2", "lamp_L3", "lamp_R0", "lamp_R1", "lamp_R2", "lamp_R3",
+        ],
+      },
+    },
+  },
   ui: { renderer: "native" }, // This template draws its HUD in the scene and has no src/ui/.
   // One asset tree, one compiler, one representation per artifact. Uncomment, then cook:
   //   threenative build --target android   # cooks defaults.android; --profile <name> beats it

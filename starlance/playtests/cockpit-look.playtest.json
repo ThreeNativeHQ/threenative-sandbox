@@ -1,0 +1,210 @@
+{
+  "name": "cockpit-look",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "chase",
+      "waitTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "cockpit-on",
+      "press": "KeyC",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "rest",
+      "waitTicks": 40,
+      "release": true,
+      "screenshot": "rest"
+    },
+    {
+      "kind": "input",
+      "label": "roll-right",
+      "press": "KeyD",
+      "holdTicks": 60,
+      "release": false,
+      "screenshot": "roll-right"
+    },
+    {
+      "kind": "wait",
+      "label": "level",
+      "waitTicks": 80,
+      "release": true,
+      "screenshot": "level"
+    },
+    {
+      "kind": "input",
+      "label": "pitch-up",
+      "press": "KeyW",
+      "holdTicks": 50,
+      "release": false,
+      "screenshot": "pitch-up"
+    },
+    {
+      "kind": "wait",
+      "label": "level2",
+      "waitTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "pitch-down",
+      "press": "KeyS",
+      "holdTicks": 50,
+      "release": false,
+      "screenshot": "pitch-down"
+    },
+    {
+      "kind": "wait",
+      "label": "level3",
+      "waitTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "lock",
+      "pointerPosition": {
+        "x": 0.5,
+        "y": 0.5,
+        "buttons": 2
+      },
+      "holdTicks": 70,
+      "release": false,
+      "screenshot": "lock"
+    },
+    {
+      "kind": "input",
+      "label": "charge-release",
+      "pointerPosition": {
+        "x": 0.5,
+        "y": 0.5,
+        "buttons": 0
+      },
+      "holdTicks": 5,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "end",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "end"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "camera",
+        "component": "cockpit",
+        "atSteps": [
+          {
+            "label": "chase",
+            "equals": false
+          },
+          {
+            "label": "rest",
+            "equals": true
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "hudShown",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": 1
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "hudQuads",
+        "gte": 150
+      },
+      {
+        "entity": "camera",
+        "component": "hudLadder",
+        "gte": 3
+      },
+      {
+        "entity": "camera",
+        "component": "hudRollDeg",
+        "changed": true
+      },
+      {
+        "entity": "camera",
+        "component": "hudPitchDeg",
+        "changed": true
+      },
+      {
+        "entity": "camera",
+        "component": "hudRolled",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": 0
+          },
+          {
+            "label": "roll-right",
+            "equals": 1
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "hudPitchedUp",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": 0
+          },
+          {
+            "label": "pitch-up",
+            "equals": 1
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "hudPitchedDown",
+        "atSteps": [
+          {
+            "label": "pitch-down",
+            "equals": 1
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "hudLockBox",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": 0
+          },
+          {
+            "label": "lock",
+            "equals": 1
+          }
+        ]
+      }
+    ]
+  }
+}

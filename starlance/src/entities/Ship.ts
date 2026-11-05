@@ -689,6 +689,11 @@ export class Ship {
   // ---------------------------------------------------------------------------------- debug
 
   /** Hull bank in radians (shoulder + stick + wing bias, barrel roll excluded), +right wing down. */
+  /** Stick the airframe flies after inertia: x right, y up, each -1..1 (keyboard, gamepad, mouse aim). */
+  get stick(): Readonly<Vector2> {
+    return this.#flown;
+  }
+
   get bankRadians(): number {
     return this.#shoulder + this.#stickRoll + this.#wingBank;
   }

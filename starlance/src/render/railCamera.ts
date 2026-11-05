@@ -16,9 +16,13 @@ const ARENA_ROLL_SHARE = 0.3;
 const EYE_HEIGHT = 0.5;
 const LOOK_HEIGHT = -5;
 const LOOK_AHEAD = 30;
-const BOOST_PULL_BACK = 4; // arwing-boost: camera pulls back
-const BRAKE_PULL_IN = 2.5; // arwing-brake: camera pulls in
+const BOOST_PULL_BACK = 4; // boost-camera: pulls back
+const BRAKE_PULL_IN = 2.5; // brake-camera: pulls in
 const DISTANCE_SMOOTH = 0.1; // per 30 Hz update
+// Cockpit view: the eye in hull space (nose -Z), where the pilot sits.
+const COCKPIT_EYE = new Vector3(0, 0.35, -0.6);
+const CHASE_FOV = 60;
+const COCKPIT_FOV = 55;
 
 const _eye = new Vector3();
 const _aim = new Vector3();
@@ -41,9 +45,33 @@ export class RailCamera {
   });
   #setback = SETBACK;
   #camYaw: number | undefined;
+  /** True while the camera sits at the pilot's eye (`cockpit` input toggles it). */
+  cockpit = false;
+  /** Set once `cockpit.glb` has loaded; `C` does nothing before that. */
+  cockpitReady = false;
+  /** Numbers the cockpit writes each frame (control travel, minimap contacts) for `debug()`. */
+  readonly cockpitState: Record<string, number | boolean> = {
+    stickRoll: 0,
+    stickPitch: 0,
+    yokeRoll: 0,
+    throttle: 0,
+    pedalBoost: 0,
+    pedalBrake: 0,
+    triggerFire: 0,
+    triggerCharge: 0,
+    lampsLit: 0,
+    mapContacts: 0,
+    yokeRight: false,
+    yokeBack: false,
+    throttleForward: false,
+    pedalDown: false,
+    triggerFired: false,
+    charging: false,
+    mapHasContacts: false,
+  };
 
   constructor(readonly camera: PerspectiveCamera) {
-    camera.fov = 60;
+    camera.fov = CHASE_FOV;
     camera.near = 0.1;
     camera.far = 20_000;
     camera.updateProjectionMatrix();
@@ -51,6 +79,24 @@ export class RailCamera {
 
   update(w: World, dt: number): void {
     const ship = w.ship;
+    if (this.cockpitReady && w.ctx.input.justPressed("cockpit")) this.cockpit = !this.cockpit;
+    if (!ship.alive) this.cockpit = false; // the wreck is worth watching from outside
+    const fov = this.cockpit ? COCKPIT_FOV : CHASE_FOV;
+    if (this.camera.fov !== fov) {
+      this.camera.fov = fov;
+      this.camera.updateProjectionMatrix();
+    }
+    if (this.cockpit) {
+      // Rides the hull: its quaternion already carries yaw, pitch, roll, loops and the barrel roll.
+      this.camera.position
+        .copy(COCKPIT_EYE)
+        .applyQuaternion(ship.mesh.quaternion)
+        .add(ship.position);
+      this.camera.quaternion.copy(ship.mesh.quaternion);
+      this.#camYaw = undefined;
+      this.#applyShake(dt);
+      return;
+    }
     const k = 1 - (1 - DISTANCE_SMOOTH) ** (30 * dt);
     let roll: number;
     if (ship.mode === "rail") {
@@ -101,6 +147,10 @@ export class RailCamera {
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(_aim);
     this.camera.rotateZ(-roll); // roll is positive banking right
+    this.#applyShake(dt);
+  }
+
+  #applyShake(dt: number): void {
     if (this.#shake.active) {
       const offset = this.#shake.update(dt);
       this.camera.position.addScaledVector(AXIS_UP, offset.position.y);
@@ -122,6 +172,8 @@ export class RailCamera {
   debug(): Record<string, unknown> {
     return {
       position: this.camera.position.toArray(),
+      cockpit: this.cockpit,
+      ...this.cockpitState,
       setback: this.#setback,
       shaking: this.#shake.active,
     };
