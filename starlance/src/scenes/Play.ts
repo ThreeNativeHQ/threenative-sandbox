@@ -58,6 +58,8 @@ const INITIAL: GameState = {
   laserLevel: 0,
   charge: 0,
   locked: false,
+  autopilot: false,
+  skipTo: 0,
 };
 
 export class Play extends Scene<GameState> {
@@ -138,8 +140,12 @@ export class Play extends Scene<GameState> {
     this.#dispose.push(() => fx.dispose());
     const hud = createHud(camera);
     this.#dispose.push(() => hud.dispose());
-    // ponytail: reads the page URL for the test-only autopilot; native has no URL, so it is false.
-    const autopilot = /[?&]autopilot=1\b/.test(String(globalThis.location?.search ?? ""));
+    // ponytail: test-only seams read from the page URL (`?autopilot=1&skipTo=4800`): playtest setup
+    // cannot write state (the bridge's state provider is read-only), so scenarios pass `--url`.
+    // Native has no URL, so both stay off there.
+    const query = String(globalThis.location?.search ?? "");
+    const urlAutopilot = /[?&]autopilot=1\b/.test(query);
+    const urlSkipTo = Number(/[?&]skipTo=(\d+)/.exec(query)?.[1] ?? 0);
     const w: World = {
       ctx,
       camera,
@@ -157,7 +163,9 @@ export class Play extends Scene<GameState> {
         if (at === undefined) bus.play(buffer, { cue: name });
         else bus.playAt(buffer, at, { cue: name, refDistance: 25 });
       },
-      autopilot,
+      get autopilot() {
+        return urlAutopilot || ctx.state.getState().autopilot;
+      },
     };
     ctx.entities.add("ship", ship);
     ctx.entities.add("weapons", w.weapons);
@@ -182,8 +190,9 @@ export class Play extends Scene<GameState> {
       );
     }
 
-    ctx.state.set({ ...INITIAL });
+    ctx.state.set({ ...INITIAL, autopilot: ctx.state.getState().autopilot === true });
     const patch: Partial<GameState> = {};
+    let skipped = false;
     return (frameCtx, dt) => {
       loading.update();
       const state = frameCtx.state.getState();
@@ -192,6 +201,11 @@ export class Play extends Scene<GameState> {
         hud.update(w, state, dt);
         if (frameCtx.input.justPressed("restart")) void frameCtx.goto("play");
         return;
+      }
+      const skipTo = Math.max(state.skipTo, urlSkipTo);
+      if (skipTo > rail.s && !skipped) {
+        rail.s = skipTo;
+        skipped = true;
       }
       ship.update(w, dt);
       w.weapons.update(w, dt);

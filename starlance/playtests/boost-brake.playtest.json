@@ -1,0 +1,110 @@
+{
+  "name": "boost-brake",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "cruise",
+      "waitTicks": 60,
+      "release": true,
+      "screenshot": "cruise"
+    },
+    {
+      "kind": "input",
+      "label": "boosting",
+      "press": "ShiftLeft",
+      "holdTicks": 50,
+      "release": false,
+      "screenshot": "boost"
+    },
+    {
+      "kind": "input",
+      "label": "latched",
+      "press": "ShiftLeft",
+      "holdTicks": 30,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "recovering",
+      "waitTicks": 420,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "braking",
+      "press": "KeyC",
+      "holdTicks": 40,
+      "release": false,
+      "screenshot": "brake"
+    },
+    {
+      "kind": "wait",
+      "label": "released",
+      "waitTicks": 5,
+      "release": true
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "ship",
+        "component": "pace",
+        "equals": "brake",
+        "atSteps": [
+          {
+            "label": "boosting",
+            "equals": "boost"
+          },
+          {
+            "label": "latched",
+            "equals": "boost"
+          },
+          {
+            "label": "braking",
+            "equals": "brake"
+          }
+        ]
+      },
+      {
+        "entity": "ship",
+        "component": "boostLatched",
+        "atSteps": [
+          {
+            "label": "boosting",
+            "equals": false
+          },
+          {
+            "label": "latched",
+            "equals": true
+          },
+          {
+            "label": "recovering",
+            "equals": false
+          }
+        ]
+      },
+      {
+        "entity": "ship",
+        "component": "speed",
+        "lte": 25
+      },
+      {
+        "entity": "ship",
+        "component": "boost",
+        "gte": 0.4
+      }
+    ]
+  }
+}

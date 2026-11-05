@@ -1,0 +1,53 @@
+{
+  "name": "look-b",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "settle",
+      "waitTicks": 30,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "b-arch",
+      "waitTicks": 20,
+      "release": true,
+      "screenshot": "b-arch"
+    },
+    {
+      "kind": "wait",
+      "label": "b-canyon",
+      "waitTicks": 100,
+      "release": true,
+      "screenshot": "b-canyon"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "performance": {
+      "maxDrawCalls": 160
+    },
+    "visual": [
+      {
+        "region": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720,
+          "minNonblankPixelRatio": 0.9
+        }
+      }
+    ]
+  }
+}

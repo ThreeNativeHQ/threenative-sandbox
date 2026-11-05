@@ -1,0 +1,7 @@
+{
+  "name": "weapons-autopilot",
+  "target": "web", "schemaVersion": 1, "viewport": { "width": 1280, "height": 720 }, "warmupFrames": 30, "subject": "ship",
+  "steps": [ { "kind": "wait", "label": "fly", "waitTicks": 1500, "release": true, "screenshot": "ap" } ],
+  "assert": { "diagnostics": { "noConsoleErrors": true, "runtimeReady": true },
+    "components": [ { "entity": "weapons", "component": "kills", "gte": 1 } ] }
+}

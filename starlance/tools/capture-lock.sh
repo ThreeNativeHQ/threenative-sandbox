@@ -47,6 +47,10 @@ fi
 
 tmpdir="$(mktemp -d)"
 cleanup() {
+  # Reap only browsers THIS run launched: the command runs with TMPDIR=$tmpdir, so Playwright
+  # puts its profile (playwright_chromiumdev_profile-*) under it. A machine-wide pkill closed
+  # other sessions' live browsers (TN_PLAYTEST_PAGE_CLOSED in threenative-engine, 2026-11-05).
+  pkill -f -- "$tmpdir/playwright_" >/dev/null 2>&1 || true
   kill "${xvfb_pid:-}" 2>/dev/null || true
   rm -rf "$tmpdir"
   rm -f "${marker:-}" 2>/dev/null || true
@@ -88,9 +92,8 @@ fi
 # We hold the lock. Record who we are for the next contended waiter.
 printf 'pid=%s started=%s cmd=%s\n' "$$" "$(date -Is)" "$*" >"$lock"
 
-# Reap anything a previous timed-out launch stranded; we hold the lock, so no
-# live capture can own these.
-pkill -f playwright_chromiumdev_profile >/dev/null 2>&1 || true
+# Stranded browsers are reaped per run, by profile path, in cleanup() above.
+export TMPDIR="$tmpdir"
 
 if [ "${CAPTURE_ON_DESKTOP:-0}" = "1" ]; then
   rm -f "$marker" # exec replaces this process; the EXIT trap never runs

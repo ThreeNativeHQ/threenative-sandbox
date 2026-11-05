@@ -1,0 +1,16 @@
+{
+  "artifact": {
+    "kind": "directory",
+    "name": "dist",
+    "sha256": "f0983855c8e17dd7ba1bb7d8b5ccf8ac1a5c268e7dfb80554f8b6c6f31069ded"
+  },
+  "measured": {
+    "artifactBytes": 29386131,
+    "packagedAssetBytes": 20814620
+  },
+  "manifestSha256": "91211b98b765e596f548126eed33d0d09dd26736c7961d64f81230e98709c33b",
+  "performanceBudget": null,
+  "profile": null,
+  "schemaVersion": 1,
+  "target": "web"
+}

@@ -1,0 +1,53 @@
+{
+  "name": "uturn-forced",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "arena",
+      "waitTicks": 20,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "turn-away",
+      "press": "KeyD",
+      "holdTicks": 108,
+      "release": true,
+      "screenshot": "arena-outbound"
+    },
+    {
+      "kind": "wait",
+      "label": "forced",
+      "waitTicks": 200,
+      "release": true,
+      "screenshot": "arena-forced"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "ship",
+        "component": "uturns",
+        "gte": 1
+      },
+      {
+        "entity": "ship",
+        "component": "arenaDistance",
+        "lte": 300.5,
+        "changed": true
+      }
+    ]
+  }
+}

@@ -12,6 +12,7 @@
 // and — through `SUN_DIRECTION` — the direction the sun's shadows fall. Swap the file for any
 // equirectangular sky and re-aim `SUN_DIRECTION` at its sun.
 import {
+  Color,
   EquirectangularReflectionMapping,
   FogExp2,
   SRGBColorSpace,
@@ -31,7 +32,8 @@ import { palette } from "./palette.js";
 const SKY_RANGE = 2.5;
 
 /** Unit vector toward the photographed sun: 47.9° up, measured from the source HDR. */
-export const SUN_DIRECTION = new Vector3(0.555, 0.742, 0.38).normalize();
+// Named override (look lane): a low sun, 15 deg up, left of the course and slightly ahead: grazing light shows the dunes, rock faces split into lit and shaded sides, the haze glows toward the sun.
+export const SUN_DIRECTION = new Vector3(-0.8, 0.24, -0.42).normalize();
 
 /** The look this fog replaced: FogExp2 at 0.003, measured at 150 m from 2 m up. */
 const EYE_LEVEL = { density: 0.003, distance: 150, cameraHeight: 2 };
@@ -81,6 +83,10 @@ export const SKY_OPTIONS: { sky: "atmosphere" | "photo"; clouds: boolean; ground
  * 68.5 m below the floor, where the default level puts the fog actor. Inscattering is black and the
  * start distance 0, as in Unreal: the colour comes from the sky.
  */
+/** Haze hue (unit luminance) and how far the fog moves toward it. */
+const HAZE_TINT = { r: 1.55, g: 0.82, b: 0.46 };
+const HAZE_MIX = 0.8;
+
 const ATMOSPHERE_FOG = {
   ...HEIGHT_FOG,
   density: 0.00436 * Math.LN2,
@@ -122,6 +128,14 @@ export function setupSky(
     ATMOSPHERE_FOG,
     SKY_OPTIONS.ground,
   );
+  // Named override (look lane): warm the haze so distance fades into dusty ochre, not blue.
+  // The sky's own luminance stays; only the hue moves toward `HAZE_TINT`.
+  if (scene.fog) {
+    const c = scene.fog.color;
+    const lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    const tinted = new Color(HAZE_TINT.r * lum, HAZE_TINT.g * lum, HAZE_TINT.b * lum);
+    c.lerp(tinted, HAZE_MIX);
+  }
   environment.mapping = EquirectangularReflectionMapping;
   environment.colorSpace = SRGBColorSpace;
   scene.background = environment;

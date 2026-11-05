@@ -1,0 +1,103 @@
+{
+  "name": "barrel-roll",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "rest",
+      "waitTicks": 30,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "single-tap",
+      "press": "KeyE",
+      "holdTicks": 20,
+      "release": true,
+      "screenshot": "bank-right"
+    },
+    {
+      "kind": "wait",
+      "label": "after-single",
+      "waitTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "tap-one",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap",
+      "waitTicks": 6,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "tap-two",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "spinning",
+      "waitTicks": 12,
+      "release": true,
+      "screenshot": "barrel-roll"
+    },
+    {
+      "kind": "wait",
+      "label": "done",
+      "waitTicks": 80,
+      "release": true
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "ship",
+        "component": "rolls",
+        "equals": 1,
+        "atSteps": [
+          {
+            "label": "after-single",
+            "equals": 0
+          },
+          {
+            "label": "done",
+            "equals": 1
+          }
+        ]
+      },
+      {
+        "entity": "ship",
+        "component": "rolling",
+        "atSteps": [
+          {
+            "label": "spinning",
+            "equals": true
+          },
+          {
+            "label": "done",
+            "equals": false
+          }
+        ]
+      }
+    ]
+  }
+}

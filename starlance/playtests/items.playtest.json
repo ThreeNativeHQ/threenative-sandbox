@@ -1,0 +1,39 @@
+{
+  "name": "items",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "input",
+      "label": "fire-first-section",
+      "press": "Space",
+      "holdTicks": 2400,
+      "release": true,
+      "screenshot": "items"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "enemies",
+        "component": "itemsCollected",
+        "gte": 1
+      },
+      {
+        "entity": "enemies",
+        "component": "ringsCollected",
+        "gte": 1
+      }
+    ]
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "name": "somersault",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "rest",
+      "waitTicks": 30,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "start",
+      "press": [
+        "KeyW",
+        "ShiftLeft"
+      ],
+      "holdTicks": 4,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "mid-loop",
+      "waitTicks": 60,
+      "release": true,
+      "screenshot": "somersault"
+    },
+    {
+      "kind": "wait",
+      "label": "after-loop",
+      "waitTicks": 100,
+      "release": true,
+      "screenshot": "somersault-done"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "ship",
+        "component": "loops",
+        "equals": 1,
+        "atSteps": [
+          {
+            "label": "mid-loop",
+            "equals": 0
+          },
+          {
+            "label": "after-loop",
+            "equals": 1
+          }
+        ]
+      },
+      {
+        "entity": "ship",
+        "component": "boost",
+        "gte": 0.6
+      }
+    ]
+  }
+}

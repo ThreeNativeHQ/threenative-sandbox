@@ -1,0 +1,14 @@
+{
+  "name": "laser",
+  "target": "web", "schemaVersion": 1, "viewport": { "width": 1280, "height": 720 }, "warmupFrames": 30, "subject": "ship",
+  "steps": [
+    { "kind": "input", "label": "hold-fire", "press": "Space", "holdTicks": 20, "release": false, "screenshot": "laser-single" },
+    { "kind": "input", "label": "hold-fire-rest", "press": "Space", "holdTicks": 100, "release": true }
+  ],
+  "assert": {
+    "diagnostics": { "noConsoleErrors": true, "runtimeReady": true },
+    "components": [
+      { "entity": "weapons", "component": "shotsFired", "gte": 14, "lte": 16 }
+    ]
+  }
+}

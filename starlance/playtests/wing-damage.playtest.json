@@ -1,0 +1,38 @@
+{
+  "name": "wing-damage",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "canyon",
+      "waitTicks": 2400,
+      "release": true,
+      "screenshot": "wing"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "ship",
+        "component": "wingsLeft",
+        "lte": 0
+      },
+      {
+        "entity": "ship",
+        "component": "wingsRight",
+        "lte": 0
+      }
+    ]
+  }
+}

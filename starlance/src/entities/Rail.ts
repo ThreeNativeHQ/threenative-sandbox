@@ -1,7 +1,7 @@
 import { CatmullRomCurve3, MathUtils, Vector3 } from "three";
 
 /** Path height over the ground (the ground plane is y = 0). */
-export const COURSE_ALTITUDE = 12;
+export const COURSE_ALTITUDE = 8;
 /** Section starts, metres along the course: dunes, canyon, open plain. */
 export const SECTION = { dunes: 0, canyon: 1500, plain: 3200 } as const;
 /** All-range arena radius around `Rail.arenaCenter`. */

@@ -1,0 +1,15 @@
+{
+  "name": "bomb",
+  "target": "web", "schemaVersion": 1, "viewport": { "width": 1280, "height": 720 }, "warmupFrames": 30, "subject": "ship",
+  "steps": [
+    { "kind": "input", "label": "bomb", "press": "KeyB", "holdTicks": 3, "release": true, "screenshot": "bomb" },
+    { "kind": "wait", "label": "detonate", "waitTicks": 90, "release": true, "screenshot": "bomb-blast" }
+  ],
+  "assert": {
+    "diagnostics": { "noConsoleErrors": true, "runtimeReady": true },
+    "components": [
+      { "entity": "weapons", "component": "bombs", "equals": 2 },
+      { "entity": "weapons", "component": "bombsUsed", "equals": 1 }
+    ]
+  }
+}

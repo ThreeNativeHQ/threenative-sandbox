@@ -165,10 +165,6 @@ Proof runner: `pnpm build:web`, then each scenario with
 - [ ] AC-7 [local]: A full run with `?autopilot=1` reaches the boss, destroys its core and sets phase `clear`. proof: `playtests/stage-clear.playtest.json` — Evidence: pending.
 - [ ] AC-8 [local]: Typecheck, lint, format and web build pass. proof: `pnpm check && pnpm build:web` — Evidence: pending.
 
-## Blocked on
-
-- Step 8 reference-image visual judge: no reference image was supplied — unblocked by João giving a target image, or authorising an image-generation route. Until then, frame captures are checked by eye and reported as "unverified against a target".
-
 ## Integration Ledger
 
 | Capability | Reachable consumer/trigger | Replaces / disposition | Evidence |
@@ -182,6 +178,13 @@ Proof runner: `pnpm build:web`, then each scenario with
 - 2026-11-05 (agent): Original game in the genre, not a recreation. No Star Fox names, characters, stage layouts, music or HUD art. Required by the engine MCP reference rules.
 - 2026-11-05 (agent): `minimal` kit, because create-threenative 0.2.15 has no rail-shooter kit.
 - 2026-11-05 (agent): Sphere-distance hits instead of Rapier bodies.
+- 2026-11-05 (João): Step 8 visual reference = gameplay of a modern rail shooter at about 20:00 of
+  https://www.youtube.com/watch?v=CXsPTgrxs2I. Frames are kept local in `~/Downloads/starlance-reference/`
+  (target frame `frames/f_13.jpg`, 20:12) and are not committed. They are judged for quality (framing, terrain relief, depth,
+  light, HUD cleanliness), not copied.
+- 2026-11-05 (agent): Course altitude lowered from 12 m to 8 m to match the reference's low flight.
+- 2026-11-05 (agent): Playtest `setup.resources` cannot write state (read-only provider), so `?skipTo=` and
+  `?autopilot=` are read from the page URL.
 
 ## Execution Phases
 

@@ -1,0 +1,98 @@
+{
+  "name": "stage-clear",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "run0",
+      "waitTicks": 1600,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "run1",
+      "waitTicks": 1600,
+      "release": true,
+      "screenshot": "run1"
+    },
+    {
+      "kind": "wait",
+      "label": "run2",
+      "waitTicks": 1600,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "run3",
+      "waitTicks": 1600,
+      "release": true,
+      "screenshot": "run3"
+    },
+    {
+      "kind": "wait",
+      "label": "run4",
+      "waitTicks": 1600,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "run5",
+      "waitTicks": 1600,
+      "release": true,
+      "screenshot": "run5"
+    },
+    {
+      "kind": "wait",
+      "label": "run6",
+      "waitTicks": 1600,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "run7",
+      "waitTicks": 1600,
+      "release": true,
+      "screenshot": "run7"
+    },
+    {
+      "kind": "wait",
+      "label": "run8",
+      "waitTicks": 1600,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "run9",
+      "waitTicks": 1600,
+      "release": true,
+      "screenshot": "run9"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "resources": [
+      {
+        "id": "state",
+        "path": "phase",
+        "equals": "clear"
+      }
+    ],
+    "components": [
+      {
+        "entity": "enemies",
+        "component": "bossDefeated",
+        "equals": true
+      }
+    ]
+  }
+}
