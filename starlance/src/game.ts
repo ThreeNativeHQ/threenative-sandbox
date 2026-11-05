@@ -16,12 +16,15 @@ const game = defineGame<GameState>({
     // Gamepad left stick, read with `axis()`; added to `move` by the ship.
     stickX: { gamepadAxes: [0] },
     stickY: { gamepadAxes: [1] },
-    fire: { keys: ["Space", "KeyJ"], buttons: [0] },
+    // Left mouse fires (hold repeats); right mouse holds the charge-lock shot, released to fire.
+    fire: { keys: ["Space", "KeyJ"], buttons: [0], mouseButtons: [0] },
+    charge: { keys: ["KeyF", "KeyH"], buttons: [2], mouseButtons: [2] },
     bomb: { keys: ["KeyB", "KeyU"], buttons: [1] },
     bankLeft: { keys: ["KeyQ"], buttons: [4] },
     bankRight: { keys: ["KeyE"], buttons: [5] },
     boost: { keys: ["ShiftLeft", "ShiftRight", "KeyK"], buttons: [7] },
-    brake: { keys: ["KeyC", "KeyL"], buttons: [6] },
+    brake: { keys: ["KeyL"], buttons: [6] },
+    cockpit: { keys: ["KeyC"], buttons: [3] }, // toggles chase/cockpit view
     restart: { keys: ["Enter"], buttons: [9] },
   },
   plugins: [playtest()],

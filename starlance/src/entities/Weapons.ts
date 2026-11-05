@@ -65,7 +65,7 @@ export class Weapons {
     Number(/[?&]laser=(\d)/.exec(String(globalThis.location?.search ?? ""))?.[1] ?? 0),
   );
   bombs = 3;
-  /** Charge 0..1 while fire is held. */
+  /** Charge 0..1 while charge is held. */
   charge = 0;
   lockedTarget: ITarget | null = null;
   shotsFired = 0;
@@ -76,6 +76,7 @@ export class Weapons {
   readonly #bolts: Bolt[] = [];
   #bomb: Bolt | null = null;
   #prevHeld = false;
+  #prevCharge = false;
   #hold = 0;
   #cool = 0;
   #lockSounded = false;
@@ -94,8 +95,6 @@ export class Weapons {
     const input = this.#readInput(w);
 
     if (input.fireJustPressed) {
-      this.#hold = 0;
-      this.#lockSounded = false;
       this.#fireLaser(w);
       this.#cool = REPEAT;
     } else if (input.fireHeld) {
@@ -105,12 +104,16 @@ export class Weapons {
         this.#cool += REPEAT;
       }
     }
-    if (input.fireHeld) {
+    if (input.chargeJustPressed) {
+      this.#hold = 0;
+      this.#lockSounded = false;
+    }
+    if (input.chargeHeld) {
       this.#hold += dt;
       this.charge = Math.min(1, this.#hold / CHARGE_FULL);
       if (this.charge >= 1) this.#probe(w);
     }
-    if (input.fireReleased) {
+    if (input.chargeReleased) {
       if (this.#hold > CHARGE_MIN) this.#fireHoming(w);
       this.#hold = 0;
       this.charge = 0;
@@ -146,40 +149,45 @@ export class Weapons {
 
   #readInput(w: World) {
     let held: boolean;
+    let charge: boolean;
     let bomb: boolean;
     let justPressed = false;
+    let chargePressed = false;
     let released = false;
     if (w.autopilot) {
-      ({ held, bomb } = this.#autopilot(w));
+      ({ held, charge, bomb } = this.#autopilot(w));
     } else {
       const input = this.ctx.input;
       held = input.pressed("fire");
+      charge = input.pressed("charge");
       bomb = input.justPressed("bomb") || (input.pressed("bomb") && !this.#prevBombKey);
       this.#prevBombKey = input.pressed("bomb");
       justPressed = input.justPressed("fire");
-      released = input.justReleased("fire");
+      chargePressed = input.justPressed("charge");
+      released = input.justReleased("charge");
     }
     justPressed ||= held && !this.#prevHeld;
-    released ||= !held && this.#prevHeld;
+    chargePressed ||= charge && !this.#prevCharge;
+    released ||= !charge && this.#prevCharge;
     this.#prevHeld = held;
-    // A tap shorter than one update fires and releases in the same call.
+    this.#prevCharge = charge;
+    // A tap shorter than one update presses and releases in the same call.
     return {
       fireHeld: held || justPressed,
       fireJustPressed: justPressed,
-      fireReleased: released,
+      chargeHeld: charge || chargePressed,
+      chargeJustPressed: chargePressed,
+      chargeReleased: released,
       bomb,
     };
   }
 
-  /** Test-only pilot: short bursts, a 1 s+ charge hold every 4 s, a bomb on a crowd. */
-  #autopilot(w: World): { held: boolean; bomb: boolean } {
+  /** Test-only pilot: short bursts, a 1 s+ charge hold (firing too) every 4 s, a bomb on a crowd. */
+  #autopilot(w: World): { held: boolean; charge: boolean; bomb: boolean } {
     const c = this.#clock % 4;
     const locked = this.lockedTarget !== null;
-    const held =
-      c < 0.3 ||
-      (c >= 0.8 && c < 1.1) ||
-      (c >= 1.6 && c < 1.9) ||
-      (c >= 2.4 && (c < 3.4 || (!locked && c < 3.9)));
+    const charge = c >= 2.4 && (c < 3.4 || (!locked && c < 3.9));
+    const held = c < 0.3 || (c >= 0.8 && c < 1.1) || (c >= 1.6 && c < 1.9) || charge;
     let bomb = false;
     if (this.bombs > 0 && this.#bomb === null && this.#clock - this.#lastApBomb > 3) {
       _at.copy(w.ship.position).addScaledVector(w.ship.forward, 60);
@@ -190,7 +198,7 @@ export class Weapons {
         this.#lastApBomb = this.#clock;
       }
     }
-    return { held, bomb };
+    return { held, charge, bomb };
   }
 
   // -- lasers ------------------------------------------------------------------------------------

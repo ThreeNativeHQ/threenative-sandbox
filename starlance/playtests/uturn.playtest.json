@@ -21,7 +21,7 @@
       "label": "turn",
       "press": [
         "KeyW",
-        "KeyC"
+        "KeyL"
       ],
       "holdTicks": 4,
       "release": true

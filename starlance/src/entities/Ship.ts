@@ -31,6 +31,11 @@ const D2R = Math.PI / 180;
 const EDGE_WARNING = 2; // rails-path-progress, fox_play.c:3963
 // pitch-yaw (fox_play.c:3580-3613): stick x0.75, rotated by bank, x0.68, source stick range 70.
 const STICK_SCALE = 0.75;
+// Mouse aim: the cursor's offset from screen centre is the stick, full at 55% of the half-screen.
+const MOUSE_DEAD = 0.06;
+const MOUSE_FULL = 0.55;
+// Airframe inertia, game-owned: the stick the ship flies eases toward the input (~0.25 s lag).
+const STICK_INERTIA = 0.12;
 const TARGET_SCALE = 0.68;
 const YAW_MAX = 70 * STICK_SCALE * TARGET_SCALE * D2R;
 const TURN_RATE = 69 * D2R; // base rate, rad/s
@@ -95,6 +100,7 @@ const AXIS_X = new Vector3(1, 0, 0);
 const AXIS_Y = new Vector3(0, 1, 0);
 const AXIS_Z = new Vector3(0, 0, 1);
 const _stick = new Vector2();
+const _mouse = new Vector2();
 const _rot = new Vector2();
 const _d = new Vector3(); // spark contact point
 
@@ -165,6 +171,9 @@ export class Ship {
   #warned = [false, false];
   #knock = new Vector2();
   #autoStick = new Vector2();
+  #flown = new Vector2(); // stick after inertia
+  #raw = new Vector2(); // stick before inertia: gestures read this
+  #mouseLive = false;
   #autoBoost = false;
 
   constructor(model: Object3D) {
@@ -197,7 +206,7 @@ export class Ship {
       this.#updateFx(w, dt);
       return;
     }
-    const stick = this.#readStick(w);
+    const stick = this.#readStick(w, dt);
     const bankInput = w.ctx.input.pressed("bankRight")
       ? 1
       : w.ctx.input.pressed("bankLeft")
@@ -206,7 +215,7 @@ export class Ship {
     this.#updateBank(dt, stick, bankInput);
     this.#updateBarrel(w, dt);
     this.#updateGauge(w, dt);
-    this.#updateLoops(w, dt, stick);
+    this.#updateLoops(w, dt);
     if (this.mode === "rail") this.#flyRail(w, dt, stick);
     else this.#flyArena(w, dt, stick);
     this.#updateDamage(w, dt);
@@ -242,11 +251,12 @@ export class Ship {
 
   // ---------------------------------------------------------------------------------- input
 
-  #readStick(w: World): Vector2 {
+  #readStick(w: World, dt: number): Vector2 {
     const input = w.ctx.input;
     const move = input.vector("move");
-    let x = move.x + input.axis("stickX");
-    let y = move.y - input.axis("stickY"); // gamepad Y axis is +down
+    const mouse = this.#mouseStick(w);
+    let x = move.x + input.axis("stickX") + mouse.x;
+    let y = move.y - input.axis("stickY") + mouse.y; // gamepad Y axis is +down
     if (w.autopilot) {
       this.#autopilot(w);
       x = this.#autoStick.x;
@@ -257,7 +267,20 @@ export class Ship {
       x /= len;
       y /= len;
     }
-    return _stick.set(x, y);
+    // Aerodynamics: the airframe follows the stick with lag, so turns ease in and out.
+    return _stick.copy(this.#flown.lerp(this.#raw.set(x, y), smooth(STICK_INERTIA, dt)));
+  }
+
+  /** Cursor offset from screen centre as a stick, after the mouse first moves (+y up). */
+  #mouseStick(w: World): Vector2 {
+    const p = w.ctx.input.raw.pointer.position;
+    const { width, height } = w.ctx.viewport.size;
+    this.#mouseLive ||= p.x !== 0 || p.y !== 0;
+    if (!this.#mouseLive) return _mouse.set(0, 0);
+    _mouse.set((p.x / width) * 2 - 1, 1 - (p.y / height) * 2);
+    const len = _mouse.length();
+    const k = MathUtils.clamp((len - MOUSE_DEAD) / (MOUSE_FULL - MOUSE_DEAD), 0, 1);
+    return len > 0 ? _mouse.multiplyScalar(k / len) : _mouse;
   }
 
   /** Stick x0.75 rotated by the shoulder bank (pitch-yaw card): up while banked right turns right. */
@@ -341,9 +364,9 @@ export class Ship {
 
   // ---------------------------------------------------------------------------------- somersault / u-turn
 
-  #updateLoops(w: World, dt: number, stick: Vector2): void {
+  #updateLoops(w: World, dt: number): void {
     const input = w.ctx.input;
-    const climbing = stick.y > 0.5;
+    const climbing = this.#raw.y > 0.5; // the gesture reads the raw stick, not the lagged one
     if (this.#loop === 0 && !this.#uturnActive && !this.rolling && climbing) {
       if (this.mode === "rail" && input.justPressed("boost")) this.#loop = 1e-6;
       else if (this.mode === "arena" && input.justPressed("brake")) this.#startUturn();

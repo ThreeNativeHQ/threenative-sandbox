@@ -40,7 +40,7 @@
     {
       "kind": "input",
       "label": "braking",
-      "press": "KeyC",
+      "press": "KeyL",
       "holdTicks": 40,
       "release": false,
       "screenshot": "brake"

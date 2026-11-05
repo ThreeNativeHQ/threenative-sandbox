@@ -1,14 +1,61 @@
 {
   "name": "laser",
-  "target": "web", "schemaVersion": 1, "viewport": { "width": 1280, "height": 720 }, "warmupFrames": 30, "subject": "ship",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
   "steps": [
-    { "kind": "input", "label": "hold-fire", "press": "Space", "holdTicks": 20, "release": false, "screenshot": "laser-single" },
-    { "kind": "input", "label": "hold-fire-rest", "press": "Space", "holdTicks": 100, "release": true }
+    {
+      "kind": "input",
+      "label": "hold-left-click",
+      "pointerPosition": {
+        "x": 0.5,
+        "y": 0.5,
+        "buttons": 1
+      },
+      "holdTicks": 20,
+      "release": false,
+      "screenshot": "laser-single"
+    },
+    {
+      "kind": "input",
+      "label": "hold-left-click-rest",
+      "pointerPosition": {
+        "x": 0.5,
+        "y": 0.5,
+        "buttons": 1
+      },
+      "holdTicks": 100,
+      "release": false
+    },
+    {
+      "kind": "input",
+      "label": "release",
+      "pointerPosition": {
+        "x": 0.5,
+        "y": 0.5,
+        "buttons": 0
+      },
+      "holdTicks": 1,
+      "release": true
+    }
   ],
   "assert": {
-    "diagnostics": { "noConsoleErrors": true, "runtimeReady": true },
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
     "components": [
-      { "entity": "weapons", "component": "shotsFired", "gte": 14, "lte": 16 }
+      {
+        "entity": "weapons",
+        "component": "shotsFired",
+        "gte": 14,
+        "lte": 16
+      }
     ]
   }
 }
