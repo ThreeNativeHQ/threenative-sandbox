@@ -1,0 +1,12 @@
+# ThreeNative local authoring state and dependency secrets
+.dream-loop/
+node_modules/
+.env
+.env.*
+!.env.example
+public/assets.manifest.json
+public/bake.receipt.json
+public/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].*
+artifacts/
+dist/
+.threenative/*.log

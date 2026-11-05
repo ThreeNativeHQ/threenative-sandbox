@@ -1,0 +1,128 @@
+[
+  {
+    "id": 1,
+    "area": "assets",
+    "title": "Verify prerequisites and select required assets",
+    "files": ["assets/starfighter.glb", "assets/ground/*", "assets/sfx/*", "CREDITS.md", "tools/capture-lock.sh"],
+    "steps": "Check threenative-assets MCP through call.mjs. Copy starfighter.glb into assets/. Download one CC0 Poly Haven ground set (albedo, normal, roughness) and four CC0 one-shots (laser, explosion, hit, lock) with asset_search_sources → source search/list-files → asset_download_file. Copy ../caravel/tools/capture-lock.sh.",
+    "check": "Files exist; CREDITS.md has one row per file with source URL and the licence the tool returned.",
+    "passes": false
+  },
+  {
+    "id": 2,
+    "area": "coordinator",
+    "title": "Strip the template and boot the ship",
+    "files": ["src/game.ts", "src/state.ts", "src/scenes/Play.ts", "playtests/*"],
+    "steps": "Delete Player, arena, touch controls and template playtests. New input map and GameState. Play loads starfighter.glb, normalises it to 4 m, and shows it under the kit sky.",
+    "check": "pnpm check && pnpm build:web pass; a capture shows the ship nose pointing away from the camera. Commit and push.",
+    "passes": false
+  },
+  {
+    "id": 3,
+    "area": "flight",
+    "title": "Rail course and path coordinate",
+    "files": ["src/entities/Rail.ts"],
+    "steps": "CatmullRomCurve3 course about 4.5 km; coordinate += speed·dt; frame (position, tangent, up) at the coordinate; lean limit per rails-path-progress.",
+    "check": "Debug `distance` grows by cruise speed × time (± 5%) in a 5 s wait scenario.",
+    "passes": false
+  },
+  {
+    "id": 4,
+    "area": "flight",
+    "title": "Ship flight model",
+    "files": ["src/entities/Ship.ts"],
+    "steps": "Stick shaping, bank, barrel roll, boost/brake gauge, corridor clamp with warning, per the References table. Debug: offset, speed, gauge, latched, bank, rollAngle, rolls, edgeWarning.",
+    "check": "AC-1, AC-2, AC-3 playtests pass.",
+    "passes": false
+  },
+  {
+    "id": 5,
+    "area": "flight",
+    "title": "Rail chase camera",
+    "files": ["src/render/railCamera.ts"],
+    "steps": "Eye 8 m behind, ship offset × 0.78, 0.3 roll share, boost pull-back and brake pull-in, CameraShake offset composed last.",
+    "check": "Captures at rest, hard right, and boosting show the ship framed in the lower-middle third and never clipped.",
+    "passes": false
+  },
+  {
+    "id": 6,
+    "area": "combat",
+    "title": "Laser bolts",
+    "files": ["src/entities/Weapons.ts"],
+    "steps": "Pooled bolts; fresh press fires at once, hold repeats every 4 updates; bolt speed and life per laser-fire. Expose hit spheres for the hit pass.",
+    "check": "Debug `shotsFired` rises by 7–8 per second of held fire in a scenario.",
+    "passes": false
+  },
+  {
+    "id": 7,
+    "area": "combat",
+    "title": "Enemies and wave timeline",
+    "files": ["src/entities/Enemies.ts"],
+    "steps": "Fighters on PathFollow3D fly-in curves that fire orange shots; wall turrets; rock obstacles and arches as hit volumes; heal rings; timeline keyed by path coordinate via Scheduler/ctx.",
+    "check": "AC-4 laser playtest passes after integration (task 12).",
+    "passes": false
+  },
+  {
+    "id": 8,
+    "area": "combat",
+    "title": "Charge, lock-on and homing shot",
+    "files": ["src/entities/Weapons.ts"],
+    "steps": "Charge counter, search probes in a 6 m half box, homing shot with ramping turn rate, 6 m explosion radius.",
+    "check": "AC-5 lock-on playtest passes after integration.",
+    "passes": false
+  },
+  {
+    "id": 9,
+    "area": "combat",
+    "title": "Shield, damage and roll deflect",
+    "files": ["src/entities/Weapons.ts", "src/entities/Enemies.ts"],
+    "steps": "Shield pool and drain, invulnerable window, knockback, CameraShake trigger; enemy shots bounce off a rolling ship.",
+    "check": "AC-6 damage playtest passes after integration.",
+    "passes": false
+  },
+  {
+    "id": 10,
+    "area": "look",
+    "title": "Ember Rift stage",
+    "files": ["src/render/stage.ts", "src/render/enemyLook.ts"],
+    "steps": "Textured ground strip along the course, instanced spires, canyon walls, stone arches; enemy, turret, ring and boss meshes; scenery marked static.",
+    "check": "Captures in sections A, B and C read as a desert planet canyon; play budget ≤ 128 draws and ≤ 80k triangles.",
+    "passes": false
+  },
+  {
+    "id": 11,
+    "area": "look",
+    "title": "In-scene HUD",
+    "files": ["src/render/hud.ts"],
+    "steps": "Camera-attached shield bar, boost gauge, segment-digit hit counter, two reticles, lock box, result banner.",
+    "check": "Capture shows all HUD parts legible at 1280×720; HUD values follow state in a scenario.",
+    "passes": false
+  },
+  {
+    "id": 12,
+    "area": "coordinator",
+    "title": "Integrate combat and look lanes",
+    "files": ["src/scenes/Play.ts"],
+    "steps": "Wire Weapons, Enemies, stage, HUD and the hit pass into the loop order; resolve interface mismatches; review each lane's diff.",
+    "check": "AC-1 to AC-6 playtests pass together on one build. Commit and push.",
+    "passes": false
+  },
+  {
+    "id": 13,
+    "area": "combat",
+    "title": "Boss, result states and autopilot hook",
+    "files": ["src/entities/Enemies.ts", "src/scenes/Play.ts", "playtests/stage-clear.playtest.json"],
+    "steps": "Carrier with three weak-point turrets and a core; clear/down phases with banner; Enter restarts; ?autopilot=1 aims at the nearest target for the proof only.",
+    "check": "AC-7 stage-clear playtest passes.",
+    "passes": false
+  },
+  {
+    "id": 14,
+    "area": "coordinator",
+    "title": "Final gates, captures and visual judge",
+    "files": [".agent/prd/PRD.md"],
+    "steps": "Run AC-8; capture gameplay frames; run the reference-image judge if João supplied a target, else record it as unverified; tick ACs with evidence.",
+    "check": "AC-8 passes; PRD boxes carry real evidence. Commit and push.",
+    "passes": false
+  }
+]

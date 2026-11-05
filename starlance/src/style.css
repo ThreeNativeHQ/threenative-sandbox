@@ -1,0 +1,51 @@
+:root {
+  color: #d9f5ff;
+  background: #061018;
+  font-family: ui-monospace, monospace;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  overflow: hidden;
+}
+
+/*
+ * #app is the canvas host handed to defineGame({ container }). Pinning it to
+ * the viewport and giving the canvas an explicit layer keeps the renderer
+ * behind the HUD. A canvas with no positioning takes part in normal flow, so a
+ * full-height wrapper above it pushes it below the fold — the page looks black
+ * and nothing reports an error.
+ */
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+#app canvas {
+  display: block;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* Boot failures are a page state, so the generated game owns their presentation. */
+[data-threenative-canvas-error="true"] {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: clamp(1.5rem, 8vw, 6rem);
+  overflow: auto;
+  background: #fff7ed;
+  color: #061018;
+  font-family: inherit;
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  line-height: 1.5;
+  text-align: center;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

@@ -1,0 +1,7 @@
+{
+  "name": "minimal",
+  "title": "Minimal",
+  "blurb": "The smallest ThreeNative project for learning the framework and building from scratch.",
+  "genre": "minimal",
+  "kit": false
+}
