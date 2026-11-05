@@ -21,6 +21,18 @@
       "args": [
         "/home/joao/projects/threenative/threenative-engine/packages/engine-mcp/dist/index.js"
       ]
+    },
+    "blender": {
+      "command": "/home/joao/.local/bin/uvx",
+      "args": [
+        "--python",
+        "3.11",
+        "blender-mcp"
+      ],
+      "env": {
+        "DISABLE_TELEMETRY": "true",
+        "UV_PYTHON_PREFERENCE": "only-managed"
+      }
     }
   }
 }
