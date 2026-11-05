@@ -82,9 +82,6 @@ const SCRAPE_DAMAGE = 21;
 // Obstacle contact (game-owned): rocks are solid, so the hull is pushed to the rock's surface.
 const HULL_R = 2.2;
 const OBSTACLE_DAMAGE = 40;
-const BOUNCE_SPEED = 6; // m/s away from the impact
-const BOUNCE_DECAY = 5; // per second: 6 m/s is ~0.4 m/s after one second
-const GROUND_CLEARANCE = 0.3; // the hull never goes below ground + this
 const GOLD_CAP = 383;
 const GOLD_RINGS_FOR_CAP = 3;
 
@@ -99,8 +96,7 @@ const AXIS_Y = new Vector3(0, 1, 0);
 const AXIS_Z = new Vector3(0, 0, 1);
 const _stick = new Vector2();
 const _rot = new Vector2();
-const _n = new Vector3(); // contact normal, never held across a call
-const _d = new Vector3(); // displacement handed to `#displace`
+const _d = new Vector3(); // spark contact point
 
 /** Per-update smoothing fraction `f` at 30 Hz, converted to this step's length. */
 const smooth = (f: number, dt: number): number => 1 - (1 - f) ** (30 * dt);
@@ -168,8 +164,6 @@ export class Ship {
   #invulnTimer = 0;
   #warned = [false, false];
   #knock = new Vector2();
-  /** World-space bounce velocity off a rock or the ground; decays in `#collide`. */
-  readonly #bounce = new Vector3();
   #autoStick = new Vector2();
   #autoBoost = false;
 
@@ -216,7 +210,7 @@ export class Ship {
     if (this.mode === "rail") this.#flyRail(w, dt, stick);
     else this.#flyArena(w, dt, stick);
     this.#updateDamage(w, dt);
-    this.#collide(w, dt);
+    this.#collide(w);
     this.#orient();
     this.#updateFx(w, dt);
   }
@@ -565,53 +559,18 @@ export class Ship {
   }
 
   /**
-   * Rocks are solid and the ground is a floor. The hull is pushed out to the contact surface, the
-   * velocity heading into it is killed and a 6 m/s bounce away decays to nothing. The rail owns the
-   * ship's position, so rail mode moves `offset` and arena mode moves `position`.
+   * Scenery contact, as sf64 does it (fox_play.c:1722, cards terrain-collision and shield-damage):
+   * no push-out and no solid walls. A touch while the mercy window is closed costs a hit; `takeHit`
+   * applies the 0.4 m knockback, picks the wing and opens the 0.67 s window that skips these tests.
    */
-  #collide(w: World, dt: number): void {
-    if (dt <= 0) return;
-    this.#bounce.multiplyScalar(Math.exp(-BOUNCE_DECAY * dt));
-    if (this.#bounce.lengthSq() < 1e-4) this.#bounce.set(0, 0, 0);
-    else this.#displace(_d.copy(this.#bounce).multiplyScalar(dt));
+  #collide(w: World): void {
+    if (this.invulnerable) return;
     for (const o of w.stage.obstacles) {
-      const reach = o.radius + HULL_R;
-      _n.copy(this.position).sub(o.center);
-      const dist = _n.length();
-      if (dist >= reach) continue;
-      // Dead centre has no direction: use the nose's opposite so `_n` stays a unit vector.
-      if (dist < 1e-3) _n.copy(this.forward).negate();
-      else _n.divideScalar(dist);
-      this.#displace(_d.copy(_n).multiplyScalar(reach - dist));
-      // The bounce replaces whatever velocity was heading into the rock.
-      this.#bounce.copy(_n).multiplyScalar(BOUNCE_SPEED);
-      // takeHit is the invulnerability gate, picks the wing from the contact side and shakes.
-      if (this.invulnerable) continue;
+      if (this.position.distanceTo(o.center) >= o.radius + HULL_R) continue;
       this.takeHit(OBSTACLE_DAMAGE, o.center);
-      w.fx.spark(_d.copy(o.center).addScaledVector(_n, o.radius)); // the contact point
+      w.fx.spark(_d.copy(this.position).sub(o.center).setLength(o.radius).add(o.center));
+      return;
     }
-    const floor = w.stage.groundHeight(this.position.x, this.position.z) + GROUND_CLEARANCE;
-    if (this.position.y < floor) {
-      // Bounce up instead of sinking under the dunes.
-      this.#displace(_d.set(0, floor - this.position.y, 0));
-      this.#bounce.y = BOUNCE_SPEED;
-    }
-  }
-
-  /** Moves the hull by a world-space delta; on rails only the right/up part exists (`s` is the rail's). */
-  #displace(d: Vector3): void {
-    if (this.mode === "rail") {
-      const f = this.#frame;
-      this.offset.x += d.dot(f.right);
-      this.offset.y += d.dot(f.up);
-      this.position
-        .copy(f.position)
-        .addScaledVector(f.right, this.offset.x)
-        .addScaledVector(f.up, this.offset.y);
-      // ponytail: a rock dead on the flight line has almost no right/up normal, so the push is small
-      // and the ship still slides through it eating hits. Sidestep it back up `w.rail.s` by the
-      // penetration if dead-centre rock strikes ever need to stop the ship.
-    } else this.position.add(d);
   }
 
   heal(points: number): void {
@@ -753,7 +712,6 @@ export class Ship {
       wingsRight: this.wings.right,
       alive: this.alive,
       invulnerable: this.invulnerable,
-      bounce: this.#bounce.length(),
     };
   }
 }
