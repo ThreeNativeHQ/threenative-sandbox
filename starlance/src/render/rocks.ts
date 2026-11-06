@@ -16,12 +16,10 @@ import {
 import { boulderGeometry as boulderForm, merge as mergeGeometry } from "./rockForms.js";
 import {
   dot,
-  float,
   mix,
   mx_noise_float,
   normalWorld,
   positionWorld,
-  sin,
   smoothstep,
   texture,
   vec3,
@@ -252,8 +250,8 @@ export function rockMaterial(t: IRockTextures, detail = false): MeshStandardNode
   const grey = vec3(0.299, 0.587, 0.114);
   const tri = (tex: Texture, tile: number) => {
     const q = positionWorld.div(tile);
-    return texture(tex, q.zy).rgb
-      .mul(bf.x)
+    return texture(tex, q.zy)
+      .rgb.mul(bf.x)
       .add(texture(tex, q.xz).rgb.mul(bf.y))
       .add(texture(tex, q.xy).rgb.mul(bf.z));
   };
@@ -266,8 +264,12 @@ export function rockMaterial(t: IRockTextures, detail = false): MeshStandardNode
   const drift = mx_noise_float(pw.mul(0.045)).mul(0.16).add(1);
   // Sand settles on upward faces (ledges, caps, talus).
   const sand = smoothstep(0.6, 0.95, normalWorld.y).mul(0.35);
-  mat.colorNode = mix(broad, vec3(0.92, 0.68, 0.45), sand).mul(contrast).mul(drift);
-  mat.roughnessNode = tri(t.cliffRough, TILE_BROAD / 2).r.mul(0.5).add(0.55);
+  mat.colorNode = mix(broad, vec3(0.92, 0.68, 0.45), sand)
+    .mul(contrast)
+    .mul(drift);
+  mat.roughnessNode = tri(t.cliffRough, TILE_BROAD / 2)
+    .r.mul(0.5)
+    .add(0.55);
   return mat;
 }
 

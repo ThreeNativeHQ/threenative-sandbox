@@ -185,8 +185,11 @@ export function hoodooProfile(lumps: number, cap: number, phase = 1): (t: number
   const widths: number[] = [];
   for (let i = 0; i < n; i += 1) widths.push(0.55 + 0.9 * hh(i));
   const total = widths.reduce((a, c) => a + c, 0);
-  for (let i = 0; i < n; i += 1) edges.push((edges[i] as number) + ((widths[i] as number) / total) * CAP_T);
-  const hard = Array.from({ length: n }, (_, i) => (i % 2 === 0 ? hh(i + 20) > 0.25 : hh(i + 20) > 0.7));
+  for (let i = 0; i < n; i += 1)
+    edges.push((edges[i] as number) + ((widths[i] as number) / total) * CAP_T);
+  const hard = Array.from({ length: n }, (_, i) =>
+    i % 2 === 0 ? hh(i + 20) > 0.25 : hh(i + 20) > 0.7,
+  );
   const drum = Array.from({ length: n }, (_, i) =>
     hard[i] ? 1.0 + 0.3 * hh(i + 40) : 0.6 + 0.16 * hh(i + 40),
   );
@@ -199,7 +202,11 @@ export function hoodooProfile(lumps: number, cap: number, phase = 1): (t: number
     const lo = edges[i] as number;
     const f = Math.min(1, Math.max(0, (t - lo) / ((edges[i + 1] as number) - lo)));
     const prev = i > 0 ? (drum[i - 1] as number) : (drum[0] as number);
-    let r = (drum[i] as number) * (hard[i] ? 1 - 0.08 * smooth(0.3, 1, f) + 0.07 * Math.sin(f * Math.PI * 2) : 1 - 0.14 * Math.sin(f * Math.PI));
+    let r =
+      (drum[i] as number) *
+      (hard[i]
+        ? 1 - 0.08 * smooth(0.3, 1, f) + 0.07 * Math.sin(f * Math.PI * 2)
+        : 1 - 0.14 * Math.sin(f * Math.PI));
     r = prev + (r - prev) * smooth(0, Math.min(0.25, 0.012 / ((edges[i + 1] as number) - lo)), f);
     const shaft = taper(Math.min(t, CAP_T)) * flare * (t < CAP_T ? r : (drum[n - 1] as number));
     if (t < CAP_T) return shaft;
@@ -244,7 +251,12 @@ export function hoodooGeometry(
       const lump = 1 + 0.12 * fbm3(dx * 1.3 + 5, t * 2.1, dz * 1.3, seed + 1, 3);
       // The cap is not round: a lobed, scalloped edge.
       const capMask = smooth(CAP_T - 0.004, CAP_T + 0.01, t);
-      const lobe = 1 + capMask * (0.16 * Math.sin(a * 3 + seed) + 0.1 * Math.sin(a * 5 + seed * 2.3) + 0.05 * Math.sin(a * 11 + seed));
+      const lobe =
+        1 +
+        capMask *
+          (0.16 * Math.sin(a * 3 + seed) +
+            0.1 * Math.sin(a * 5 + seed * 2.3) +
+            0.05 * Math.sin(a * 11 + seed));
       // Under and in the cap the face is fluted: vertical grooves like rain runnels.
       const flute =
         smooth(CAP_T, CAP_T + 0.02, t) *
