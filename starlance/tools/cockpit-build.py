@@ -68,6 +68,29 @@ for o in list(bpy.data.objects):
             bpy.ops.object.convert(target="MESH")
 
 
+# The wing housings are one extruded profile cut off square at the pilot's end, a flat wall facing the
+# eye. The real wing sweeps on: pull the tail rearward and shrink it toward its outer-bottom corner.
+def taper_housing(o, reach=2.4, back=1.6, pinch=0.8):
+    side = 1.0 if o.data.vertices[0].co.x > 0 else -1.0
+    pivot = (6.0 * side, 1.9)
+    y0 = -0.13
+    for v in o.data.vertices:
+        t = max(0.0, min(1.0, 1.0 - (v.co.y - y0) / reach))
+        t *= t
+        k = 1.0 - pinch * t
+        v.co.x = pivot[0] + (v.co.x - pivot[0]) * k
+        v.co.z = pivot[1] + (v.co.z - pivot[1]) * k
+        v.co.y -= back * t
+    o.data.update()
+    # the baked weighted normals are stale after the move: recompute them from the new faces
+    with bpy.context.temp_override(object=o, active_object=o, selected_objects=[o], selected_editable_objects=[o]):
+        bpy.ops.mesh.customdata_custom_splitnormals_clear()
+        bpy.ops.object.shade_smooth()
+for o in list(bpy.data.objects):
+    if o.name.startswith("Lateral blue instrument housing"):
+        taper_housing(o)
+
+
 # glTF carries image maps, not node graphs: the .blend's grime, AO and hue nodes would export as
 # nothing. Wire each PBR map straight into its socket (cockpitLook.ts owns the tint and the wear) and
 # drop links the exporter cannot follow. The hull paint keeps the name cockpitLook.ts finishes.

@@ -77,6 +77,8 @@ interface IFinish {
   env?: number;
   /** Extra albedo gain on the diffuse copy, for a bright texture the sun turns cream. */
   shade?: number;
+  /** The material has no base map: paint the diffuse copy one, with scratches, scuffs and runoff. */
+  worn?: boolean;
 }
 // Hard surfaces are metalness 1 with a dark albedo: a dielectric reflects 4% of the sun whatever its
 // colour, and at the metered exposure that reads as cream, while a metal's reflectance is its albedo.
@@ -87,6 +89,7 @@ const FINISH: Record<string, IFinish> = {
   "Cockpit headliner": { color: [0.0021, 0.0024, 0.0031], rough: 1.2, metal: 1, env: 0.3 },
   "Soft black rubber": { color: [0.0014, 0.0016, 0.0021], rough: 1.3, metal: 1, env: 0.3 },
   "Worn blue graphite | microtexture": {
+    shade: 1.4,
     color: [0.0042, 0.0052, 0.0084],
     rough: 2.4,
     metal: 1,
@@ -94,15 +97,16 @@ const FINISH: Record<string, IFinish> = {
     env: 0.3,
   },
   "Cobalt painted armor": {
+    worn: true,
     color: [0.04, 0.13, 0.62],
     chip: 0.9,
     rough: 0.85,
     metal: 0.1,
-    normal: 0.6,
+    normal: 0.3,
     env: 0.75,
   },
   "Frame | scratched gunmetal PBR": {
-    shade: 0.5,
+    shade: 0.8,
     color: [0.0035, 0.0038, 0.0049],
     rough: 2.4,
     metal: 1,
@@ -111,7 +115,7 @@ const FINISH: Record<string, IFinish> = {
   },
   // The side console shells and the screen step rings: dark gunmetal, same finish as the frame.
   "Side armor silver": {
-    shade: 0.5,
+    shade: 0.8,
     color: [0.0035, 0.0038, 0.0049],
     rough: 2.4,
     metal: 1,
@@ -191,6 +195,93 @@ function smudgeTexture(size = 256): DataTexture {
       py += Math.sin(a) * 0.5;
       const i = ((Math.floor(py + size) % size) * size + (Math.floor(px + size) % size)) * 4;
       data[i + 1] = Math.max(data[i + 1] as number, 205);
+    }
+  }
+  const texture = new DataTexture(data, size, size);
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  texture.generateMipmaps = true;
+  texture.minFilter = LinearMipmapLinearFilter;
+  texture.magFilter = LinearFilter;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/** Value noise that repeats every `px` by `py` cells, so a tiled map shows no seam. */
+function tile(x: number, y: number, px: number, py: number): number {
+  const wrap = (n: number, p: number): number => ((n % p) + p) % p;
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const fx = x - xi;
+  const fy = y - yi;
+  const u = fx * fx * (3 - 2 * fx);
+  const v = fy * fy * (3 - 2 * fy);
+  const h = (i: number, j: number): number => hash(wrap(i, px), wrap(j, py));
+  const a = h(xi, yi) + (h(xi + 1, yi) - h(xi, yi)) * u;
+  const b = h(xi, yi + 1) + (h(xi + 1, yi + 1) - h(xi, yi + 1)) * u;
+  return a + (b - a) * v;
+}
+
+/**
+ * Worn paint for a surface that ships without a base map (the cobalt wings): `paint` (linear) mottled,
+ * with long bare-steel scratches that follow the flight line, scuffed chips and dirt running down from
+ * the top. The interior is diffuse-only, so the wear has to be albedo. Bytes, so it runs on every target.
+ */
+function paintTexture(paint: Color, size = 512): DataTexture {
+  const data = new Uint8Array(size * size * 4);
+  const put = (x: number, y: number, r: number, g: number, b: number, a: number): void => {
+    const i = ((Math.round(y) & (size - 1)) * size + (Math.round(x) & (size - 1))) * 4;
+    data[i] = (data[i] ?? 0) * (1 - a) + r * 255 * a;
+    data[i + 1] = (data[i + 1] ?? 0) * (1 - a) + g * 255 * a;
+    data[i + 2] = (data[i + 2] ?? 0) * (1 - a) + b * 255 * a;
+  };
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const u = x / size;
+      const v = y / size;
+      const mottle =
+        0.3 + 0.06 * (tile(u * 4, v * 4, 4, 4) * 0.6 + tile(u * 12, v * 12, 12, 12) * 0.4);
+      const runoff = 1 - 0.2 * Math.max(0, tile(u * 48, v * 2, 48, 2) - 0.45) * 2; // vertical streaks
+      const k = mottle * runoff;
+      const i = (y * size + x) * 4;
+      data[i] = paint.r * k * 255;
+      data[i + 1] = paint.g * k * 255;
+      data[i + 2] = paint.b * k * 255;
+      data[i + 3] = 255;
+    }
+  }
+  let seed = 29;
+  const rand = (): number => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  // Scratches: bare steel, a cool grey a little under the paint's brightness, with a dark gouge edge.
+  for (let s = 0; s < 40; s += 1) {
+    let px = rand() * size;
+    let py = rand() * size;
+    let a = 1.2 + (rand() - 0.5) * 0.9; // mostly along the flight line, some cross-scuffs
+    if (rand() < 0.2) a = rand() * Math.PI;
+    const length = size * (0.04 + rand() * 0.22);
+    const strength = 0.18 + rand() * 0.4;
+    for (let t = 0; t < length; t += 0.5) {
+      a += (rand() - 0.5) * 0.05;
+      px += Math.cos(a) * 0.5;
+      py += Math.sin(a) * 0.5;
+      put(px, py, 0.07, 0.075, 0.09, strength);
+      if (rand() < 0.04) put(px + 1, py, 0.012, 0.012, 0.02, 0.5);
+    }
+  }
+  // Chips: a dark pit ringed with steel.
+  for (let c = 0; c < 28; c += 1) {
+    const cx = rand() * size;
+    const cy = rand() * size;
+    const r = 1 + rand() * 2;
+    for (let dy = -r - 1; dy <= r + 1; dy += 1) {
+      for (let dx = -r - 1; dx <= r + 1; dx += 1) {
+        const d = Math.hypot(dx, dy * 1.4);
+        if (d <= r) put(cx + dx, cy + dy, 0.02, 0.022, 0.03, 0.9);
+        else if (d <= r + 1.2) put(cx + dx, cy + dy, 0.06, 0.065, 0.08, 0.5);
+      }
     }
   }
   const texture = new DataTexture(data, size, size);
@@ -302,13 +393,17 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
     let l = diffuse.get(m);
     if (l === undefined) {
       const base = m.userData.lookBase as { color: Color; normal: number };
+      const tint = base.color
+        .clone()
+        .multiply(INTERIOR_GAIN)
+        .multiplyScalar(f.shade ?? 1);
+      // A worn finish carries its paint in the map, so the tint moves there and the colour is white.
+      const paint = f.worn && !m.map ? paintTexture(tint) : undefined;
+      if (paint) own.push(paint);
       l = new MeshLambertMaterial({
         name: `${m.name} (diffuse)`,
-        color: base.color
-          .clone()
-          .multiply(INTERIOR_GAIN)
-          .multiplyScalar(f.shade ?? 1),
-        map: m.map,
+        color: paint ? 0xffffff : tint,
+        map: paint ?? m.map,
         normalMap: m.normalMap,
         normalScale: m.normalScale.clone().setScalar(base.normal),
         vertexColors: m.vertexColors,
