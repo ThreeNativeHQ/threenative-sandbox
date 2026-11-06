@@ -26,7 +26,7 @@ const TILT = 0; // rad; the dash sits where the source scene's own pilot camera 
 // Pilot eye in the glb's own space (y up, nose -Z): the .blend's "Pilot view" camera, which frames the
 // canopy arch, both hull wings and the five screens at railCamera's 41 deg.
 const EYE_X = 0;
-const EYE_Y = 2.55;
+const EYE_Y = 2.68;
 const EYE_Z = 6.7;
 const BOOST_SPAN = 18; // speed above cruise at full boost
 const BRAKE_SPAN = 12; // speed below cruise at full brake

@@ -6,6 +6,7 @@
 // grazing angles and faint head-on), so there is no second environment and the view stays clear.
 import {
   BackSide,
+  Color,
   type BufferGeometry,
   Float32BufferAttribute,
   AdditiveBlending,
@@ -17,6 +18,7 @@ import {
   MeshStandardMaterial,
   type Object3D,
   PlaneGeometry,
+  PointLight,
   RepeatWrapping,
   SphereGeometry,
 } from "three";
@@ -71,6 +73,8 @@ interface IFinish {
   chip?: number;
   /** Share of the sky's light the surface receives (the interior is shaded from most of it). */
   env?: number;
+  /** Extra albedo gain on the diffuse copy, for a bright texture the sun turns cream. */
+  shade?: number;
 }
 // Hard surfaces are metalness 1 with a dark albedo: a dielectric reflects 4% of the sun whatever its
 // colour, and at the metered exposure that reads as cream, while a metal's reflectance is its albedo.
@@ -95,6 +99,7 @@ const FINISH: Record<string, IFinish> = {
     env: 0.75,
   },
   "Frame | scratched gunmetal PBR": {
+    shade: 0.5,
     color: [0.0035, 0.0038, 0.0049],
     rough: 2.4,
     metal: 1,
@@ -103,6 +108,7 @@ const FINISH: Record<string, IFinish> = {
   },
   // The side console shells and the screen step rings: dark gunmetal, same finish as the frame.
   "Side armor silver": {
+    shade: 0.5,
     color: [0.0035, 0.0038, 0.0049],
     rough: 2.4,
     metal: 1,
@@ -112,6 +118,7 @@ const FINISH: Record<string, IFinish> = {
   "Bezel edge gunmetal": { color: [0.011, 0.0115, 0.0125], rough: 1.6, metal: 1, env: 0.4 },
   // The side consoles: bare worn steel, a step lighter than the gunmetal frame.
   "Console worn steel": {
+    shade: 0.5,
     color: [0.011, 0.0115, 0.0125],
     rough: 1.6,
     metal: 1,
@@ -211,6 +218,14 @@ function glassMaterial(
   });
 }
 
+// Gain on the authored albedo of the diffuse interior (1 = as modelled in the .blend). Below 1 and
+// cool, so the warm desert sun on up-facing bevels and shelves reads as steel, not cream.
+const INTERIOR_GAIN = new Color(0.19, 0.26, 0.36);
+
+// Cabin dome light, standing in for the .blend's ~14 cabin lights (the engine has no per-material lights):
+// cool white, above the pilot's head, cut off at 1.5 m so nothing outside the cockpit bubble is lit.
+const CABIN_LIGHT = { colour: 0xdbe8ff, intensity: 1.6, distance: 1.5, rise: 1.5 };
+
 // ponytail: test-only URL seam, `?look=off` skips the glass and the combiner HUD for before/after captures.
 export const LOOK_OFF = /[?&]look=off\b/.test(String(globalThis.location?.search ?? ""));
 
@@ -222,7 +237,8 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
     const base = (material.userData.lookBase ??= {
       roughness: material.roughness,
       normal: material.normalScale.x,
-    }) as { roughness: number; normal: number };
+      color: material.color.clone(),
+    }) as { roughness: number; normal: number; color: Color };
     if ("specularIntensity" in material)
       (material as unknown as { specularIntensity: number }).specularIntensity = 0;
     if (f.color !== undefined) material.color.setRGB(...f.color);
@@ -265,19 +281,25 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
   // open-desert sun and sky hit every up-facing face of the closed cockpit; at the pilot's grazing
   // view Fresnel lifts any specular toward white whatever the albedo, which painted the yoke tops,
   // console tops and frame rims cream (proved in-game: these Lambert copies remove it). The finish
-  // tints are metal reflectances, so dark ones lift to a ~0.06 diffuse albedo; real albedos stay.
+  // tints are metal reflectances, so the copies take the authored albedo and normal map instead.
   const diffuse = new Map<MeshStandardMaterial, MeshLambertMaterial>();
   model.traverse((object) => {
     const mesh = object as Mesh;
     const m = mesh.material as MeshStandardMaterial | undefined;
-    if (m === undefined || FINISH[m.name] === undefined) return;
+    const f = m === undefined ? undefined : FINISH[m.name];
+    if (m === undefined || f === undefined) return;
     let l = diffuse.get(m);
     if (l === undefined) {
-      const top = Math.max(m.color.r, m.color.g, m.color.b, 1e-4);
+      const base = m.userData.lookBase as { color: Color; normal: number };
       l = new MeshLambertMaterial({
         name: `${m.name} (diffuse)`,
-        color: m.color.clone().multiplyScalar(Math.max(1, Math.min(20, 0.06 / top))),
+        color: base.color
+          .clone()
+          .multiply(INTERIOR_GAIN)
+          .multiplyScalar(f.shade ?? 1),
         map: m.map,
+        normalMap: m.normalMap,
+        normalScale: m.normalScale.clone().setScalar(base.normal),
         vertexColors: m.vertexColors,
       });
       diffuse.set(m, l);
@@ -287,6 +309,10 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
   });
 
   const [ex, ey, ez] = look.eye;
+  const cabin = new PointLight(CABIN_LIGHT.colour, CABIN_LIGHT.intensity, CABIN_LIGHT.distance, 2);
+  cabin.name = "cabin-light";
+  cabin.position.set(ex, ey + CABIN_LIGHT.rise, ez);
+  model.add(cabin);
   const canopy = look.canopy ?? {};
   // Default extent is the window opening seen from the eye (about +-25 deg across, -3 to +17 deg up),
   // so the glass never overdraws the headliner round the arch.
@@ -339,6 +365,7 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
     update() {},
     dispose() {
       shell.removeFromParent();
+      cabin.removeFromParent();
       for (const cover of covers) cover.removeFromParent();
       for (const item of own) item.dispose();
     },
