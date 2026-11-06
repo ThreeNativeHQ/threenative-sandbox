@@ -15,3 +15,5 @@ public/crew/
 artifacts/
 dist/
 .threenative/*.log
+
+.threenative/discovery-gate.json

@@ -44,6 +44,14 @@
         "./node_modules/@threenative/core/mcp/devtools.mjs"
       ],
       "enabled": true
+    },
+    "threenative-terrain": {
+      "type": "local",
+      "command": [
+        "node",
+        "./node_modules/@threenative/core/mcp/terrain.mjs"
+      ],
+      "enabled": true
     }
   }
 }
