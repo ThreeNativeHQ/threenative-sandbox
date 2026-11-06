@@ -13,11 +13,11 @@ import {
   LinearFilter,
   LinearMipmapLinearFilter,
   Mesh,
+  MeshLambertMaterial,
   MeshStandardMaterial,
   type Object3D,
   PlaneGeometry,
   RepeatWrapping,
-  type Scene,
   SphereGeometry,
 } from "three";
 
@@ -223,7 +223,6 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
       roughness: material.roughness,
       normal: material.normalScale.x,
     }) as { roughness: number; normal: number };
-    material.userData.ownFinish = true;
     if ("specularIntensity" in material)
       (material as unknown as { specularIntensity: number }).specularIntensity = 0;
     if (f.color !== undefined) material.color.setRGB(...f.color);
@@ -261,6 +260,30 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
       for (let c = 0; c < n; c += 1) out[i * n + c] = color.getComponent(i, c) * (c < 3 ? k : 1);
     }
     geometry.setAttribute("color", new Float32BufferAttribute(out, n));
+  });
+  // Diffuse-only interior. The engine has no per-material lights or environment occlusion, so the
+  // open-desert sun and sky hit every up-facing face of the closed cockpit; at the pilot's grazing
+  // view Fresnel lifts any specular toward white whatever the albedo, which painted the yoke tops,
+  // console tops and frame rims cream (proved in-game: these Lambert copies remove it). The finish
+  // tints are metal reflectances, so dark ones lift to a ~0.06 diffuse albedo; real albedos stay.
+  const diffuse = new Map<MeshStandardMaterial, MeshLambertMaterial>();
+  model.traverse((object) => {
+    const mesh = object as Mesh;
+    const m = mesh.material as MeshStandardMaterial | undefined;
+    if (m === undefined || FINISH[m.name] === undefined) return;
+    let l = diffuse.get(m);
+    if (l === undefined) {
+      const top = Math.max(m.color.r, m.color.g, m.color.b, 1e-4);
+      l = new MeshLambertMaterial({
+        name: `${m.name} (diffuse)`,
+        color: m.color.clone().multiplyScalar(Math.max(1, Math.min(20, 0.06 / top))),
+        map: m.map,
+        vertexColors: m.vertexColors,
+      });
+      diffuse.set(m, l);
+      own.push(l);
+    }
+    mesh.material = l;
   });
 
   const [ex, ey, ez] = look.eye;
@@ -312,25 +335,8 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
     return cover;
   });
 
-  let tuned = false;
   return {
-    update() {
-      if (tuned) return;
-      let top: Object3D = model;
-      while (top.parent !== null) top = top.parent;
-      const environment = (top as Scene).environment;
-      if (environment === null || environment === undefined) return;
-      tuned = true;
-      // Own the environment on the interior materials so `envMapIntensity` can dim it: the cockpit
-      // sits under a canopy and a dash, and lit like open ground it would be pale at grazing angles.
-      interior((material, f) => {
-        if (f.env === undefined) return;
-        material.envMap = environment;
-        material.envMapIntensity = f.env;
-        material.needsUpdate = true;
-        finish(material, f); // the swap can rebuild the material from its file values
-      });
-    },
+    update() {},
     dispose() {
       shell.removeFromParent();
       for (const cover of covers) cover.removeFromParent();

@@ -30,7 +30,9 @@ DROP = re.compile(
     r"^(HUD |Display line|Outside view backdrop|Yoke face inset|Heading tape|Canopy inner glazing|"
     r"Red fox insignia|Tactical fighter display|Crew communications display|Radar display|"
     r"Lower communications console|Lower weapons console|Crew portrait|Radar contact|Signal bar|"
-    r"Comms indicator|Status gauge)"
+    r"Comms indicator|Status gauge|"
+    # The render's wing roots run 8 units forward of the screens and fill both side windows in game.
+    r"Lateral blue instrument housing)"
 )
 STICK = re.compile(r"^(Ergonomic grip|Grip armored cap|Grip cap inset|Grip cap screw|Trigger black surround)")
 TRIGGER = re.compile(r"^Trigger luminous red")

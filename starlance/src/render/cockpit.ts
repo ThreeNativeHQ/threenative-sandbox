@@ -32,7 +32,9 @@ const BOOST_SPAN = 18; // speed above cruise at full boost
 const BRAKE_SPAN = 12; // speed below cruise at full brake
 
 // Control travel, radians (and glb units for the yoke's push).
-const YOKE_MAX = 0.26; // rad, 15 deg of roll either way, about the handle's foot
+const YOKE_MAX = 0.2; // rad, 11.5 deg of roll either way, about the handle's foot
+// glb units the yoke sits below the model's pose: a rolled grip's cap stays under the centre screen.
+const YOKE_DROP = 0.25;
 const YOKE_PITCH = 0.2; // rad, 11 deg: the head stays in frame at full pull
 const YOKE_LEAN = 0.5; // share of YOKE_MAX a barrel roll adds on top of the stick
 const PEDAL_TRAVEL = 0.28;
@@ -107,6 +109,7 @@ export function createCockpit(
     return found;
   };
   const yoke = part("yoke");
+  yoke.position.y -= YOKE_DROP;
   const pedalL = part("pedal_L");
   const pedalR = part("pedal_R");
   const throttle = part("throttle");
