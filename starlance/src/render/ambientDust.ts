@@ -106,13 +106,13 @@ export const GROUND_DUST = {
   /** Pool size shared by the plumes and the wind sheet. */
   pool: 900,
   /** Plume puffs per second at full strength, over both wingtips together. */
-  plumeRate: 420,
+  plumeRate: 0,
   /** Altitude over the ground (m) where the plume is full and where it stops. */
   plumeAltitude: [6, 30] as const,
   /** Wingtip spacing of the two plumes (m). */
   wingSpan: 1.9,
   /** Wind sheet puffs per second (low drifting dust). */
-  windRate: 26,
+  windRate: 0,
   /** Dust devils: how many, how tall (m) and the spacing of their anchors along the course (m). */
   devils: 2,
   devilHeight: 46,

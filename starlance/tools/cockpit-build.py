@@ -12,7 +12,6 @@ parts per material; and keeps the moving parts as named nodes that src/render/co
 stick_L/R (+ trigger_L/R), yoke, pedal_L/R, throttle, lamp_L0..3 / lamp_R0..3.
 """
 
-import math
 import os
 import re
 import sys
@@ -25,21 +24,28 @@ from mathutils import Vector
 OUT = sys.argv[-1]
 
 DROP = re.compile(
-    r"^(HUD |Yoke face inset|Heading tape|Canopy inner glazing|"
+    r"^(HUD |Display line|Outside view backdrop|Yoke face inset|Heading tape|Canopy inner glazing|"
     r"Red fox insignia|Tactical fighter display|Crew communications display|Radar display|"
     r"Lower communications console|Lower weapons console|Crew portrait|Radar contact|Signal bar|"
     r"Comms indicator|Status gauge)"
 )
 STICK = re.compile(r"^(Ergonomic grip|Grip armored cap|Grip cap inset|Grip cap screw|Trigger black surround)")
 TRIGGER = re.compile(r"^Trigger luminous red")
-YOKE = re.compile(r"^(Yoke center shell|Yoke metal shaft|Yoke arm|Yoke pivot|Yoke crossbar|Yoke centerpiece|Yoke fox stencil)")
+YOKE = re.compile(r"^(Yoke center shell|Yoke metal shaft|Yoke arm|Yoke pivot|Yoke crossbar|Yoke centerpiece|Yoke Starlance emblem)")
 PEDAL = re.compile(r"^(Pilot pedal|Pedal grip)")
 LAMP = re.compile(r"^Switch lens")
 
-# The canopy window's outline (the glazing sheet is dropped below), in Blender x, z at y = 0.1.
-_glass = bpy.data.objects["Canopy inner glazing"]
-WINDOW = [(v.co.x, v.co.z) for v in _glass.data.vertices]
-WINDOW_Y = 0.42  # the back of the canopy frame
+# The yoke rig (yoke_pitch > yoke_roll > hub, arms, grips) is keyframed for the Blender preview: ship
+# its rest pose only; the game drives the one "yoke" node itself.
+bpy.context.scene.frame_set(1)
+for o in bpy.data.objects:
+    o.animation_data_clear()
+YOKE_FOOT = tuple(bpy.data.objects["yoke_pitch"].matrix_world.translation)
+for o in bpy.data.objects:  # step 1 deletes the rig's empties: keep their children where they stand
+    if o.parent is not None:
+        world = o.matrix_world.copy()
+        o.parent = None
+        o.matrix_world = world
 # 1. drop what must not ship -----------------------------------------------------------------
 for o in list(bpy.data.objects):
     if o.type != "MESH" or o.hide_render or DROP.match(o.name):
@@ -53,6 +59,54 @@ for o in list(bpy.data.objects):
         ):
             bpy.ops.object.convert(target="MESH")
 
+
+# glTF carries image maps, not node graphs: the .blend's grime, AO and hue nodes would export as
+# nothing. Wire each PBR map straight into its socket (cockpitLook.ts owns the tint and the wear) and
+# drop links the exporter cannot follow. The hull paint keeps the name cockpitLook.ts finishes.
+RENAME = {"Cobalt chipped paint": "Cobalt painted armor", "Console worn steel (shell)": "Console worn steel"}
+for o in bpy.data.objects:
+    for slot in o.material_slots:
+        if slot.material and slot.material.name in RENAME:
+            slot.material = bpy.data.materials.get(RENAME[slot.material.name]) or slot.material
+for name, new in RENAME.items():
+    m = bpy.data.materials.get(name)
+    if m is not None and new not in bpy.data.materials:
+        m.name = new
+SOCKET = {"_Color": "Base Color", "_Roughness": "Roughness", "_Metalness": "Metallic"}
+for m in bpy.data.materials:
+    if not m.use_nodes:
+        continue
+    nt = m.node_tree
+    bsdf = next((n for n in nt.nodes if n.type == "BSDF_PRINCIPLED"), None)
+    if bsdf is None:
+        continue
+    for name in ("Base Color", "Roughness", "Metallic", "Normal", "Alpha", "Emission Color"):
+        sock = bsdf.inputs[name]
+        if sock.is_linked and sock.links[0].from_node.type not in ("TEX_IMAGE", "NORMAL_MAP"):
+            nt.links.remove(sock.links[0])
+    for n in nt.nodes:
+        if n.type == "TEX_IMAGE" and n.image:
+            for tag, name in SOCKET.items():
+                if tag in n.image.name and not bsdf.inputs[name].is_linked:
+                    nt.links.new(n.outputs["Color"], bsdf.inputs[name])
+        if n.type == "NORMAL_MAP" and not bsdf.inputs["Normal"].is_linked:
+            nt.links.new(n.outputs["Normal"], bsdf.inputs["Normal"])
+    if m.name == "Cobalt painted armor" and bsdf.inputs["Base Color"].is_linked:
+        nt.links.remove(bsdf.inputs["Base Color"].links[0])  # the scan is re-hued in Blender: ship the tint only
+        bsdf.inputs["Base Color"].default_value = (0.04, 0.13, 0.62, 1)
+
+# Box-project UVs (1 unit = 1.25 m) onto parts modelled without any: the hull pods and console shells.
+for o in bpy.data.objects:
+    if o.type == "MESH" and not o.data.uv_layers:
+        me = o.data
+        uv = me.uv_layers.new(name="UVMap")
+        for poly in me.polygons:
+            n = poly.normal
+            ax = max(range(3), key=lambda i: abs(n[i]))
+            a, b = [i for i in range(3) if i != ax]
+            for li in poly.loop_indices:
+                co = o.matrix_world @ me.vertices[me.loops[li].vertex_index].co
+                uv.data[li].uv = (co[a] * 0.8, co[b] * 0.8)
 
 # One UV layer, one name: join() keeps the first object's layer and drops the rest into other layers,
 # which would leave the joined faces with empty UVs (a stipple through every normal map).
@@ -84,9 +138,7 @@ for o in list(bpy.data.objects):
         continue
     if TRIGGER.match(n):
         key = "trigger_" + side(o)
-    elif STICK.match(n):
-        key = "stick_" + side(o)
-    elif YOKE.match(n):
+    elif STICK.match(n) or YOKE.match(n):
         key = "yoke"
     elif PEDAL.match(n):
         key = "pedal_" + side(o)
@@ -161,11 +213,9 @@ def adopt(o, parent):
 
 
 pivots = {
-    "stick_L": (-1.0, -2.2, -0.45),
-    "stick_R": (1.0, -2.2, -0.45),
-    "yoke": (0.0, -1.5, -0.5),  # the base of the shaft, so the handle leans about its foot
-    "pedal_L": (-0.82, -1.24, -0.85),
-    "pedal_R": (0.82, -1.24, -0.85),
+    "yoke": YOKE_FOOT,  # the column foot, so the handle leans about it
+    "pedal_L": (-0.82, -1.24, -0.22),
+    "pedal_R": (0.82, -1.24, -0.22),
 }
 nodes = {}
 for name, loc in pivots.items():
@@ -175,14 +225,7 @@ for name, loc in pivots.items():
 for s in "LR":
     for o in joined.get("trigger_" + s, []):
         o.name = "trigger_" + s
-        adopt(o, nodes["stick_" + s])
-# Shorter and a little thicker, so a grip clears the lower screens (it sits nearer the eye than they do,
-# so it projects outward over them): the cockpit's source grips are 1.3 m tall.
-for s in "LR":
-    nodes["stick_" + s].scale = (1.0, 1.0, 0.6)
-# The yoke is one rigid group (hub, two grips, column) on one pivot at the column foot, lifted so a stub
-# of the column shows under the head at the bottom edge.
-nodes["yoke"].location.z += 0.2
+        adopt(o, nodes["yoke"])
 
 
 # 6. new parts: throttle slider beside the stores screen, Starlance marks ---------------------------------
@@ -202,7 +245,7 @@ def box(name, size, centre, mat, parent=None):
     return o
 
 
-TH = (-1.68, -0.3, -0.05)  # a vertical throttle slot beside the stores screen; the knob slides up to boost
+TH = (-1.68, -0.3, 0.55)  # a vertical throttle slot beside the stores screen; the knob slides up to boost
 throttle = empty("throttle", TH)
 box("throttle_slot", (0.1, 0.04, 0.56), TH, "Soft black rubber")
 box("throttle_rail", (0.02, 0.05, 0.5), (TH[0], TH[1] - 0.005, TH[2]), "Edge steel")
@@ -210,69 +253,8 @@ box("throttle_knob", (0.17, 0.08, 0.07), (TH[0], TH[1] - 0.05, TH[2]), "Edge ste
 box("throttle_grip", (0.12, 0.09, 0.025), (TH[0], TH[1] - 0.052, TH[2]), "Amber switch lights", throttle)
 
 
-def canopy_plate():
-    """The roof and cheek panels round the canopy window. The source scene frames the arch tight; a
-    wider lens past it looked out over its edges, so this solid sheet (hole = the window) closes them."""
-    cx = sum(p[0] for p in WINDOW) / len(WINDOW)
-    cz = sum(p[1] for p in WINDOW) / len(WINDOW)
-    # Convex window, ordered by angle round its centre.
-    ring = sorted(WINDOW, key=lambda p: math.atan2(p[1] - cz, p[0] - cx))
-    X0, X1, Z0, Z1 = -14.0, 14.0, -1.0, 14.0
-    outer = []
-    for x, z in ring:  # push each window vertex radially out to the big rectangle
-        dx, dz = x - cx, z - cz
-        k = min(
-            ((X1 if dx > 0 else X0) - cx) / dx if dx else 1e9,
-            ((Z1 if dz > 0 else Z0) - cz) / dz if dz else 1e9,
-        )
-        outer.append((cx + dx * k, cz + dz * k))
-    bm = bmesh.new()
-    inner_v = [bm.verts.new((x, WINDOW_Y, z)) for x, z in ring]
-    outer_v = [bm.verts.new((x, WINDOW_Y, z)) for x, z in outer]
-    corners = {c: bm.verts.new((c[0], WINDOW_Y, c[1])) for c in ((X0, Z0), (X1, Z0), (X1, Z1), (X0, Z1))}
-    n = len(ring)
-    for i in range(n):
-        j = (i + 1) % n
-        a, b = outer[i], outer[j]
-        quad = [inner_v[i], inner_v[j], outer_v[j], outer_v[i]]
-        bm.faces.new(quad)
-        # Consecutive outer points on different rectangle edges leave a corner to fill.
-        for (cxx, czz), cv in corners.items():
-            if all(abs(p[0] - cxx) < 1e-6 or abs(p[1] - czz) < 1e-6 for p in (a, b)) and a[0] != b[0] and a[1] != b[1]:
-                bm.faces.new([outer_v[i], outer_v[j], cv])
-    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
-    for f in bm.faces:  # face the pilot (-Y), double-sided anyway
-        if f.normal.y > 0:
-            f.normal_flip()
-    me = bpy.data.meshes.new("canopy_plate")
-    bm.to_mesh(me)
-    bm.free()
-    lining = bpy.data.materials.new("Cockpit headliner")
-    lining.use_nodes = True
-    bsdf = next(n for n in lining.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
-    bsdf.inputs["Base Color"].default_value = (0.004, 0.004, 0.005, 1)
-    bsdf.inputs["Roughness"].default_value = 1.0
-    bsdf.inputs["Metallic"].default_value = 0.0
-    bsdf.inputs["Specular IOR Level"].default_value = 0.0
-    me.materials.append(lining)
-    o = bpy.data.objects.new("static_canopy_plate", me)
-    bpy.context.scene.collection.objects.link(o)
-    uv = me.uv_layers.new(name="UVMap")
-    for loop in me.loops:
-        v = me.vertices[loop.vertex_index].co
-        uv.data[loop.index].uv = (v.x * 0.25, v.z * 0.25)
-    return o
-
-
-canopy_plate()
-
-
 BRAND_IMAGES = {"emblem-alpha", "wordmark-alpha", "spear-alpha.png"}  # keyed marks (alpha) in the .blend
 
-# Red trigger caps on the two handgrips (the arms), in the yoke group.
-_red = bpy.data.materials.get("Red switch") or bpy.data.materials.new("Red switch")
-for sx in (-1, 1):
-    box("yoke_cap_" + ("L" if sx < 0 else "R"), (0.13, 0.07, 0.13), (sx * 0.66, -2.03, 0.72), _red.name, nodes["yoke"])
 
 # 6b. ambient occlusion into vertex colours (COLOR_0 multiplies the albedo): every seam, bevel and
 # corner reads dark, and the interior sits under its canopy. Baked at the rest pose.
@@ -302,8 +284,6 @@ for o in meshes:
     attr.data.foreach_get("color", buf)
     buf = buf.reshape(-1, 4)
     buf[:, :3] = AO_FLOOR + (1 - AO_FLOOR) * buf[:, :3]
-    if o.name.startswith("static_canopy_plate"):
-        buf[:, :3] = 0.15  # a lining behind the frame: never lit by the sky
     attr.data.foreach_set("color", buf.reshape(-1))
 print("AO baked on", len(meshes), "meshes")
 

@@ -506,7 +506,14 @@ export function buildStage(rail: Rail, t: IStageTextures): IStage {
   archs.computeBoundingBox();
   root.add(archs);
 
-  for (const b of rockBatches) root.add(new Mesh(b.geo, b.mesa ? rockMesa : rockSpire));
+  // Each baked rock mesh is unique geometry, so the projection can never batch it: renderOrder 1 files
+  // it as an exact-lane draw instead of counting it toward the "unique geometry" decline warning.
+  const solid = (geo: BufferGeometry, mat: MeshStandardNodeMaterial): Mesh => {
+    const m = new Mesh(geo, mat);
+    m.renderOrder = 1;
+    return m;
+  };
+  for (const b of rockBatches) root.add(solid(b.geo, b.mesa ? rockMesa : rockSpire));
 
   // ---- canyon walls ---------------------------------------------------------------------------
   // Ledged, eroded cliffs from rocks.ts (strata colours in the vertex colour, world-space grain).
@@ -530,7 +537,7 @@ export function buildStage(rail: Rail, t: IStageTextures): IStage {
         env,
       });
     }
-    for (const wall of canyonWallChunks(stations, 77)) root.add(new Mesh(wall, rockSpire));
+    for (const wall of canyonWallChunks(stations, 77)) root.add(solid(wall, rockSpire));
   }
 
   // ---- ship shadow ----------------------------------------------------------------------------

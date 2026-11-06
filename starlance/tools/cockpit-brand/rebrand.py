@@ -48,15 +48,20 @@ def soft_text(img, xy, text, font, fill=(206, 222, 236)):
     img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(0.9)))
 
 
-def ship_layer(size, color):
+def ship_layer(size, color, wire=False):
     s = Image.open(ship_png).convert("RGBA")
     s = s.crop(s.getbbox())
     s.thumbnail(size, Image.LANCZOS)
     a = np.asarray(s).astype(np.float32)
     lum = a[..., :3].mean(2) / 255.0
     out = np.zeros_like(a)
-    out[..., :3] = np.array(color, np.float32) * (0.55 + 0.6 * lum[..., None])
-    out[..., 3] = a[..., 3]
+    if wire:  # bright edge lines over a dim see-through fill, like a hologram schematic
+        line = lum > 0.6
+        out[..., :3] = np.array(color, np.float32) * np.where(line, 1.15, 0.5)[..., None]
+        out[..., 3] = a[..., 3] * np.where(line, 1.0, 0.28)
+    else:
+        out[..., :3] = np.array(color, np.float32) * (0.55 + 0.6 * lum[..., None])
+        out[..., 3] = a[..., 3]
     s = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
     g = Image.new("RGBA", s.size)
     g.alpha_composite(s.filter(ImageFilter.GaussianBlur(6)))
@@ -74,7 +79,7 @@ def rounded(w, h, r):
 c = inpaint(Image.open(f"{SRC}/center-clean.png"), [(10, 25, 320, 145), (100, 80, 680, 445)], thr=20, grow=13).convert("RGBA")
 glow_text(c, (22, 18), "LANCER 04", ImageFont.truetype(RAJ, 66), (226, 242, 255))
 glow_text(c, (24, 92), "STARLANCE", ImageFont.truetype(RAJ, 44), (210, 232, 250))
-sh = ship_layer((560, 330), (110, 205, 255))
+sh = ship_layer((560, 330), (110, 205, 255), wire=True)
 c.alpha_composite(sh, (390 - sh.width // 2, 270 - sh.height // 2))
 c.convert("RGB").save(f"{HERE}/sl-center.png")
 
