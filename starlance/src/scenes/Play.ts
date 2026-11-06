@@ -5,11 +5,14 @@ import {
   type SceneFrame,
   getPlatform,
   isMobile,
+  loadAll,
 } from "@threenative/core";
-import type { Object3D, PerspectiveCamera, Texture } from "three";
+import type { IPhysicsContext } from "@threenative/physics";
+import type { BufferAttribute, Object3D, PerspectiveCamera, Texture } from "three";
 import { Enemies } from "../entities/Enemies.js";
 import { ARENA_RADIUS, Rail } from "../entities/Rail.js";
 import { Ship } from "../entities/Ship.js";
+import { Towers } from "../entities/Towers.js";
 import { Weapons } from "../entities/Weapons.js";
 import { Wingmen } from "../entities/Wingmen.js";
 import { type IEnvironmentSample, sampleEnvironment } from "../render/environmentSampling.js";
@@ -24,11 +27,11 @@ import { setupPost } from "../render/postprocessing.js";
 import { isWebGLFallbackRenderer, materialLightingEnabled } from "../render/quality.js";
 import { RailCamera } from "../render/railCamera.js";
 import { SKY_OPTIONS, setupSky } from "../render/sky.js";
-import { type IStageTextures, buildStage } from "../render/stage.js";
+import { type IStage, type IStageTextures, buildStage } from "../render/stage.js";
 import type { GameState, Phase } from "../state.js";
-import type { SfxName, World } from "../world.js";
+import type { IObstacle, SfxName, World } from "../world.js";
 
-type GameCtx = ICtx<GameState>;
+type GameCtx = ICtx<GameState, IPhysicsContext>;
 
 const SFX: readonly SfxName[] = [
   "laser",
@@ -67,12 +70,40 @@ const INITIAL: GameState = {
   skipTo: 0,
 };
 
-export class Play extends Scene<GameState> {
+/** Boot progress 0..1 for the web launch cover in `main.ts`; native ignores it. */
+export const bootProgress = { report: (_fraction: number): void => undefined };
+
+/**
+ * The stage is ~9 s of rock geometry, the same every run: it is built once per page and a
+ * restart reuses it. A tower break edits it in place, so the pristine tower state is kept beside it.
+ */
+let built:
+  | {
+      stage: IStage;
+      obstacles: IObstacle[];
+      hp: number[];
+      index: Map<BufferAttribute, ArrayLike<number>>;
+    }
+  | undefined;
+
+function restoreTowers(b: NonNullable<typeof built>): void {
+  if (!b.stage.towers.some((t) => t.broken)) return;
+  b.stage.obstacles.splice(0, Infinity, ...b.obstacles);
+  b.stage.towers.forEach((t, i) => {
+    t.hp = b.hp[i] as number;
+    t.broken = false;
+  });
+  for (const [index, pristine] of b.index) {
+    (index.array as Uint32Array).set(pristine);
+    index.needsUpdate = true;
+  }
+}
+
+export class Play extends Scene<GameState, IPhysicsContext> {
   static override readonly initialState: GameState = INITIAL;
 
   #model: Object3D | undefined;
   #sky: Texture | undefined;
-  #textures: IStageTextures | undefined;
   #sounds = new Map<SfxName, AudioBuffer>();
   #environmentSample: IEnvironmentSample | undefined;
   #materialLighting: ReturnType<typeof createMaterialLighting> | undefined;
@@ -80,16 +111,27 @@ export class Play extends Scene<GameState> {
   #dispose: (() => void)[] = [];
 
   override async load(ctx: GameCtx): Promise<void> {
+    // Yield every ~50 ms so the launch cover repaints its percentage.
+    let yielded = performance.now();
+    const step = async (fraction: number): Promise<void> => {
+      bootProgress.report(fraction);
+      if (performance.now() - yielded < 50) return;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      yielded = performance.now();
+    };
+    await step(0.02);
     const keys = Object.keys(TEXTURES) as (keyof typeof TEXTURES)[];
     const [model, sky, textures, sounds] = await Promise.all([
       ctx.assets.model<{ scene: Object3D }>("starfighter.glb"),
       SKY_OPTIONS.sky === "photo" ? ctx.assets.texture("sky.jpg") : undefined,
-      Promise.all(keys.map((key) => ctx.assets.texture(`textures/${TEXTURES[key]}_2k.jpg`))),
+      loadAll(keys, (key) => ctx.assets.texture(`textures/${TEXTURES[key]}_2k.jpg`), {
+        onProgress: ({ settled, total }) => bootProgress.report(0.02 + (0.14 * settled) / total),
+      }),
       Promise.all(SFX.map((name) => ctx.assets.audio(`sfx/${name}.wav`))),
     ]);
     this.#model = model.scene;
     this.#sky = sky;
-    this.#textures = Object.fromEntries(
+    const stageTextures = Object.fromEntries(
       keys.map((key, i) => [key, textures[i]]),
     ) as unknown as IStageTextures;
     SFX.forEach((name, i) => this.#sounds.set(name, sounds[i] as AudioBuffer));
@@ -99,6 +141,16 @@ export class Play extends Scene<GameState> {
       ctx.scene,
       this.#environment(ctx),
     );
+    await step(0.18);
+    if (built === undefined) {
+      const stage = await buildStage(new Rail(), stageTextures, (k) => step(0.18 + 0.8 * k));
+      const index = new Map<BufferAttribute, ArrayLike<number>>();
+      for (const t of stage.towers) {
+        const attribute = t.geo?.getIndex();
+        if (attribute && !index.has(attribute)) index.set(attribute, attribute.array.slice());
+      }
+      built = { stage, obstacles: [...stage.obstacles], hp: stage.towers.map((t) => t.hp), index };
+    } else restoreTowers(built);
   }
 
   #environment(ctx: GameCtx) {
@@ -111,8 +163,8 @@ export class Play extends Scene<GameState> {
     };
   }
 
-  override enter(ctx: GameCtx): SceneFrame<GameState> {
-    if (this.#model === undefined || this.#textures === undefined)
+  override enter(ctx: GameCtx): SceneFrame<GameState, IPhysicsContext> {
+    if (this.#model === undefined || built === undefined)
       throw new Error("Play.enter ran before load() finished.");
     const camera = ctx.camera as PerspectiveCamera;
     setupSky(ctx.scene, this.#sky, ctx.renderer.softwareAdapter !== undefined);
@@ -134,7 +186,7 @@ export class Play extends Scene<GameState> {
     ctx.add(camera);
 
     const rail = new Rail();
-    const stage = buildStage(rail, this.#textures);
+    const { stage } = built;
     ctx.add(stage.root);
     const ship = new Ship(this.#model.clone());
     ctx.add(ship.mesh);
@@ -160,6 +212,7 @@ export class Play extends Scene<GameState> {
       weapons: new Weapons(ctx),
       enemies: new Enemies(ctx),
       wingmen: new Wingmen(ctx, this.#model),
+      towers: new Towers(ctx, stage),
       stage,
       fx,
       sfx: (name, at) => {
@@ -186,6 +239,7 @@ export class Play extends Scene<GameState> {
     ctx.entities.add("weapons", w.weapons);
     ctx.entities.add("enemies", w.enemies);
     ctx.entities.add("wingmen", w.wingmen);
+    ctx.entities.add("towers", w.towers);
     ctx.entities.add("camera", w.cameraRig);
 
     this.#materialLighting = ctx.entities.add(
@@ -210,6 +264,7 @@ export class Play extends Scene<GameState> {
     let skipped = false;
     return (frameCtx, dt) => {
       loading.update();
+      bootProgress.report(1);
       if (!cockpitRequested) {
         cockpitRequested = true;
         void Promise.all([
@@ -217,11 +272,14 @@ export class Play extends Scene<GameState> {
           Promise.all(CREW_TEXTURES.map((path) => frameCtx.assets.texture(path))),
         ]).then(([model, crew]) => {
           if (!sceneLive) return;
-          const cards = Object.fromEntries(CREW_TEXTURES.map((path, i) => [path, crew[i] as Texture]));
+          const cards = Object.fromEntries(
+            CREW_TEXTURES.map((path, i) => [path, crew[i] as Texture]),
+          );
           cockpit = createCockpit(model.scene, camera, cards);
           w.cameraRig.cockpitReady = true;
         });
       }
+      w.towers.update(dt); // debris settles on the end screens too
       const state = frameCtx.state.getState();
       if (state.phase === "clear" || state.phase === "down") {
         w.cameraRig.update(w, dt);
@@ -241,6 +299,11 @@ export class Play extends Scene<GameState> {
       w.wingmen.update(w, dt);
       fx.update(dt);
       w.cameraRig.update(w, dt);
+      /*TEMP*/ if (/towerCam/.test(query) && w.towers.broken > 0) {
+        const b = w.towers.lastBreak;
+        camera.position.set(b.x + 70, b.y + 16, b.z + 25);
+        camera.lookAt(b.x, b.y + 16, b.z - 20);
+      }
 
       let phase: Phase = state.phase;
       if (phase === "flying" && rail.done) {

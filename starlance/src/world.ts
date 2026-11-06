@@ -1,10 +1,12 @@
 // The shared contract every lane reads. Each module gets `update(w, dt)` with this object, so a
 // module reaches what it needs without the scene threading arguments through.
 import type { ICtx } from "@threenative/core";
+import type { IPhysicsContext } from "@threenative/physics";
 import type { PerspectiveCamera, Vector3 } from "three";
 import type { Enemies } from "./entities/Enemies.js";
 import type { Rail } from "./entities/Rail.js";
 import type { Ship } from "./entities/Ship.js";
+import type { Towers } from "./entities/Towers.js";
 import type { Weapons } from "./entities/Weapons.js";
 import type { Wingmen } from "./entities/Wingmen.js";
 import type { IFx } from "./render/fx.js";
@@ -12,7 +14,7 @@ import type { RailCamera } from "./render/railCamera.js";
 import type { IStage } from "./render/stage.js";
 import type { GameState } from "./state.js";
 
-export type GameCtx = ICtx<GameState>;
+export type GameCtx = ICtx<GameState, IPhysicsContext>;
 
 export type SfxName =
   | "laser"
@@ -51,6 +53,7 @@ export interface World {
   readonly weapons: Weapons;
   readonly enemies: Enemies;
   readonly wingmen: Wingmen;
+  readonly towers: Towers;
   readonly stage: IStage;
   readonly fx: IFx;
   readonly sfx: (name: SfxName, at?: Vector3) => void;

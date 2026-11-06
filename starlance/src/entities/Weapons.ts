@@ -1,7 +1,7 @@
 import { type Object3D, Vector3 } from "three";
 import { type BoltKind, boltMesh } from "../render/enemyLook.js";
 import { type IShotFx, createShotFx } from "../render/shotFx.js";
-import type { GameCtx, ITarget, World } from "../world.js";
+import type { GameCtx, IObstacle, ITarget, World } from "../world.js";
 
 // Numbers: cards laser-fire (fox_play.c:3044, 3315-3319; fox_beam.c:2356), charge-lock-on
 // (fox_play.c:3192-3243), lock-on-tracking (fox_beam.c:1759, 2226-2242), smart-bomb
@@ -351,12 +351,14 @@ export class Weapons {
       }
     }
     let hitObstacle = false;
+    let hitSphere: IObstacle | null = null;
     for (const o of w.stage.obstacles) {
       const hit = segmentSphere(_p0, _p1, o.center, o.radius + b.radius);
       if (hit < tHit) {
         tHit = hit;
         hitTarget = null;
         hitObstacle = true;
+        hitSphere = o;
       }
     }
     const ground = w.stage.groundHeight(_p1.x, _p1.z);
@@ -364,6 +366,7 @@ export class Weapons {
       tHit = Math.min(tHit, (_p0.y - ground) / Math.max(1e-6, _p0.y - _p1.y));
       hitTarget = null;
       hitObstacle = true;
+      hitSphere = null;
     }
 
     const arrived =
@@ -376,7 +379,10 @@ export class Weapons {
         if (hitTarget !== null) {
           this.#fx.hitEnemy(_at, b.dir);
           if (hitTarget.damage(b.damage)) this.kills++;
-        } else if (hitObstacle) this.#fx.hitGround(_at, b.dir);
+        } else if (hitObstacle) {
+          this.#fx.hitGround(_at, b.dir);
+          if (hitSphere !== null) w.towers.hit(w, hitSphere, b.damage, _at, b.dir);
+        }
         this.#retire(b);
       }
       return;
@@ -423,6 +429,7 @@ export class Weapons {
   }
 
   #blast(w: World, at: Vector3, radius: number, damage: number): void {
+    w.towers.blast(w, at, radius, damage);
     // Copy: a kill may remove the target from the live list mid-loop.
     for (const t of w.enemies.targets.slice()) {
       if (!t.alive) continue;

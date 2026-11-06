@@ -348,6 +348,8 @@ export function hoodooGeometry(
     reach.push(r);
   }
   out.userData.reach = reach;
+  // The trunk's triangles come first in the merged index; the scree after them stays when a tower breaks.
+  out.userData.towerIndices = tower.getIndex()?.count ?? 0;
   return out;
 }
 

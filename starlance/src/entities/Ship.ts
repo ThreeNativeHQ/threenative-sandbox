@@ -18,13 +18,19 @@ import {
   Vector3,
 } from "three";
 import { normaliseToMetres, softCircleDataTexture } from "@threenative/core";
-import { railFrame } from "./Rail.js";
+import { SECTION, railFrame } from "./Rail.js";
 import type { World } from "../world.js";
 
 /** Cruise speed along the course, m/s (game-owned; no card). */
 export const CRUISE_SPEED = 30;
 /** Corridor half extents around the path, metres (rails-path-progress, fox_play.c:4468-4470). */
 export const CORRIDOR = { halfWidth: 14, headroom: 13.6, floorOverGround: 0.8 } as const;
+/**
+ * Game-owned: half width on open ground. Towers stand inside the course, and at 14 m a tower's
+ * hit spheres covered the whole corridor at 12 stations (`openHalfWidth` 20 m left none).
+ * The canyon walls' inner face is 13-29 m out, so the corridor narrows to `halfWidth` as they rise.
+ */
+const OPEN_HALF_WIDTH = 22;
 export const SHIELD_START = 255;
 
 const D2R = Math.PI / 180;
@@ -34,12 +40,12 @@ const STICK_SCALE = 0.75;
 // Mouse aim: the cursor's offset from screen centre is the stick, full at 55% of the half-screen.
 const MOUSE_DEAD = 0.06;
 const MOUSE_FULL = 0.55;
-// Airframe inertia, game-owned: the stick the ship flies eases toward the input (~0.25 s lag).
-const STICK_INERTIA = 0.12;
+// Airframe inertia, game-owned: the stick the ship flies eases toward the input (~0.1 s lag).
+const STICK_INERTIA = 0.3; // ~0.1 s lag: 0.12 took 0.57 s to answer and slid 4.7 m after release
 const TARGET_SCALE = 0.68;
 const YAW_MAX = 70 * STICK_SCALE * TARGET_SCALE * D2R;
 const TURN_RATE = 69 * D2R; // base rate, rad/s
-const RAIL_TURN = 1.4; // rails widen turns (fox_play.c:3928)
+const RAIL_TURN = 2.5; // rails widen turns (fox_play.c:3928 says 1.4; 2.5 answers in 0.2 s)
 const ROLL_STICK = 0.6 * 70 * D2R; // roll target = stick x * 0.6 (fox_play.c:3669)
 // banking (fox_play.c:3368-3395)
 const BANK_MAX = 90 * D2R;
@@ -143,6 +149,8 @@ export class Ship {
   goldRings = 0;
   /** Rail mode: true within 2 m of the corridor edge. */
   edgeWarning = false;
+  /** Corridor half width at the ship's place on the course, metres. */
+  halfWidth: number = OPEN_HALF_WIDTH;
 
   readonly #fx: ShipFx;
   #fxAdded = false;
@@ -174,6 +182,7 @@ export class Ship {
   #flown = new Vector2(); // stick after inertia
   #raw = new Vector2(); // stick before inertia: gestures read this
   #mouseLive = false;
+  #lastPointer = new Vector2();
   #autoBoost = false;
 
   constructor(model: Object3D) {
@@ -254,9 +263,13 @@ export class Ship {
   #readStick(w: World, dt: number): Vector2 {
     const input = w.ctx.input;
     const move = input.vector("move");
-    const mouse = this.#mouseStick(w);
-    let x = move.x + input.axis("stickX") + mouse.x;
-    let y = move.y - input.axis("stickY") + mouse.y; // gamepad Y axis is +down
+    let x = move.x + input.axis("stickX");
+    let y = move.y - input.axis("stickY"); // gamepad Y axis is +down
+    // Last device wins: keys or a gamepad mute the mouse until the cursor moves again, so a
+    // parked cursor never fights the keyboard.
+    const mouse = this.#mouseStick(w, x !== 0 || y !== 0);
+    x += mouse.x;
+    y += mouse.y;
     if (w.autopilot) {
       this.#autopilot(w);
       x = this.#autoStick.x;
@@ -271,11 +284,14 @@ export class Ship {
     return _stick.copy(this.#flown.lerp(this.#raw.set(x, y), smooth(STICK_INERTIA, dt)));
   }
 
-  /** Cursor offset from screen centre as a stick, after the mouse first moves (+y up). */
-  #mouseStick(w: World): Vector2 {
+  /** Cursor offset from screen centre as a stick, while the mouse is the last device moved (+y up). */
+  #mouseStick(w: World, otherInput: boolean): Vector2 {
     const p = w.ctx.input.raw.pointer.position;
     const { width, height } = w.ctx.viewport.size;
-    this.#mouseLive ||= p.x !== 0 || p.y !== 0;
+    const moved = p.x !== this.#lastPointer.x || p.y !== this.#lastPointer.y;
+    this.#lastPointer.copy(p);
+    if (otherInput) this.#mouseLive = false;
+    else if (moved) this.#mouseLive = true;
     if (!this.#mouseLive) return _mouse.set(0, 0);
     _mouse.set((p.x / width) * 2 - 1, 1 - (p.y / height) * 2);
     const len = _mouse.length();
@@ -418,10 +434,16 @@ export class Ship {
     const f = w.rail.frame(w.rail.s, this.#frame);
     const floor =
       w.stage.groundHeight(f.position.x, f.position.z) + CORRIDOR.floorOverGround - f.position.y;
-    this.offset.x = MathUtils.clamp(this.offset.x, -CORRIDOR.halfWidth, CORRIDOR.halfWidth);
+    const s = w.rail.s;
+    const walls =
+      // Fully narrow before the walls start rising (stage.ts envelope: canyon-60 .. plain+40).
+      MathUtils.smoothstep(s, SECTION.canyon - 260, SECTION.canyon - 60) *
+      (1 - MathUtils.smoothstep(s, SECTION.plain + 40, SECTION.plain + 240));
+    this.halfWidth = MathUtils.lerp(OPEN_HALF_WIDTH, CORRIDOR.halfWidth, walls);
+    this.offset.x = MathUtils.clamp(this.offset.x, -this.halfWidth, this.halfWidth);
     this.offset.y = MathUtils.clamp(this.offset.y, floor, CORRIDOR.headroom);
     this.edgeWarning =
-      Math.abs(this.offset.x) > CORRIDOR.halfWidth - EDGE_WARNING ||
+      Math.abs(this.offset.x) > this.halfWidth - EDGE_WARNING ||
       this.offset.y > CORRIDOR.headroom - EDGE_WARNING;
     this.position
       .copy(f.position)
@@ -530,7 +552,7 @@ export class Ship {
     if (Math.abs(side) > ahead * 0.5 && Math.abs(side) >= Math.abs(vertical))
       this.#damageWing(side < 0 ? "left" : "right", WING_SIDE_HIT);
     else if (Math.abs(vertical) > ahead * 0.5)
-      this.#damageWing(Math.random() < 0.5 ? "left" : "right", WING_VERTICAL_HIT);
+      this.#damageWing((this.#w?.ctx.random() ?? 0) < 0.5 ? "left" : "right", WING_VERTICAL_HIT);
     // Knockback 0.4 m away from the source, in the ship's right/up plane.
     this.#knock.set(-side, -vertical);
     if (this.#knock.lengthSq() > 0) this.#knock.normalize().multiplyScalar(KNOCKBACK);

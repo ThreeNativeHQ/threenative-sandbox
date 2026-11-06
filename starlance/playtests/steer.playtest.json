@@ -50,8 +50,8 @@
       {
         "entity": "ship",
         "component": "offsetX",
-        "gte": 13.9,
-        "lte": 14.0001
+        "gte": 21.9,
+        "lte": 22.0001
       },
       {
         "entity": "ship",

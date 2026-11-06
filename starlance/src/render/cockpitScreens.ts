@@ -4,7 +4,6 @@
 // bloom catches them. Layout units are screen heights, centred, per `ICockpitScreen`.
 import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, type Texture } from "three";
 import { ARENA_RADIUS, railFrame } from "../entities/Rail.js";
-import { CORRIDOR } from "../entities/Ship.js";
 import type { GameState } from "../state.js";
 import type { World } from "../world.js";
 import type { ICockpitScreen } from "./cockpitLook.js";
@@ -444,7 +443,7 @@ export function createCockpitScreens(
     } else {
       const f = w.rail.frame(w.rail.s, _frame);
       for (const side of [-1, 1]) {
-        const lateral = side * CORRIDOR.halfWidth - ship.offset.x;
+        const lateral = side * ship.halfWidth - ship.offset.x;
         for (let t = -MAP_RANGE; t <= MAP_RANGE; t += 15) {
           toMap(f.right.x * lateral + f.forward.x * t, f.right.z * lateral + f.forward.z * t);
           dot(ship.edgeWarning ? (blink(4) ? C.red : C.amber) : 0x7a5cd6);

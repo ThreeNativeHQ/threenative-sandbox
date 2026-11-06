@@ -5,7 +5,14 @@
 import { BufferAttribute, BufferGeometry, Float32BufferAttribute, Vector3 } from "three";
 import { ARENA_RADIUS, type Rail, type IRailFrame, SECTION } from "../entities/Rail.js";
 import type { IObstacle } from "../world.js";
-import { boulderGeometry, hoodooAxis, hoodooKit, hoodooReach, mesaGeometry } from "./rockForms.js";
+import {
+  type IHoodoo,
+  boulderGeometry,
+  hoodooAxis,
+  hoodooKit,
+  hoodooReach,
+  mesaGeometry,
+} from "./rockForms.js";
 import { soften } from "./rocks.js";
 
 const TAU = Math.PI * 2;
@@ -19,6 +26,21 @@ export interface IPlacement {
   sy: number;
   sz: number;
   tint: number;
+  /** Set on a shootable tower: `bake` records where its triangles land in the cell mesh. */
+  tower?: ITower;
+}
+
+/** A solid tower the player can shoot down: its look, hit spheres and place in the baked cell mesh. */
+export interface ITower {
+  readonly kit: IHoodoo;
+  readonly place: Readonly<IPlacement>;
+  /** The ship-obstacle spheres along the trunk, also listed in `obstacles`. */
+  readonly spheres: IObstacle[];
+  /** The cell mesh that draws it, and the first index of its triangles there. */
+  geo: BufferGeometry | undefined;
+  start: number;
+  hp: number;
+  broken: boolean;
 }
 
 export interface IScatterEnv {
@@ -26,6 +48,8 @@ export interface IScatterEnv {
   readonly frame: IRailFrame;
   readonly groundHeight: (x: number, z: number) => number;
   readonly obstacles: IObstacle[];
+  /** Receives every tower that takes hits. */
+  readonly towers: ITower[];
   /** World point `l` metres right of the path at `s`. */
   readonly at: (s: number, l: number, out: Vector3) => Vector3;
   readonly nearArch: (s: number) => boolean;
@@ -59,6 +83,7 @@ function bake(
   let v = 0;
   let k = 0;
   for (const { geo, p } of items) {
+    if (p.tower) p.tower.start = k;
     const P = geo.getAttribute("position");
     const N = geo.getAttribute("normal");
     const C = geo.getAttribute("color");
@@ -122,10 +147,14 @@ function rng(seed: number): () => number {
 }
 
 /** Fills the instance lists for every rock batch and pushes the hit spheres. */
-export function scatterRocks(e: IScatterEnv): IBatch[] {
+/** `onBake(fraction)` runs after each cell mesh bakes, so a loading screen can yield and repaint. */
+export async function scatterRocks(
+  e: IScatterEnv,
+  onBake: (fraction: number) => Promise<void> = async () => undefined,
+): Promise<IBatch[]> {
   // ponytail: test-only seam for A/B frame cost (`?rocks=none`); the playtest bridge cannot write state.
   if (/[?&]rocks=none/.test(String(globalThis.location?.search ?? ""))) return [];
-  const { rail, groundHeight, obstacles, at } = e;
+  const { rail, groundHeight, obstacles, towers, at } = e;
   const rnd = rng(e.seed);
   const range = (a: number, b: number): number => a + (b - a) * rnd();
   const pick = <T>(...xs: T[]): T => xs[Math.floor(rnd() * xs.length)] as T;
@@ -187,18 +216,23 @@ export function scatterRocks(e: IScatterEnv): IBatch[] {
     const sx = scale * range(0.85, 1.15);
     const sz = scale * range(0.85, 1.15);
     const yaw = rnd() * TAU;
-    (Math.abs(l) < 70 ? h : h.far).add({
-      x: p.x,
-      y: gy,
-      z: p.z,
-      yaw,
-      sx,
-      sy,
-      sz,
-      tint: range(0.85, 1.1),
-    });
+    const place: IPlacement = { x: p.x, y: gy, z: p.z, yaw, sx, sy, sz, tint: range(0.85, 1.1) };
+    (Math.abs(l) < 70 ? h : h.far).add(place);
     if (!hit) return;
     const { kit } = h;
+    const tower: ITower = {
+      kit,
+      place,
+      spheres: [],
+      geo: undefined,
+      start: 0,
+      hp: 30 + kit.height * 1.5,
+      broken: false,
+    };
+    if (Math.abs(l) < 70) {
+      place.tower = tower;
+      towers.push(tower);
+    }
     const cos = Math.cos(yaw);
     const sin = Math.sin(yaw);
     // Spheres follow the leaning axis (rotated by the instance yaw) and the visible radius.
@@ -208,10 +242,12 @@ export function scatterRocks(e: IScatterEnv): IBatch[] {
       const [ax, az] = hoodooAxis(kit.radius, kit.seed, tt);
       const lx = ax * sx;
       const lz = az * sx;
-      obstacles.push({
+      const sphere = {
         center: new Vector3(p.x + cos * lx + sin * lz, y, p.z - sin * lx + cos * lz),
         radius: Math.max(1.3, hoodooReach(kit.geo, tt) * Math.max(sx, sz) * 0.9 + 0.35),
-      });
+      };
+      obstacles.push(sphere);
+      tower.spheres.push(sphere);
     }
   };
   const placeRock = (
@@ -367,7 +403,13 @@ export function scatterRocks(e: IScatterEnv): IBatch[] {
         byCell.set(c, items);
         for (const p of list) items.push({ geo: b.geo, p });
       }
-    for (const [c, items] of byCell) out.push({ geo: bake(items, c + 7), mesa });
+    let baked = 0;
+    for (const [c, items] of byCell) {
+      const geo = bake(items, c + 7);
+      for (const { p } of items) if (p.tower) p.tower.geo = geo;
+      out.push({ geo, mesa });
+      await onBake((mesa ? 0.5 : 0) + (0.5 * ++baked) / byCell.size);
+    }
   }
   return out;
 }

@@ -10,6 +10,7 @@ import {
   Float32BufferAttribute,
   Group,
   InstancedMesh,
+  type Material,
   Matrix4,
   Mesh,
   PlaneGeometry,
@@ -38,7 +39,7 @@ import { MeshBasicNodeMaterial, MeshStandardNodeMaterial, type Node } from "thre
 import { ARENA_RADIUS, type Rail, SECTION, railFrame } from "../entities/Rail.js";
 import type { IObstacle } from "../world.js";
 import { type IWallStation, canyonWallChunks, rockMaterial } from "./rocks.js";
-import { scatterRocks } from "./rockScatter.js";
+import { type ITower, scatterRocks } from "./rockScatter.js";
 import { createGroundDust } from "./ambientDust.js";
 import { createSkyBodies } from "./planet.js";
 import { SUN_DIRECTION } from "./sky.js";
@@ -61,12 +62,15 @@ export interface IStageTextures {
 
 export interface IStage {
   readonly root: Group;
-  /** Static hit spheres the ship must dodge. */
-  readonly obstacles: readonly IObstacle[];
+  /** Static hit spheres the ship must dodge; a tower that breaks removes its own. */
+  readonly obstacles: IObstacle[];
+  /** Towers a laser or bomb can break, and the material their chunks share with the standing rock. */
+  readonly towers: readonly ITower[];
+  readonly spireMaterial: Material;
   /** Ground surface height at a world point (the base plane is y = 0). */
   groundHeight(x: number, z: number): number;
   /** Moves the soft ground shadow under the ship. Call once per frame (the HUD does). */
-  trackShip(position: Vector3, camera: Camera): void;
+  trackShip(position: Vector3, camera: Camera, dt: number): void;
 }
 
 const TILE = 30; // metres per ground texture repeat
@@ -205,10 +209,16 @@ function warmRock(t: IStageTextures, dark: number, mid: number, light: number) {
   return mat;
 }
 
-export function buildStage(rail: Rail, t: IStageTextures): IStage {
+/** `tick(fraction)` reports build progress 0..1 and may yield so a loading screen repaints. */
+export async function buildStage(
+  rail: Rail,
+  t: IStageTextures,
+  tick: (fraction: number) => Promise<void> = async () => undefined,
+): Promise<IStage> {
   const root = new Group();
   const f = railFrame();
   const obstacles: IObstacle[] = [];
+  const towers: ITower[] = [];
   const zCanyon = rail.frame(SECTION.canyon, f).position.z;
 
   // ---- ground ---------------------------------------------------------------------------------
@@ -450,15 +460,20 @@ export function buildStage(rail: Rail, t: IStageTextures): IStage {
   };
   const nearArch = (s: number): boolean => ARCH_S.some((a) => Math.abs(a - s) < 55);
   // Towers, boulder clusters and mesas: forms in rockForms.ts, placement and hit spheres in rockScatter.ts.
-  const rockBatches = scatterRocks({
-    rail,
-    frame: f,
-    groundHeight,
-    obstacles,
-    at,
-    nearArch,
-    seed: 2026,
-  });
+  await tick(0.05);
+  const rockBatches = await scatterRocks(
+    {
+      rail,
+      frame: f,
+      groundHeight,
+      obstacles,
+      towers,
+      at,
+      nearArch,
+      seed: 2026,
+    },
+    (k) => tick(0.2 + 0.48 * k),
+  );
   root.add(createGroundClutter(at, groundHeight, rail.length, rail.arenaCenter, ARENA_RADIUS));
 
   // ---- arches ---------------------------------------------------------------------------------
@@ -515,6 +530,7 @@ export function buildStage(rail: Rail, t: IStageTextures): IStage {
   };
   for (const b of rockBatches) root.add(solid(b.geo, b.mesa ? rockMesa : rockSpire));
 
+  await tick(0.7);
   // ---- canyon walls ---------------------------------------------------------------------------
   // Ledged, eroded cliffs from rocks.ts (strata colours in the vertex colour, world-space grain).
   {
@@ -561,16 +577,15 @@ export function buildStage(rail: Rail, t: IStageTextures): IStage {
   }, groundHeight);
   const skyBodies = createSkyBodies(SUN_DIRECTION);
   root.add(skyBodies.group);
-  let lastTime = performance.now();
 
   return {
     root,
     obstacles,
+    towers,
+    spireMaterial: rockSpire,
     groundHeight,
-    trackShip(p, camera) {
-      const now = performance.now();
-      dust.update(p, camera, Math.min(0.1, (now - lastTime) / 1000));
-      lastTime = now;
+    trackShip(p, camera, dt) {
+      dust.update(p, camera, Math.min(0.1, dt));
       skyBodies.update(camera);
       blob.visible = true;
       const gy = groundHeight(p.x, p.z);

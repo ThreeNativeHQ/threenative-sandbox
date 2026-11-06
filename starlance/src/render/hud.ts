@@ -336,7 +336,7 @@ export function createHud(camera: PerspectiveCamera): IHud {
     const h = 2 * DISTANCE * Math.tan((camera.fov * Math.PI) / 360);
     mesh.scale.setScalar(h);
     // Soft ground shadow under the ship (stage.ts); this is the one per-frame hook the stage gets.
-    w.stage.trackShip(w.ship.position, camera);
+    w.stage.trackShip(w.ship.position, camera, dt);
 
     painter.begin();
     const left = -aspect / 2 + 0.035;

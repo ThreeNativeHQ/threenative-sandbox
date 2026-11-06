@@ -1,0 +1,65 @@
+{
+  "name": "tower-break",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "input",
+      "label": "fire",
+      "press": [
+        "Space"
+      ],
+      "holdTicks": 700,
+      "release": false,
+      "screenshot": "tower-fire"
+    },
+    {
+      "kind": "wait",
+      "label": "fall",
+      "waitTicks": 120,
+      "release": true,
+      "screenshot": "tower-fall"
+    },
+    {
+      "kind": "wait",
+      "label": "settle",
+      "waitTicks": 900,
+      "release": true,
+      "screenshot": "tower-settled"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "towers",
+        "component": "broken",
+        "gte": 1
+      },
+      {
+        "entity": "towers",
+        "component": "frozenPieces",
+        "gte": 3
+      },
+      {
+        "entity": "towers",
+        "component": "minClearance",
+        "gte": -1.5
+      },
+      {
+        "entity": "towers",
+        "component": "maxClearance",
+        "lte": 1.5
+      }
+    ]
+  }
+}

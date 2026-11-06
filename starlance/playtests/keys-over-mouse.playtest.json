@@ -1,0 +1,70 @@
+{
+  "name": "keys-over-mouse",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "rest",
+      "waitTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "cursor-parked-low-left",
+      "pointerPosition": {
+        "x": 0.05,
+        "y": 0.95
+      },
+      "holdTicks": 10,
+      "release": false
+    },
+    {
+      "kind": "input",
+      "label": "keys-right",
+      "press": "KeyD",
+      "holdTicks": 150,
+      "release": true,
+      "screenshot": "keys-over-mouse-right"
+    },
+    {
+      "kind": "input",
+      "label": "keys-up",
+      "press": "KeyW",
+      "holdTicks": 90,
+      "release": true,
+      "screenshot": "keys-over-mouse-up"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "ship",
+        "component": "offsetX",
+        "gte": 13.9,
+        "lte": 14.0001
+      },
+      {
+        "entity": "ship",
+        "component": "offsetY",
+        "gte": 5,
+        "lte": 13.6001
+      },
+      {
+        "entity": "ship",
+        "component": "edgeWarning",
+        "equals": true
+      }
+    ]
+  }
+}

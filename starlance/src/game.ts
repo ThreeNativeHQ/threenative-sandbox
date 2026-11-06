@@ -1,10 +1,11 @@
 import { defineGame } from "@threenative/core";
 import { playtest } from "@threenative/core/playtest";
+import { type IPhysicsContext, rapier } from "@threenative/physics";
 import config from "../threenative.config.js";
 import { Play } from "./scenes/Play.js";
 import type { GameState } from "./state.js";
 
-const game = defineGame<GameState>({
+const game = defineGame<GameState, IPhysicsContext>({
   input: {
     // Keyboard stick; W climbs. `vector("move").y` is +up.
     move: {
@@ -27,7 +28,7 @@ const game = defineGame<GameState>({
     cockpit: { keys: ["KeyC"], buttons: [3] }, // toggles chase/cockpit view
     restart: { keys: ["Enter"], buttons: [9] },
   },
-  plugins: [playtest()],
+  plugins: [rapier(), playtest()],
   display: config.display,
   render: config.renderer,
   scenes: { play: Play },

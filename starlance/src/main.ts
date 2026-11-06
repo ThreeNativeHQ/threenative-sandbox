@@ -1,6 +1,18 @@
 import { acceptHotUpdate } from "@threenative/core/hot";
 import game from "./game.js";
+import { bootProgress } from "./scenes/Play.js";
 import "./style.css";
+
+const boot = document.querySelector<HTMLElement>("#boot");
+bootProgress.report = (fraction) => {
+  if (boot === null || !boot.isConnected) return;
+  const pct = Math.round(fraction * 100);
+  boot.style.setProperty("--p", String(fraction));
+  boot.setAttribute("aria-valuenow", String(pct));
+  const label = boot.querySelector("span");
+  if (label !== null) label.textContent = `${pct}%`;
+  if (fraction >= 1) boot.remove();
+};
 
 const app = document.querySelector<HTMLElement>("#app");
 if (app === null) throw new Error("Missing #app element.");
@@ -22,5 +34,6 @@ void game
     failure.dataset.threenativeCanvasError = "true";
     failure.setAttribute("role", "alert");
     failure.textContent = error instanceof Error ? error.message : String(error);
+    boot?.remove();
     app.replaceChildren(failure);
   });
