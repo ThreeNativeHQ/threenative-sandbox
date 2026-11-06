@@ -1,6 +1,7 @@
 // Cockpit view: `assets/cockpit.glb` rides the camera. Its controls move with the real input (the
-// sticks and yoke follow the flown stick, the pedals and throttle follow boost and brake, the
-// triggers and lamps follow fire, charge, bomb and roll). Its five screens are cockpitScreens.ts.
+// yoke and its two grips follow the flown stick as one rigid piece, the pedals and throttle follow
+// boost and brake, the triggers and lamps follow fire, charge, bomb and roll). Its five screens are
+// cockpitScreens.ts.
 import {
   Group,
   MathUtils,
@@ -22,17 +23,15 @@ import { createCockpitScreens } from "./cockpitScreens.js";
 // behind the frame. railCamera pulls the near plane in to 0.02 m to match.
 const SCALE = 0.1;
 const TILT = 0; // rad; the dash sits where the source scene's own pilot camera puts it
-// Pilot eye in the glb's own space (y up, nose -Z): a little higher and further back than the source
-// camera so the whole canopy arch, both side wings and the five screens are in frame.
+// Pilot eye in the glb's own space (y up, nose -Z): the .blend's "Pilot view" camera, which frames the
+// canopy arch, both hull wings and the five screens at railCamera's 41 deg.
 const EYE_X = 0;
-const EYE_Y = 2.8;
-const EYE_Z = 6.5;
+const EYE_Y = 2.55;
+const EYE_Z = 6.7;
 const BOOST_SPAN = 18; // speed above cruise at full boost
 const BRAKE_SPAN = 12; // speed below cruise at full brake
 
 // Control travel, radians (and glb units for the yoke's push).
-const STICK_ROLL = 0.3;
-const STICK_PITCH = 0.3;
 const YOKE_MAX = 0.26; // rad, 15 deg of roll either way, about the handle's foot
 const YOKE_PITCH = 0.2; // rad, 11 deg: the head stays in frame at full pull
 const YOKE_LEAN = 0.5; // share of YOKE_MAX a barrel roll adds on top of the stick
@@ -48,14 +47,19 @@ interface IScreen {
   z: number;
   w: number;
   h: number;
+  /** In-plane tilt of the glass, radians. */
+  roll?: number;
 }
 
-// Measured on the model's screen planes (Blender x, z, -y).
-const CENTRE: IScreen = { x: 0, y: 2.09, z: 0.04, w: 2.04, h: 0.76 };
-const COMMS: IScreen = { x: -2.325, y: 1.87, z: 0.17, w: 1.73, h: 0.74 };
-const MINIMAP: IScreen = { x: 2.325, y: 1.87, z: 0.17, w: 1.73, h: 0.74 };
-const STORES: IScreen = { x: -2.48, y: 1.03, z: 0.16, w: 1.34, h: 0.62 };
-const FIRING: IScreen = { x: 2.48, y: 1.03, z: 0.16, w: 1.34, h: 0.62 };
+// Measured on the model's screen planes (Blender x, z, -y); each sits just behind its bezel lip. The
+// side glasses lean 5 deg (upper) and 6.3 deg (lower) inboard-up, so their pictures lean with them.
+const SIDE = MathUtils.degToRad(5);
+const LOW = MathUtils.degToRad(6.3);
+const CENTRE: IScreen = { x: 0, y: 1.69, z: 0.02, w: 2.04, h: 0.76 };
+const COMMS: IScreen = { x: -2.365, y: 1.52, z: 0.155, w: 1.75, h: 0.76, roll: SIDE };
+const MINIMAP: IScreen = { x: 2.365, y: 1.52, z: 0.155, w: 1.75, h: 0.76, roll: -SIDE };
+const STORES: IScreen = { x: -2.48, y: 0.55, z: 0.145, w: 1.34, h: 0.62, roll: LOW };
+const FIRING: IScreen = { x: 2.48, y: 0.55, z: 0.145, w: 1.34, h: 0.62, roll: -LOW };
 
 export interface ICockpit {
   update(w: World, state: Readonly<GameState>, dt: number): void;
@@ -90,7 +94,7 @@ export function createCockpit(
     crew,
   );
   root.visible = false;
-  // The cockpit is pitched up about the eye so the pedals and stick bases clear the bottom edge.
+  // The cockpit is pitched about the eye (TILT) to place the dash in the frame.
   const rig = new Group();
   rig.rotation.x = TILT;
   rig.add(root);
@@ -102,8 +106,6 @@ export function createCockpit(
     if (found === undefined) throw new Error(`cockpit.glb has no node named ${name}`);
     return found;
   };
-  const stickL = part("stick_L");
-  const stickR = part("stick_R");
   const yoke = part("yoke");
   const pedalL = part("pedal_L");
   const pedalR = part("pedal_R");
@@ -163,10 +165,6 @@ export function createCockpit(
     for (const t of w.enemies.targets) if (t.alive) contacts += 1;
     const sx = ship.stick.x;
     const sy = ship.stick.y;
-    for (const s of [stickL, stickR]) {
-      s.rotation.z = -sx * STICK_ROLL; // top of the stick swings the way the pilot steers
-      s.rotation.x = sy * STICK_PITCH; // pull back to climb
-    }
     // The centre handle leans with the flown stick (pull back is nose up) and into a barrel roll.
     if (!ship.rolling) barrelSign = 0;
     else if (barrelSign === 0) barrelSign = Math.sign(sx);
@@ -197,8 +195,6 @@ export function createCockpit(
     ];
     for (const [i, level] of lit.entries()) (lamps[i] as (level: number) => void)(level);
     // Numbers for the playtest: what the parts are doing, and what the map shows.
-    out.stickRoll = -stickL.rotation.z / STICK_ROLL;
-    out.stickPitch = stickL.rotation.x / STICK_PITCH;
     out.yokeRoll = -yoke.rotation.z / YOKE_MAX;
     const rollDeg = -MathUtils.radToDeg(yoke.rotation.z); // +right
     const pitchDeg = MathUtils.radToDeg(yoke.rotation.x); // +pulled back

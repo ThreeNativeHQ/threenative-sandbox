@@ -92,8 +92,9 @@ type Anchor = "left" | "center" | "right";
 
 export interface IPainter {
   readonly mesh: InstancedMesh;
-  /** Where the next quads land: coordinates (x, y) become origin + (x, y) * scale, at depth `z`. */
-  readonly at: { x: number; y: number; z: number; scale: number };
+  /** Where the next quads land: coordinates (x, y) become origin + (x, y) * scale turned by `rot`
+   * (radians, about the origin), at depth `z`. */
+  readonly at: { x: number; y: number; z: number; scale: number; rot: number };
   /** Skip the dark drop shadow `text` draws under each glyph. */
   noShadow: boolean;
   begin(): void;
@@ -127,15 +128,17 @@ export function createPainter(capacity: number, options: { depthTest: boolean })
   const matrices = mesh.instanceMatrix.array as Float32Array;
   const colors = mesh.instanceColor.array as Float32Array;
   const c = [0, 0, 0];
-  const at = { x: 0, y: 0, z: 0, scale: 1 };
+  const at = { x: 0, y: 0, z: 0, scale: 1, rot: 0 };
   let n = 0;
 
   /** One quad: centre (x, y), size (w, h), optional rotation, colour. */
   const quad = (x: number, y: number, w: number, h: number, color: number, rot = 0): void => {
     if (n >= capacity) return;
     const o = n * 16;
-    const cs = Math.cos(rot);
-    const sn = Math.sin(rot);
+    const cs = Math.cos(rot + at.rot);
+    const sn = Math.sin(rot + at.rot);
+    const ca = Math.cos(at.rot);
+    const sa = Math.sin(at.rot);
     const k = at.scale;
     matrices[o] = cs * w * k;
     matrices[o + 1] = sn * w * k;
@@ -149,8 +152,8 @@ export function createPainter(capacity: number, options: { depthTest: boolean })
     matrices[o + 9] = 0;
     matrices[o + 10] = 1;
     matrices[o + 11] = 0;
-    matrices[o + 12] = at.x + x * k;
-    matrices[o + 13] = at.y + y * k;
+    matrices[o + 12] = at.x + (x * ca - y * sa) * k;
+    matrices[o + 13] = at.y + (x * sa + y * ca) * k;
     matrices[o + 14] = at.z;
     matrices[o + 15] = 1;
     rgb(color, c);

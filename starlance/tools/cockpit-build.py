@@ -9,7 +9,8 @@
 What it does: drops the hidden, text, light, camera, glazing, screen-texture and third-party-brand
 objects; replaces the brand marks with Starlance's (tools/cockpit-brand/*.png); joins the static
 parts per material; and keeps the moving parts as named nodes that src/render/cockpit.ts drives:
-stick_L/R (+ trigger_L/R), yoke, pedal_L/R, throttle, lamp_L0..3 / lamp_R0..3.
+yoke (hub, arms, grips and column on one pivot, with trigger_L/R), pedal_L/R, throttle,
+lamp_L0..3 / lamp_R0..3.
 """
 
 import os
@@ -40,6 +41,11 @@ LAMP = re.compile(r"^Switch lens")
 bpy.context.scene.frame_set(1)
 for o in bpy.data.objects:
     o.animation_data_clear()
+# Collections outside the scene (Cycles light linking) would keep joined-away objects alive.
+_linked = set(bpy.context.scene.collection.children_recursive)
+for c in list(bpy.data.collections):
+    if c not in _linked:
+        bpy.data.collections.remove(c)
 YOKE_FOOT = tuple(bpy.data.objects["yoke_pitch"].matrix_world.translation)
 for o in bpy.data.objects:  # step 1 deletes the rig's empties: keep their children where they stand
     if o.parent is not None:

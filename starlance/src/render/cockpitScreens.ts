@@ -159,6 +159,7 @@ export function createCockpitScreens(
     at.y = s.y;
     at.z = s.z;
     at.scale = s.h;
+    at.rot = s.roll ?? 0;
     const half = s.w / s.h / 2;
     // Deep blue, lighter toward the top, as if lit from within.
     const bands = 6;
@@ -311,7 +312,13 @@ export function createCockpitScreens(
             : mate.shield / SHIELD_WING;
       const cxp = x0 + i * (size + gap);
       const cyp = 0.1;
-      card.position.set(s.x + cxp * s.h, s.y + cyp * s.h, s.z + 0.012);
+      const roll = s.roll ?? 0;
+      card.position.set(
+        s.x + (cxp * Math.cos(roll) - cyp * Math.sin(roll)) * s.h,
+        s.y + (cxp * Math.sin(roll) + cyp * Math.cos(roll)) * s.h,
+        s.z + 0.012,
+      );
+      card.rotation.z = roll;
       card.scale.set(size * s.h, size * s.h, 1);
       (card.material as MeshBasicMaterial).color.setScalar(alive ? 1.25 : 0.22);
       at.z = s.z + 0.016; // above the card

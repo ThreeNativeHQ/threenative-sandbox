@@ -28,6 +28,8 @@ export interface ICockpitScreen {
   z: number;
   w: number;
   h: number;
+  /** In-plane tilt of the glass, radians (the model's side screens lean toward the pilot). */
+  roll?: number;
 }
 
 export interface ICockpitLook {
@@ -98,6 +100,14 @@ const FINISH: Record<string, IFinish> = {
     metal: 1,
     normal: 1,
     env: 0.3,
+  },
+  // The side consoles: bare worn steel, a step lighter than the gunmetal frame.
+  "Console worn steel": {
+    color: [0.011, 0.0115, 0.0125],
+    rough: 1.6,
+    metal: 1,
+    normal: 1,
+    env: 0.4,
   },
   "Controls | black worn leather PBR": {
     color: [0.0017, 0.0017, 0.0021],
@@ -205,7 +215,8 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
       normal: material.normalScale.x,
     }) as { roughness: number; normal: number };
     material.userData.ownFinish = true;
-    if ("specularIntensity" in material) (material as unknown as { specularIntensity: number }).specularIntensity = 0;
+    if ("specularIntensity" in material)
+      (material as unknown as { specularIntensity: number }).specularIntensity = 0;
     if (f.color !== undefined) material.color.setRGB(...f.color);
     material.roughness = base.roughness * (f.rough ?? 1);
     if (f.metal !== undefined) {
@@ -282,6 +293,7 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
     const cover = new Mesh(geometry, coverMaterial);
     cover.name = "display-cover";
     cover.position.set(screen.x, screen.y, screen.z + (look.screenLift ?? 0.02));
+    cover.rotation.z = screen.roll ?? 0;
     cover.renderOrder = 5;
     cover.frustumCulled = false;
     cover.castShadow = false;

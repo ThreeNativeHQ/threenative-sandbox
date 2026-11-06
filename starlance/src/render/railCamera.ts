@@ -22,9 +22,10 @@ const DISTANCE_SMOOTH = 0.1; // per 30 Hz update
 // Cockpit view: the eye in hull space (nose -Z), where the pilot sits.
 const COCKPIT_EYE = new Vector3(0, 0.35, -0.6);
 const CHASE_FOV = 60;
-// Cockpit lens: the source scene's 27 mm on 36 mm film is 41 deg tall at 16:9. Wider screens keep
+// Cockpit lens: 12% tighter than the source scene's 27 mm (41 deg tall at 16:9), so the canopy and
+// the upper screens fill the frame and the lower screens sit on its bottom edge. Wider screens keep
 // the shell's width, not its height, so no edge ever looks past the modelled walls.
-const COCKPIT_FOV = 41;
+const COCKPIT_FOV = 36.5;
 const COCKPIT_MAX_HFOV = 90; // deg; the canopy plate in the glb closes everything past the arch
 const CHASE_NEAR = 0.1;
 const COCKPIT_NEAR = 0.02; // the cockpit is a 0.9 m bubble
@@ -56,8 +57,6 @@ export class RailCamera {
   cockpitReady = false;
   /** Numbers the cockpit writes each frame (control travel, minimap contacts) for `debug()`. */
   readonly cockpitState: Record<string, number | boolean> = {
-    stickRoll: 0,
-    stickPitch: 0,
     yokeRoll: 0,
     yokeRollDeg: 0,
     yokePitchDeg: 0,
