@@ -284,12 +284,13 @@ export function createCockpitScreens(
     }
     text("L", x0 + 0.31, -0.35, 0.045, C.cyan);
     text("R", x0 + 0.56, -0.35, 0.045, C.cyan);
+    const warn = ship.alive && state.shield <= 100;
     text(
-      ship.alive ? "SYSTEMS NOMINAL" : "SYSTEMS DOWN",
+      !ship.alive ? "SYSTEMS DOWN" : warn ? "WARNING SHIELD LOW" : "SYSTEMS NOMINAL",
       x0 - 0.03,
       -0.46,
       0.05,
-      ship.alive ? C.mint : C.red,
+      !ship.alive ? C.red : warn ? (blink(2.5) ? C.red : C.amber) : C.mint,
     );
   };
 
@@ -319,7 +320,7 @@ export function createCockpitScreens(
       );
       card.rotation.z = roll;
       card.scale.set(size * s.h, size * s.h, 1);
-      (card.material as MeshBasicMaterial).color.setScalar(alive ? 1.25 : 0.22);
+      (card.material as MeshBasicMaterial).color.setScalar(alive ? 0.7 : 0.22);
       at.z = s.z + 0.016; // above the card
       const call = i > 0 && mate !== undefined && mate.chased && blink(3);
       const accent = CREW_COLORS[i] as number;

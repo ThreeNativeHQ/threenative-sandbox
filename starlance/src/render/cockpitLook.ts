@@ -58,6 +58,8 @@ export interface ICockpitLook {
 export interface ICockpitLookHandle {
   /** Call each frame the cockpit shows: finds the scene's environment once and shades the interior. */
   update(): void;
+  /** Emergency lighting, 0 (cabin white) to 1 (full red, brighter): the caller pulses it. */
+  alert(level: number): void;
   dispose(): void;
 }
 
@@ -80,7 +82,8 @@ interface IFinish {
 // colour, and at the metered exposure that reads as cream, while a metal's reflectance is its albedo.
 // The sun is so strong here that a 0.035 albedo already clips to white on a sun-facing facet.
 const FINISH: Record<string, IFinish> = {
-  "Edge steel": { color: [0.0024, 0.0028, 0.0035], rough: 3.4, metal: 1, env: 0.4 },
+  // The pillar and arch frames: light worn steel against the dark plates, as the source renders them.
+  "Edge steel": { shade: 2.5, color: [0.0024, 0.0028, 0.0035], rough: 3.4, metal: 1, env: 0.4 },
   "Cockpit headliner": { color: [0.0021, 0.0024, 0.0031], rough: 1.2, metal: 1, env: 0.3 },
   "Soft black rubber": { color: [0.0014, 0.0016, 0.0021], rough: 1.3, metal: 1, env: 0.3 },
   "Worn blue graphite | microtexture": {
@@ -224,13 +227,21 @@ const INTERIOR_GAIN = new Color(0.19, 0.26, 0.36);
 
 // Cabin dome light, standing in for the .blend's ~14 cabin lights (the engine has no per-material lights):
 // cool white, above the pilot's head, cut off at 1.5 m so nothing outside the cockpit bubble is lit.
-const CABIN_LIGHT = { colour: 0xdbe8ff, intensity: 1.6, distance: 1.5, rise: 1.5 };
+const CABIN_LIGHT = {
+  colour: 0xdbe8ff,
+  emergency: 0xff0600,
+  intensity: 1.6,
+  distance: 1.5,
+  rise: 1.5,
+};
 
 // ponytail: test-only URL seam, `?look=off` skips the glass and the combiner HUD for before/after captures.
 export const LOOK_OFF = /[?&]look=off\b/.test(String(globalThis.location?.search ?? ""));
 
+const _red = new Color();
+
 export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitLookHandle {
-  if (LOOK_OFF) return { update() {}, dispose() {} };
+  if (LOOK_OFF) return { update() {}, alert() {}, dispose() {} };
   const own: Array<{ dispose(): void }> = [];
   /** Writes a material's finish; safe to repeat, since roughness and bump scale from a stored base. */
   const finish = (material: MeshStandardMaterial, f: IFinish): void => {
@@ -363,6 +374,10 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
 
   return {
     update() {},
+    alert(level) {
+      cabin.color.set(CABIN_LIGHT.colour).lerp(_red.set(CABIN_LIGHT.emergency), level);
+      cabin.intensity = CABIN_LIGHT.intensity * (1 + 2.5 * level); // red reads through the cool interior gain
+    },
     dispose() {
       shell.removeFromParent();
       cabin.removeFromParent();

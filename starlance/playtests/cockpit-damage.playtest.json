@@ -1,0 +1,359 @@
+{
+  "name": "cockpit-damage",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "chase",
+      "waitTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "cockpit-on",
+      "press": "KeyC",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "cruise",
+      "waitTicks": 640,
+      "release": true,
+      "screenshot": "cruise"
+    },
+    {
+      "kind": "input",
+      "label": "roll-a0",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b0",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap0",
+      "waitTicks": 70,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-a1",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b1",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap1",
+      "waitTicks": 70,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-a2",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b2",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap2",
+      "waitTicks": 70,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-a3",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b3",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap3",
+      "waitTicks": 70,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-a4",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b4",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap4",
+      "waitTicks": 70,
+      "release": true,
+      "screenshot": "gap4"
+    },
+    {
+      "kind": "input",
+      "label": "roll-a5",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b5",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap5",
+      "waitTicks": 70,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-a6",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b6",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap6",
+      "waitTicks": 70,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-a7",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b7",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap7",
+      "waitTicks": 70,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-a8",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b8",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap8",
+      "waitTicks": 70,
+      "release": true,
+      "screenshot": "gap8"
+    },
+    {
+      "kind": "input",
+      "label": "roll-a9",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b9",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap9",
+      "waitTicks": 70,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-a10",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b10",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap10",
+      "waitTicks": 70,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-a11",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b11",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap11",
+      "waitTicks": 70,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-a12",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b12",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap12",
+      "waitTicks": 70,
+      "release": true,
+      "screenshot": "gap12"
+    },
+    {
+      "kind": "input",
+      "label": "roll-a13",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "roll-b13",
+      "press": "KeyE",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "gap13",
+      "waitTicks": 70,
+      "release": true,
+      "screenshot": "gap13"
+    },
+    {
+      "kind": "wait",
+      "label": "sitting-duck",
+      "waitTicks": 9000,
+      "release": true,
+      "screenshot": "down"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "camera",
+        "component": "cockpit",
+        "atSteps": [
+          {
+            "label": "cruise",
+            "equals": true
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "rattlePeak",
+        "gte": 0.5
+      },
+      {
+        "entity": "camera",
+        "component": "alertPeak",
+        "gte": 0.2
+      }
+    ],
+    "resources": [
+      {
+        "id": "state",
+        "path": "phase",
+        "equals": "down"
+      }
+    ]
+  }
+}

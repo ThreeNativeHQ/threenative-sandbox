@@ -80,7 +80,9 @@ const ARENA_EDGE_MARGIN = 25; // start the forced U-turn this far inside the rad
 const DRAIN_RATE = 60;
 const INVULNERABLE_TIME = 0.67;
 const KNOCKBACK = 0.4;
-const WARNINGS = [100, 50] as const;
+/** Shield below which the master alarm repeats, and below which it speeds up (255 scale). */
+export const WARNINGS = [100, 50] as const;
+const ALARM_PERIOD = [1.5, 0.8] as const; // s between beeps at each level
 // wing-damage (fox_play.c:822-959, 3363, 3680) and terrain-collision (fox_play.c:1692-1770)
 const WING_MAX = 60;
 const WING_SIDE_HIT = 20;
@@ -176,7 +178,7 @@ export class Ship {
   #pendingDamage = 0;
   #pendingHeal = 0;
   #invulnTimer = 0;
-  #warned = [false, false];
+  #alarmT = 0;
   #knock = new Vector2();
   #autoStick = new Vector2();
   #flown = new Vector2(); // stick after inertia
@@ -584,12 +586,13 @@ export class Ship {
 
   #updateDamage(w: World, dt: number): void {
     this.#drain(dt);
-    for (const [i, level] of WARNINGS.entries()) {
-      if (this.shield < level && !this.#warned[i]) {
-        this.#warned[i] = true;
+    if (this.alive && this.shield < WARNINGS[0]) {
+      this.#alarmT -= dt;
+      if (this.#alarmT <= 0) {
         w.sfx("alarm");
-      } else if (this.shield >= level) this.#warned[i] = false;
-    }
+        this.#alarmT = this.shield < WARNINGS[1] ? ALARM_PERIOD[1] : ALARM_PERIOD[0];
+      }
+    } else this.#alarmT = 0;
     if (this.invulnerable) {
       this.#invulnTimer -= dt;
       if (this.#invulnTimer <= 0) this.invulnerable = false;

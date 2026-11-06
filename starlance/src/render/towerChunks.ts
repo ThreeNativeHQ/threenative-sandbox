@@ -38,9 +38,9 @@ function slices(kit: IHoodoo): IKitSlices {
   // Plain array reads throughout: this runs inside the frame that breaks the tower.
   let towerVerts = 0;
   for (let i = 0; i < n; i += 1) towerVerts = Math.max(towerVerts, (index[i] as number) + 1);
-  const ys = [...new Set(Array.from({ length: towerVerts }, (_, v) => py[v * 3 + 1] as number))].sort(
-    (a, b) => a - b,
-  );
+  const ys = [
+    ...new Set(Array.from({ length: towerVerts }, (_, v) => py[v * 3 + 1] as number)),
+  ].sort((a, b) => a - b);
   const cutY = CUTS.map((f) => ys[Math.round(f * (ys.length - 1))] as number);
   const tris: number[][] = [[], [], [], []];
   for (let t = 0; t < n; t += 3) {
@@ -111,7 +111,11 @@ class Soup {
       this.uv.push(x / 5, z / 5);
     }
     for (let i = 1; i <= pts.length; i += 1)
-      this.idx.push(base, base + (up ? (i % pts.length) + 1 : i), base + (up ? i : (i % pts.length) + 1));
+      this.idx.push(
+        base,
+        base + (up ? (i % pts.length) + 1 : i),
+        base + (up ? i : (i % pts.length) + 1),
+      );
   }
   /** Placement-frame triangles of the kit's trunk, scaled like the baked copy. */
   tris(kit: IHoodoo, p: IPlacement, first: readonly number[]): void {

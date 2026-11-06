@@ -11,7 +11,7 @@ import {
   type PerspectiveCamera,
   type Texture,
 } from "three";
-import { CRUISE_SPEED } from "../entities/Ship.js";
+import { CRUISE_SPEED, WARNINGS } from "../entities/Ship.js";
 import type { GameState } from "../state.js";
 import type { World } from "../world.js";
 import { createCockpitHud } from "./cockpitHud.js";
@@ -22,11 +22,13 @@ import { createCockpitScreens } from "./cockpitScreens.js";
 // (guns 1.1 m out, the charge orb, contrails) sits beyond the shell, so plain depth testing hides it
 // behind the frame. railCamera pulls the near plane in to 0.02 m to match.
 const SCALE = 0.1;
-const TILT = 0; // rad; the dash sits where the source scene's own pilot camera puts it
+// rad: the source scene's "Pilot view" camera looks 2.05 deg down; pitching the cockpit up about the
+// eye frames the dash as it does, while the world view stays level.
+const TILT = MathUtils.degToRad(2.05);
 // Pilot eye in the glb's own space (y up, nose -Z): the .blend's "Pilot view" camera, which frames the
 // canopy arch, both hull wings and the five screens at railCamera's 41 deg.
 const EYE_X = 0;
-const EYE_Y = 2.68;
+const EYE_Y = 2.55;
 const EYE_Z = 6.7;
 const BOOST_SPAN = 18; // speed above cruise at full boost
 const BRAKE_SPAN = 12; // speed below cruise at full brake
@@ -34,13 +36,19 @@ const BRAKE_SPAN = 12; // speed below cruise at full brake
 // Control travel, radians (and glb units for the yoke's push).
 const YOKE_MAX = 0.2; // rad, 11.5 deg of roll either way, about the handle's foot
 // glb units the yoke sits below the model's pose: a rolled grip's cap stays under the centre screen.
-const YOKE_DROP = 0.25;
+const YOKE_DROP = 0;
 const YOKE_PITCH = 0.2; // rad, 11 deg: the head stays in frame at full pull
 const YOKE_LEAN = 0.5; // share of YOKE_MAX a barrel roll adds on top of the stick
 const PEDAL_TRAVEL = 0.28;
 const THROTTLE_TRAVEL = 0.2; // glb units the knob slides each way
 const TRIGGER_TRAVEL = 0.035;
 const PULSE = 0.14; // s a trigger or lamp stays lit after a shot
+// Hit rattle and low-shield tremor: the rig shakes against the camera, so the dash visibly shudders
+// (the camera's own shake only moves the world). Metres and radians at full strength 1.
+const RATTLE_POS = 0.006;
+const RATTLE_ROT = 0.012;
+const RATTLE_DECAY = 7; // 1/s, how fast a hit's jolt dies
+const TREMOR = [0.1, 0.25] as const; // steady shudder at the warning and critical shield levels
 
 interface IScreen {
   /** Centre (glb space) and size of the glass; quads go `z` toward the pilot to clear it. */
@@ -142,6 +150,8 @@ export function createCockpit(
   ].map(glow);
 
   let clock = 0;
+  let jolt = 0;
+  let wasHit = false;
   let shots = 0;
   let bombs = 0;
   let fireT = 0;
@@ -233,6 +243,30 @@ export function createCockpit(
       if (!on) return;
       look.update();
       clock += dt;
+      const ship = w.ship;
+      const low = ship.alive && state.shield < WARNINGS[0];
+      const crit = ship.alive && state.shield < WARNINGS[1];
+      if (ship.invulnerable && !wasHit) jolt = 1; // a hit (shot or scrape) just landed
+      wasHit = ship.invulnerable;
+      jolt *= Math.exp(-RATTLE_DECAY * dt);
+      const k = jolt + (crit ? TREMOR[1] : low ? TREMOR[0] : 0);
+      rig.position.set(
+        Math.sin(clock * 47) * RATTLE_POS * k,
+        Math.sin(clock * 61 + 1) * RATTLE_POS * k,
+        0,
+      );
+      rig.rotation.set(
+        TILT + Math.sin(clock * 39) * RATTLE_ROT * k,
+        0,
+        Math.sin(clock * 53) * RATTLE_ROT * k,
+      );
+      // Emergency lighting: the cabin light pulses red while the shield is low, and flashes on a hit.
+      const pulse = 0.5 + 0.5 * Math.sin(clock * Math.PI * 2 * (crit ? 2.2 : 1.4));
+      const emergency = crit ? 0.5 + 0.5 * pulse : low ? 0.2 + 0.4 * pulse : 0;
+      look.alert(Math.max(jolt * 0.8, emergency));
+      const peaks = w.cameraRig.cockpitState;
+      peaks.rattlePeak = Math.max(Number(peaks.rattlePeak), k);
+      peaks.alertPeak = Math.max(Number(peaks.alertPeak), emergency); // shield-driven only, not hit flashes
       animate(w, state, dt);
       Object.assign(w.cameraRig.cockpitState, out);
       screens.update(w, state, dt);

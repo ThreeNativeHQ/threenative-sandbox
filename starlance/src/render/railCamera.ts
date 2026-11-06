@@ -22,13 +22,16 @@ const DISTANCE_SMOOTH = 0.1; // per 30 Hz update
 // Cockpit view: the eye in hull space (nose -Z), where the pilot sits.
 const COCKPIT_EYE = new Vector3(0, 0.35, -0.6);
 const CHASE_FOV = 60;
-// Cockpit lens: 12% tighter than the source scene's 27 mm (41 deg tall at 16:9), so the canopy and
-// the upper screens fill the frame and the lower screens sit on its bottom edge. Wider screens keep
-// the shell's width, not its height, so no edge ever looks past the modelled walls.
-const COCKPIT_FOV = 36.5;
+// Cockpit lens: the source scene's 27 mm. Wider screens keep the shell's width, not its height, so no
+// edge ever looks past the modelled walls.
+const COCKPIT_FOV = 41.1; // deg vertical: the .blend's "Pilot view" camera (27 mm, 67.4 deg across at 16:9)
 const COCKPIT_MAX_HFOV = 90; // deg; the canopy plate in the glb closes everything past the arch
 const CHASE_NEAR = 0.1;
 const COCKPIT_NEAR = 0.02; // the cockpit is a 0.9 m bubble
+// The eye looks this far below the flight path, so the aim (the nose) sits in the middle of the
+// windscreen, where the source scene paints its reticle, not on the dash. The cockpit rides the
+// camera, so its framing is unchanged.
+const COCKPIT_AIM_LIFT = MathUtils.degToRad(8);
 
 const _eye = new Vector3();
 const _aim = new Vector3();
@@ -67,6 +70,9 @@ export class RailCamera {
     triggerCharge: 0,
     lampsLit: 0,
     mapContacts: 0,
+    /** Highest hit rattle, and highest low-shield emergency-light level, seen in the cockpit. */
+    rattlePeak: 0,
+    alertPeak: 0,
     yokeRight: false,
     yokeBack: false,
     yokeLeansRight: false,
@@ -109,6 +115,7 @@ export class RailCamera {
         .applyQuaternion(ship.mesh.quaternion)
         .add(ship.position);
       this.camera.quaternion.copy(ship.mesh.quaternion);
+      this.camera.rotateX(-COCKPIT_AIM_LIFT);
       this.#camYaw = undefined;
       this.#applyShake(dt);
       return;
