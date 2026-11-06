@@ -11,6 +11,7 @@ public/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].*
 public/sfx/
 public/textures/
 public/shared/
+public/crew/
 artifacts/
 dist/
 .threenative/*.log
