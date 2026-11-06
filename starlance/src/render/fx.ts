@@ -35,6 +35,7 @@ import {
   type UniformNode,
 } from "three/webgpu";
 import type { GameCtx } from "../world.js";
+import { createAmbientDust } from "./ambientDust.js";
 
 export interface IFx {
   /** An explosion of `size` metres (fighter ~3, boss part ~8). */
@@ -354,6 +355,8 @@ export function createFx(ctx: GameCtx): IFx {
     rings.push({ mesh, opacity, age: Number.POSITIVE_INFINITY, to: RING_FROM });
   }
 
+  const dust = createAmbientDust((mesh) => ctx.add(mesh));
+
   return {
     explode(where, size) {
       const big = size >= 6;
@@ -399,6 +402,7 @@ export function createFx(ctx: GameCtx): IFx {
       sparks.particles.emitParticle({ count: sparks.burst, origin: at(where) });
     },
     update(dt) {
+      dust.update(ctx.camera, dt);
       for (const f of flashes) {
         if (f.age >= FLASH_SECONDS) continue;
         f.age = Math.min(f.age + dt, FLASH_SECONDS);
@@ -417,6 +421,7 @@ export function createFx(ctx: GameCtx): IFx {
       }
     },
     dispose() {
+      dust.dispose();
       for (const e of all) {
         e.particles.removeFromParent();
         e.particles.detach();

@@ -97,6 +97,8 @@ const GPU_CLOUD_STEPS = {
 } as const;
 const R0 = BOTTOM_KM + CAMERA_KM;
 const HORIZON = Math.acos(-Math.sqrt(R0 * R0 - BOTTOM_KM * BOTTOM_KM) / R0);
+/** Named override (look lane): the disc's share of the physical sun, so bloom blows out less of it and it keeps its orange. */
+const SUN_DISC_GAIN = 0.06;
 const SUN_RADIUS = (0.7357000112533569 * Math.PI) / 360;
 const PI = Math.PI;
 type Scalar = Node<"float">;
@@ -589,7 +591,8 @@ class GpuSkyNode extends Node<"vec3"> {
       .select(
         this.#light
           .mul(this.clouds ? cloud.a : float(1))
-          .div(PI * Math.sin(SUN_RADIUS) ** 2 * SKY_TO_SUN),
+          .div(PI * Math.sin(SUN_RADIUS) ** 2 * SKY_TO_SUN)
+          .mul(SUN_DISC_GAIN),
         vec3(0),
       );
     const colour = sky.add(disc).mul(this.#scale);

@@ -46,23 +46,9 @@
     },
     {
       "kind": "input",
-      "label": "pitch-up",
-      "press": "KeyW",
-      "holdTicks": 50,
-      "release": false,
-      "screenshot": "pitch-up"
-    },
-    {
-      "kind": "wait",
-      "label": "level2",
-      "waitTicks": 60,
-      "release": true
-    },
-    {
-      "kind": "input",
       "label": "pitch-down",
       "press": "KeyS",
-      "holdTicks": 50,
+      "holdTicks": 60,
       "release": false,
       "screenshot": "pitch-down"
     },
@@ -70,29 +56,6 @@
       "kind": "wait",
       "label": "level3",
       "waitTicks": 60,
-      "release": true
-    },
-    {
-      "kind": "input",
-      "label": "lock",
-      "pointerPosition": {
-        "x": 0.5,
-        "y": 0.5,
-        "buttons": 2
-      },
-      "holdTicks": 70,
-      "release": false,
-      "screenshot": "lock"
-    },
-    {
-      "kind": "input",
-      "label": "charge-release",
-      "pointerPosition": {
-        "x": 0.5,
-        "y": 0.5,
-        "buttons": 0
-      },
-      "holdTicks": 5,
       "release": true
     },
     {
@@ -136,12 +99,7 @@
       {
         "entity": "camera",
         "component": "hudQuads",
-        "gte": 150
-      },
-      {
-        "entity": "camera",
-        "component": "hudLadder",
-        "gte": 3
+        "gte": 8
       },
       {
         "entity": "camera",
@@ -169,41 +127,13 @@
       },
       {
         "entity": "camera",
-        "component": "hudPitchedUp",
-        "atSteps": [
-          {
-            "label": "rest",
-            "equals": 0
-          },
-          {
-            "label": "pitch-up",
-            "equals": 1
-          }
-        ]
+        "component": "hudPitchMin",
+        "lte": -10
       },
       {
         "entity": "camera",
-        "component": "hudPitchedDown",
-        "atSteps": [
-          {
-            "label": "pitch-down",
-            "equals": 1
-          }
-        ]
-      },
-      {
-        "entity": "camera",
-        "component": "hudLockBox",
-        "atSteps": [
-          {
-            "label": "rest",
-            "equals": 0
-          },
-          {
-            "label": "lock",
-            "equals": 1
-          }
-        ]
+        "component": "hudRollAbsMax",
+        "gte": 15
       }
     ]
   }

@@ -1,0 +1,46 @@
+{
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "performance": {
+      "maxDrawCalls": 160
+    },
+    "visual": [
+      {
+        "region": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720,
+          "minNonblankPixelRatio": 0.9
+        }
+      }
+    ]
+  },
+  "name": "rocks-view",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "settle",
+      "waitTicks": 30,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "view",
+      "waitTicks": 40,
+      "release": true,
+      "screenshot": "view"
+    }
+  ]
+}

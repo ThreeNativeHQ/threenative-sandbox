@@ -1,22 +1,23 @@
 // Cockpit look: the glass and the surface finish, as call arguments (nothing in @threenative reads
 // this). `applyCockpitLook` adds a canopy-glass shell around the pilot's eye and a glossy cover
 // over each display, and finishes the metal and rubber. Both glasses are black, low-roughness
-// standard materials blended as `reflection + view * (1 - tint)`: the only light they add is the
+// standard materials blended additively (the engine's portable blend modes are None, Normal and Additive): the only light they add is the
 // sky and sun that `scene.environment` and the sun already provide (Fresnel makes it strong at
 // grazing angles and faint head-on), so there is no second environment and the view stays clear.
 import {
   BackSide,
-  CustomBlending,
+  type BufferGeometry,
+  Float32BufferAttribute,
+  AdditiveBlending,
   DataTexture,
   LinearFilter,
   LinearMipmapLinearFilter,
   Mesh,
   MeshStandardMaterial,
   type Object3D,
-  OneFactor,
-  OneMinusSrcAlphaFactor,
   PlaneGeometry,
   RepeatWrapping,
+  type Scene,
   SphereGeometry,
 } from "three";
 
@@ -41,25 +42,70 @@ export interface ICockpitLook {
     elevation?: readonly [number, number];
     /** Perceived glass roughness: low is a clean sheen, smudges raise it locally. */
     roughness?: number;
-    /** Share of the view absorbed by the (very faint) tint, 0..1. */
-    tint?: number;
+    /** Reflection strength, 0..1: the sky and sun the glass adds to the view. */
+    reflect?: number;
   };
   /** Display cover roughness (clear-coat style gloss). */
   screenRoughness?: number;
+  screenReflect?: number;
   screenLift?: number;
 }
 
 export interface ICockpitLookHandle {
+  /** Call each frame the cockpit shows: finds the scene's environment once and shades the interior. */
+  update(): void;
   dispose(): void;
 }
 
-// Surface finish by material name: roughness and metalness multiply the glb's own maps.
-const FINISH: Record<string, { roughness?: number; metalness?: number }> = {
-  "Edge steel": { roughness: 0.34, metalness: 1 },
-  "Soft black rubber": { roughness: 0.86, metalness: 0 },
-  "Worn blue graphite | microtexture": { roughness: 1.15 },
-  "Cobalt painted armor": { roughness: 0.8 },
-  "Frame | scratched gunmetal PBR": { roughness: 1 },
+// Surface finish by material name. `rough` multiplies the roughness the glb's map carries (so 2 lifts
+// a polished 0.25 to 0.5), `color` is the linear albedo tint over its maps, `normal` the bump strength.
+// Nothing is a mirror: the cockpit is worn gunmetal, matte rubber and enamel, never chrome.
+interface IFinish {
+  color?: readonly [number, number, number];
+  rough?: number;
+  metal?: number;
+  normal?: number;
+  /** Paint-chip brightening at convex edges (the mask in uv1.x), as a gain on the albedo. */
+  chip?: number;
+  /** Share of the sky's light the surface receives (the interior is shaded from most of it). */
+  env?: number;
+}
+// Hard surfaces are metalness 1 with a dark albedo: a dielectric reflects 4% of the sun whatever its
+// colour, and at the metered exposure that reads as cream, while a metal's reflectance is its albedo.
+// The sun is so strong here that a 0.035 albedo already clips to white on a sun-facing facet.
+const FINISH: Record<string, IFinish> = {
+  "Edge steel": { color: [0.0024, 0.0028, 0.0035], rough: 3.4, metal: 1, env: 0.4 },
+  "Cockpit headliner": { color: [0.0021, 0.0024, 0.0031], rough: 1.2, metal: 1, env: 0.3 },
+  "Soft black rubber": { color: [0.0014, 0.0016, 0.0021], rough: 1.3, metal: 1, env: 0.3 },
+  "Worn blue graphite | microtexture": {
+    color: [0.0042, 0.0052, 0.0084],
+    rough: 2.4,
+    metal: 1,
+    normal: 0.9,
+    env: 0.3,
+  },
+  "Cobalt painted armor": {
+    color: [0.04, 0.13, 0.62],
+    chip: 0.9,
+    rough: 0.85,
+    metal: 0.1,
+    normal: 0.6,
+    env: 0.75,
+  },
+  "Frame | scratched gunmetal PBR": {
+    color: [0.0035, 0.0038, 0.0049],
+    rough: 2.4,
+    metal: 1,
+    normal: 1,
+    env: 0.3,
+  },
+  "Controls | black worn leather PBR": {
+    color: [0.0017, 0.0017, 0.0021],
+    rough: 2.4,
+    metal: 1,
+    normal: 1.6,
+    env: 0.3,
+  },
 };
 
 // Cheap deterministic hash noise, value-interpolated: the glass's smudges.
@@ -128,42 +174,82 @@ function smudgeTexture(size = 256): DataTexture {
   return texture;
 }
 
-/** A black glass: its only colour is what it reflects; `tint` (0..1) darkens what is behind it. */
-function glassMaterial(roughness: number, tint: number, map?: DataTexture): MeshStandardMaterial {
+/** A black glass: additive, so its only light is the reflection, scaled by `strength` (0..1). */
+function glassMaterial(
+  roughness: number,
+  strength: number,
+  map?: DataTexture,
+): MeshStandardMaterial {
   return new MeshStandardMaterial({
     color: 0x000000,
     metalness: 0,
     roughness,
     roughnessMap: map ?? null,
     transparent: true,
-    opacity: tint,
+    opacity: strength,
     depthWrite: false,
-    blending: CustomBlending,
-    blendSrc: OneFactor,
-    blendDst: OneMinusSrcAlphaFactor,
+    blending: AdditiveBlending,
   });
 }
 
+// ponytail: test-only URL seam, `?look=off` skips the glass and the combiner HUD for before/after captures.
+export const LOOK_OFF = /[?&]look=off\b/.test(String(globalThis.location?.search ?? ""));
+
 export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitLookHandle {
+  if (LOOK_OFF) return { update() {}, dispose() {} };
   const own: Array<{ dispose(): void }> = [];
-  model.traverse((object) => {
-    const material = (object as Mesh).material as MeshStandardMaterial | undefined;
-    const finish = material === undefined ? undefined : FINISH[material.name];
-    if (material === undefined || finish === undefined) return;
-    // Applied once per material: clones share it, so scale from a stored base.
+  /** Writes a material's finish; safe to repeat, since roughness and bump scale from a stored base. */
+  const finish = (material: MeshStandardMaterial, f: IFinish): void => {
     const base = (material.userData.lookBase ??= {
       roughness: material.roughness,
-      metalness: material.metalness,
-    }) as { roughness: number; metalness: number };
-    material.roughness = Math.min(1, base.roughness * (finish.roughness ?? 1));
-    material.metalness = finish.metalness ?? base.metalness;
+      normal: material.normalScale.x,
+    }) as { roughness: number; normal: number };
+    material.userData.ownFinish = true;
+    if ("specularIntensity" in material) (material as unknown as { specularIntensity: number }).specularIntensity = 0;
+    if (f.color !== undefined) material.color.setRGB(...f.color);
+    material.roughness = base.roughness * (f.rough ?? 1);
+    if (f.metal !== undefined) {
+      material.metalness = f.metal;
+      // A metalness map lets texels fall toward a dielectric, whose 4% sun reflection reads cream.
+      if (f.metal >= 1) material.metalnessMap = null;
+    }
+    if (f.normal !== undefined) material.normalScale.setScalar(base.normal * f.normal);
+  };
+  const interior = (visit: (material: MeshStandardMaterial, f: IFinish) => void): void =>
+    model.traverse((object) => {
+      const material = (object as Mesh).material as MeshStandardMaterial | undefined;
+      const f = material === undefined ? undefined : FINISH[material.name];
+      if (material !== undefined && f !== undefined) visit(material, f);
+    });
+  interior(finish);
+  // Edge wear from the glb's second UV set (uv1.x convexity: outer edges chip, uv1.y concavity: seams
+  // collect grime), folded into the vertex colour that already carries the baked AO. A vertex colour
+  // is portable where a shader node is not (a second colour attribute crashes the web engine).
+  model.traverse((object) => {
+    const mesh = object as Mesh;
+    const geometry = mesh.geometry as BufferGeometry | undefined;
+    const f = FINISH[(mesh.material as MeshStandardMaterial | undefined)?.name ?? ""];
+    const uv1 = geometry?.getAttribute("uv1");
+    const color = geometry?.getAttribute("color");
+    if (geometry === undefined || f === undefined || !uv1 || !color || geometry.userData.worn)
+      return;
+    geometry.userData.worn = true;
+    const n = color.itemSize;
+    const out = new Float32Array(color.count * n);
+    for (let i = 0; i < color.count; i += 1) {
+      const k = Math.max(0.2, 1 + (f.chip ?? 2.5) * uv1.getX(i) - 0.45 * uv1.getY(i));
+      for (let c = 0; c < n; c += 1) out[i * n + c] = color.getComponent(i, c) * (c < 3 ? k : 1);
+    }
+    geometry.setAttribute("color", new Float32BufferAttribute(out, n));
   });
 
   const [ex, ey, ez] = look.eye;
   const canopy = look.canopy ?? {};
+  // Default extent is the window opening seen from the eye (about +-25 deg across, -3 to +17 deg up),
+  // so the glass never overdraws the headliner round the arch.
   const radius = canopy.radius ?? 8;
-  const azimuth = ((canopy.azimuth ?? 55) * Math.PI) / 180;
-  const [lo, hi] = canopy.elevation ?? [-20, 60];
+  const azimuth = ((canopy.azimuth ?? 25) * Math.PI) / 180;
+  const [lo, hi] = canopy.elevation ?? [-4, 16.5];
   // Sphere azimuth 0 is +X and -Z sits at 3/2 pi; theta counts from the zenith.
   const shellGeometry = new SphereGeometry(
     radius,
@@ -177,7 +263,7 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
   const smudge = smudgeTexture();
   smudge.repeat.set(2, 1);
   // The map multiplies the roughness: a base of 0.45 makes clean glass 0.09 and smudges 0.45.
-  const shellMaterial = glassMaterial(canopy.roughness ?? 0.45, canopy.tint ?? 0.05, smudge);
+  const shellMaterial = glassMaterial(canopy.roughness ?? 0.45, canopy.reflect ?? 0.12, smudge);
   shellMaterial.side = BackSide;
   const shell = new Mesh(shellGeometry, shellMaterial);
   shell.name = "canopy-glass";
@@ -189,7 +275,7 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
   model.add(shell);
   own.push(shellGeometry, shellMaterial, smudge);
 
-  const coverMaterial = glassMaterial(look.screenRoughness ?? 0.08, 0.02);
+  const coverMaterial = glassMaterial(look.screenRoughness ?? 0.08, look.screenReflect ?? 0.3);
   own.push(coverMaterial);
   const covers = look.screens.map((screen) => {
     const geometry = new PlaneGeometry(screen.w, screen.h);
@@ -205,7 +291,25 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
     return cover;
   });
 
+  let tuned = false;
   return {
+    update() {
+      if (tuned) return;
+      let top: Object3D = model;
+      while (top.parent !== null) top = top.parent;
+      const environment = (top as Scene).environment;
+      if (environment === null || environment === undefined) return;
+      tuned = true;
+      // Own the environment on the interior materials so `envMapIntensity` can dim it: the cockpit
+      // sits under a canopy and a dash, and lit like open ground it would be pale at grazing angles.
+      interior((material, f) => {
+        if (f.env === undefined) return;
+        material.envMap = environment;
+        material.envMapIntensity = f.env;
+        material.needsUpdate = true;
+        finish(material, f); // the swap can rebuild the material from its file values
+      });
+    },
     dispose() {
       shell.removeFromParent();
       for (const cover of covers) cover.removeFromParent();

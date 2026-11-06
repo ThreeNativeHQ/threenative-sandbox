@@ -1,0 +1,394 @@
+{
+  "name": "cockpit-look-lock",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "chase",
+      "waitTicks": 20,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "cockpit-on",
+      "press": "KeyC",
+      "holdTicks": 3,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "t0",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t0"
+    },
+    {
+      "kind": "wait",
+      "label": "t1",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t1"
+    },
+    {
+      "kind": "wait",
+      "label": "t2",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t2"
+    },
+    {
+      "kind": "wait",
+      "label": "t3",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t3"
+    },
+    {
+      "kind": "wait",
+      "label": "t4",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t4"
+    },
+    {
+      "kind": "wait",
+      "label": "t5",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t5"
+    },
+    {
+      "kind": "wait",
+      "label": "t6",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t6"
+    },
+    {
+      "kind": "wait",
+      "label": "t7",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t7"
+    },
+    {
+      "kind": "wait",
+      "label": "t8",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t8"
+    },
+    {
+      "kind": "wait",
+      "label": "t9",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t9"
+    },
+    {
+      "kind": "wait",
+      "label": "t10",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t10"
+    },
+    {
+      "kind": "wait",
+      "label": "t11",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t11"
+    },
+    {
+      "kind": "wait",
+      "label": "t12",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t12"
+    },
+    {
+      "kind": "wait",
+      "label": "t13",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t13"
+    },
+    {
+      "kind": "wait",
+      "label": "t14",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t14"
+    },
+    {
+      "kind": "wait",
+      "label": "t15",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t15"
+    },
+    {
+      "kind": "wait",
+      "label": "t16",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t16"
+    },
+    {
+      "kind": "wait",
+      "label": "t17",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t17"
+    },
+    {
+      "kind": "wait",
+      "label": "t18",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t18"
+    },
+    {
+      "kind": "wait",
+      "label": "t19",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t19"
+    },
+    {
+      "kind": "wait",
+      "label": "t20",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t20"
+    },
+    {
+      "kind": "wait",
+      "label": "t21",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t21"
+    },
+    {
+      "kind": "wait",
+      "label": "t22",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t22"
+    },
+    {
+      "kind": "wait",
+      "label": "t23",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t23"
+    },
+    {
+      "kind": "wait",
+      "label": "t24",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t24"
+    },
+    {
+      "kind": "wait",
+      "label": "t25",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t25"
+    },
+    {
+      "kind": "wait",
+      "label": "t26",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t26"
+    },
+    {
+      "kind": "wait",
+      "label": "t27",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t27"
+    },
+    {
+      "kind": "wait",
+      "label": "t28",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t28"
+    },
+    {
+      "kind": "wait",
+      "label": "t29",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t29"
+    },
+    {
+      "kind": "wait",
+      "label": "t30",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t30"
+    },
+    {
+      "kind": "wait",
+      "label": "t31",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t31"
+    },
+    {
+      "kind": "wait",
+      "label": "t32",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t32"
+    },
+    {
+      "kind": "wait",
+      "label": "t33",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t33"
+    },
+    {
+      "kind": "wait",
+      "label": "t34",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t34"
+    },
+    {
+      "kind": "wait",
+      "label": "t35",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t35"
+    },
+    {
+      "kind": "wait",
+      "label": "t36",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t36"
+    },
+    {
+      "kind": "wait",
+      "label": "t37",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t37"
+    },
+    {
+      "kind": "wait",
+      "label": "t38",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t38"
+    },
+    {
+      "kind": "wait",
+      "label": "t39",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t39"
+    },
+    {
+      "kind": "wait",
+      "label": "t40",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t40"
+    },
+    {
+      "kind": "wait",
+      "label": "t41",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t41"
+    },
+    {
+      "kind": "wait",
+      "label": "t42",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t42"
+    },
+    {
+      "kind": "wait",
+      "label": "t43",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t43"
+    },
+    {
+      "kind": "wait",
+      "label": "t44",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t44"
+    },
+    {
+      "kind": "wait",
+      "label": "t45",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t45"
+    },
+    {
+      "kind": "wait",
+      "label": "t46",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t46"
+    },
+    {
+      "kind": "wait",
+      "label": "t47",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t47"
+    },
+    {
+      "kind": "wait",
+      "label": "t48",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t48"
+    },
+    {
+      "kind": "wait",
+      "label": "t49",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "t49"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "camera",
+        "component": "hudLockFrames",
+        "gte": 1
+      },
+      {
+        "entity": "camera",
+        "component": "hudQuads",
+        "gte": 150
+      }
+    ]
+  }
+}

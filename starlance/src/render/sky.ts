@@ -32,8 +32,8 @@ import { palette } from "./palette.js";
 const SKY_RANGE = 2.5;
 
 /** Unit vector toward the photographed sun: 47.9° up, measured from the source HDR. */
-// Named override (look lane): a low sun, 15 deg up, left of the course and slightly ahead: grazing light shows the dunes, rock faces split into lit and shaded sides, the haze glows toward the sun.
-export const SUN_DIRECTION = new Vector3(-0.8, 0.24, -0.42).normalize();
+// Named override (look lane): a low sun, 13 deg up, 30 deg left of the course heading (in frame, the haze glows around it): grazing light shows the dunes, rock faces split into lit and shaded sides, the haze glows toward the sun.
+export const SUN_DIRECTION = new Vector3(-0.487, 0.225, -0.844).normalize();
 
 /** The look this fog replaced: FogExp2 at 0.003, measured at 150 m from 2 m up. */
 const EYE_LEVEL = { density: 0.003, distance: 150, cameraHeight: 2 };
@@ -84,15 +84,19 @@ export const SKY_OPTIONS: { sky: "atmosphere" | "photo"; clouds: boolean; ground
  * start distance 0, as in Unreal: the colour comes from the sky.
  */
 /** Haze hue (unit luminance) and how far the fog moves toward it. */
-const HAZE_TINT = { r: 1.55, g: 0.82, b: 0.46 };
-const HAZE_MIX = 0.8;
+const HAZE_TINT = { r: 1.4, g: 0.8, b: 0.5 };
+const HAZE_MIX = 0.75;
 
 const ATMOSPHERE_FOG = {
   ...HEIGHT_FOG,
-  density: 0.00436 * Math.LN2,
-  heightFalloff: 0.02,
-  fogHeight: -68.5,
+  // Named override (look lane): a warm dust layer hugging the ground (scale height ~25 m), thick
+  // enough that the course dissolves into orange haze by a kilometre; the sun lobe lights it.
+  density: 0.0026,
+  heightFalloff: 0.03,
+  fogHeight: -25,
   startDistance: 0,
+  sunExponent: 8,
+  sunStartDistance: 220,
 };
 
 /** White in the 8-bit environment is this much scene radiance (`createGpuSky`). */

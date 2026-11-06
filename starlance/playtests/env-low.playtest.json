@@ -1,0 +1,18 @@
+{
+  "name": "env-low",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": { "width": 1280, "height": 720 },
+  "warmupFrames": 30,
+  "subject": "ship",
+  "steps": [
+    { "kind": "wait", "label": "settle", "waitTicks": 20, "release": true },
+    { "kind": "input", "label": "dive", "press": "ArrowDown", "holdTicks": 110, "release": true },
+    { "kind": "wait", "label": "low", "waitTicks": 40, "release": true, "screenshot": "low" }
+  ],
+  "assert": {
+    "diagnostics": { "noConsoleErrors": true, "runtimeReady": true },
+    "performance": { "maxDrawCalls": 200 },
+    "visual": [{ "region": { "x": 0, "y": 0, "width": 1280, "height": 720, "minNonblankPixelRatio": 0.9 } }]
+  }
+}

@@ -2,10 +2,11 @@
 // guide's look (warm terracotta / ochre / rust, faceted rock, no green); the Poly Haven textures
 // only carry grain and are remapped to warm tones in the material, so no moss colour survives.
 import { markStatic } from "@threenative/core";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
   BufferGeometry,
+  type Camera,
   Color,
-  DoubleSide,
   Float32BufferAttribute,
   Group,
   InstancedMesh,
@@ -23,26 +24,27 @@ import {
   float,
   length,
   mix,
-  mx_noise_float,
   positionWorld,
   sin,
   smoothstep,
+  sqrt,
   texture,
   uniform,
   uv,
   vec2,
   vec3,
 } from "three/tsl";
-import { MeshBasicNodeMaterial, MeshStandardNodeMaterial } from "three/webgpu";
+import { MeshBasicNodeMaterial, MeshStandardNodeMaterial, type Node } from "three/webgpu";
 import { ARENA_RADIUS, type Rail, SECTION, railFrame } from "../entities/Rail.js";
 import type { IObstacle } from "../world.js";
-import {
-  boulderGeometry,
-  hoodooGeometry,
-  hoodooProfile,
-  mesaGeometry,
-  rockMaterial,
-} from "./rocks.js";
+import { type IWallStation, canyonWallChunks, rockMaterial } from "./rocks.js";
+import { scatterRocks } from "./rockScatter.js";
+import { createGroundDust } from "./ambientDust.js";
+import { createSkyBodies } from "./planet.js";
+import { SUN_DIRECTION } from "./sky.js";
+import { createGroundClutter } from "./groundClutter.js";
+import { desertGround } from "./groundLook.js";
+import { ridgelineGeometry } from "./ridgeline.js";
 
 export interface IStageTextures {
   readonly groundDiff: Texture;
@@ -51,6 +53,10 @@ export interface IStageTextures {
   readonly rockDiff: Texture;
   readonly rockNormal: Texture;
   readonly rockRough: Texture;
+  /** Scanned layered sandstone (Fab/Quixel "Layered Rock Cliff"): the rock kit's albedo, normal and roughness. */
+  readonly cliffDiff: Texture;
+  readonly cliffNormal: Texture;
+  readonly cliffRough: Texture;
 }
 
 export interface IStage {
@@ -60,7 +66,7 @@ export interface IStage {
   /** Ground surface height at a world point (the base plane is y = 0). */
   groundHeight(x: number, z: number): number;
   /** Moves the soft ground shadow under the ship. Call once per frame (the HUD does). */
-  trackShip(position: Vector3): void;
+  trackShip(position: Vector3, camera: Camera): void;
 }
 
 const TILE = 30; // metres per ground texture repeat
@@ -173,47 +179,11 @@ function sweep(
   return soup(pos, uv);
 }
 
-interface IPlacement {
-  x: number;
-  y: number;
-  z: number;
-  yaw: number;
-  sx: number;
-  sy: number;
-  sz: number;
-  tint: number;
-}
-
 const _m = new Matrix4();
 const _q = new Quaternion();
 const _p = new Vector3();
 const _s = new Vector3();
 const _c = new Color();
-
-function instanced(
-  geo: BufferGeometry,
-  mat: MeshStandardNodeMaterial,
-  list: IPlacement[],
-  seed: number,
-) {
-  const rnd = rng(seed);
-  const mesh = new InstancedMesh(geo, mat, Math.max(1, list.length));
-  mesh.count = list.length;
-  list.forEach((p, i) => {
-    _q.setFromAxisAngle(UP, p.yaw);
-    _m.compose(_p.set(p.x, p.y, p.z), _q, _s.set(p.sx, p.sy, p.sz));
-    mesh.setMatrixAt(i, _m);
-    mesh.setColorAt(
-      i,
-      _c.setRGB(p.tint, p.tint * (0.9 + rnd() * 0.1), p.tint * (0.84 + rnd() * 0.16)),
-    );
-  });
-  mesh.instanceMatrix.needsUpdate = true;
-  if (mesh.instanceColor !== null) mesh.instanceColor.needsUpdate = true;
-  mesh.computeBoundingSphere();
-  mesh.computeBoundingBox();
-  return mesh;
-}
 
 /** Remaps a grain texture to a warm 3-stop ramp by luminance: kills any green in the source. */
 function warmRock(t: IStageTextures, dark: number, mid: number, light: number) {
@@ -246,79 +216,181 @@ export function buildStage(rail: Rail, t: IStageTextures): IStage {
     (1 - smooth(-zCanyon - 220, -zCanyon + 120, -z)) *
     (1 - smooth(500, 700, Math.abs(x))) *
     (1 - smooth(150, 300, z));
+  const zEnd = rail.arenaCenter.z - 800;
+  // The course axis x at each z, so the ground near the ship's path can be a gentle wash.
+  const axisZ: number[] = [];
+  const axisX: number[] = [];
+  for (let d = 0; d <= rail.length; d += 8) {
+    rail.frame(d, f);
+    axisZ.push(f.position.z);
+    axisX.push(f.position.x);
+  }
+  const railX = (z: number): number => {
+    // axisZ falls with distance along the rail: bisect for the segment holding z.
+    let lo = 0;
+    let hi = axisZ.length - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if ((axisZ[mid] as number) > z) lo = mid;
+      else hi = mid;
+    }
+    const z0 = axisZ[lo] as number;
+    const k = Math.min(1, Math.max(0, (z0 - z) / Math.max(1e-6, z0 - (axisZ[hi] as number))));
+    return (axisX[lo] as number) * (1 - k) + (axisX[hi] as number) * k;
+  };
+  /**
+   * Ground height: the dunes, then rolling relief everywhere (2-7 m over 60-400 m, with ridged gullies,
+   * a gentle wash along the ship's path and a calm arena floor), then hills that rise out beyond
+   * 170 m of the course to 85 m and close the horizon. Never below 0, so the canyon wall feet
+   * (y = 0) stay buried in it; flat at the mesh border so it meets the far plane.
+   */
   const groundHeight = (x: number, z: number): number => {
     const a = duneEnvelope(x, z);
-    if (a <= 0) return 0;
-    const h =
-      1.4 +
-      0.9 * Math.sin(0.013 * x + 0.021 * z) +
-      0.8 * Math.sin(0.007 * x - 0.015 * z + 1.7) +
-      0.35 * Math.sin(0.04 * x + 0.03 * z + 0.6);
-    return Math.max(0, h) * (DUNE_PEAK / 3.45) * a;
+    let h = 0;
+    if (a > 0) {
+      h =
+        Math.max(
+          0,
+          1.4 +
+            0.9 * Math.sin(0.013 * x + 0.021 * z) +
+            0.8 * Math.sin(0.007 * x - 0.015 * z + 1.7) +
+            0.35 * Math.sin(0.04 * x + 0.03 * z + 0.6),
+        ) *
+        (DUNE_PEAK / 3.45) *
+        a;
+    }
+    const r = Math.hypot(x - rail.arenaCenter.x, z - rail.arenaCenter.z);
+    const calm = 0.5 + 0.5 * smooth(ARENA_RADIUS - 40, ARENA_RADIUS + 120, r);
+    const lateral = Math.abs(x - railX(z));
+    const wash = 0.4 + 0.6 * smooth(20, 100, lateral);
+    const roll = Math.max(
+      0,
+      2.4 +
+        2.0 * Math.sin(0.017 * x + 0.011 * z + 0.4) +
+        1.4 * Math.sin(0.034 * x - 0.026 * z + 2.1) +
+        0.7 * Math.sin(0.071 * x + 0.059 * z),
+    );
+    // Dune ridges: 1 - |sin| has sharp crests and soft troughs; two warped crest lines at 105 m
+    // and 60 m, a finer one at 40 m. They fade out 200-500 m from the axis (the mesh is coarser there).
+    const wob = 14 * Math.sin(0.021 * z + 0.013 * x);
+    const crest1 = (1 - Math.abs(Math.sin(0.03 * (x + wob) - 0.012 * z + 0.7))) ** 1.4;
+    const crest2 =
+      (1 - Math.abs(Math.sin(0.052 * x + 0.027 * z + 1.9 + 0.5 * Math.sin(0.04 * z)))) ** 1.4;
+    const crest3 = 1 - Math.abs(Math.sin(0.08 * x - 0.06 * z + 2.2));
+    const dunes = 8 * crest1 + 4.5 * crest2 + 1.6 * crest3;
+    const local = 1 - smooth(200, 500, lateral);
+    // Near flanks (20-150 m): isolated 1-3 m mounds, raised slab plates with a sharp edge, and the gullies between.
+    const flank = (0.35 + 0.65 * smooth(12, 35, lateral)) * (1 - smooth(150, 300, lateral));
+    const mounds =
+      Math.max(0, Math.sin(0.045 * x + 0.031 * z + 1) * Math.sin(0.037 * z - 0.029 * x + 2)) **
+        0.8 *
+      3;
+    const slabs =
+      smooth(
+        0.5,
+        0.56,
+        Math.sin(0.021 * x + 0.017 * z + 0.3) * Math.sin(0.015 * z - 0.019 * x + 1.1),
+      ) * 1.8;
+    h +=
+      (roll * (1 - a) + (dunes + (mounds + slabs) * flank) * local) *
+      calm *
+      wash *
+      (1 - 0.5 * a) *
+      (1 - smooth(300, 800, Math.abs(x)));
+    const open = 0.25 + 0.75 * smooth(ARENA_RADIUS - 20, ARENA_RADIUS + 150, r);
+    const hills =
+      85 *
+      smooth(150, 800, Math.abs(x)) *
+      (0.4 +
+        0.3 * Math.sin(0.0071 * z + 0.0042 * x + 1) +
+        0.3 * Math.sin(0.0113 * z - 0.0071 * x + 3));
+    h += Math.max(0, hills) * open;
+    return (
+      h *
+      (1 - smooth(2000, 2400, Math.abs(x))) *
+      smooth(zEnd - 1400, zEnd - 1100, z) *
+      (1 - smooth(1100, 1400, z))
+    );
   };
 
-  for (const map of [t.groundDiff, t.groundNormal, t.groundRough]) {
+  for (const map of [t.groundDiff]) {
     map.wrapS = RepeatWrapping;
     map.wrapT = RepeatWrapping;
     map.anisotropy = 8;
   }
   t.groundDiff.colorSpace = SRGBColorSpace;
-  const ground = new MeshStandardNodeMaterial({
-    metalness: 0,
-    normalMap: t.groundNormal,
-    roughnessMap: t.groundRough,
-    roughness: 1,
-  });
-  ground.roughnessNode = float(0.93);
+  // No normal map: a map repeats on a fixed grid (7.5 m), and the owned engine rejects a node normal,
+  // so the relief is geometry (the heightfield below) plus an emboss term in the colour.
+  const ground = new MeshStandardNodeMaterial({ metalness: 0, roughness: 0.93 });
   {
-    // Anti-tiling: the diffuse grain is sampled a second time at 0.27x the tiling scale and turned
-    // 37 degrees, then the two lumas are blended by world noise, so the 30 m repeat never lines up
-    // across an open dune; a slower noise drifts the tone +/-15% so the sand reads as patches.
-    const grey = vec3(0.299, 0.587, 0.114);
-    const a37 = (37 * Math.PI) / 180;
-    const ca = Math.cos(a37);
-    const sa = Math.sin(a37);
-    const u2 = uv().mul(0.27);
-    const turned = vec2(u2.x.mul(ca).sub(u2.y.mul(sa)), u2.x.mul(sa).add(u2.y.mul(ca)));
-    const luma = mix(
-      dot(texture(t.groundDiff).rgb, grey),
-      dot(texture(t.groundDiff, turned).rgb, grey),
-      mx_noise_float(positionWorld.xz.mul(0.015), 0.5, 0.5),
-    );
-    let col = mix(rgb(0x6a2d1c), rgb(0xc2663a), smoothstep(0.05, 0.6, luma));
-    col = mix(col, rgb(0xe3a56b), smoothstep(0.5, 0.9, luma).mul(0.8));
-    const patch = sin(positionWorld.x.mul(0.0031).add(1.3)).mul(
-      sin(positionWorld.z.mul(0.0023).add(0.4)),
-    );
-    col = mix(col, col.mul(vec3(0.7, 0.58, 0.54)), patch.mul(0.5).add(0.5).mul(0.65));
-    col = col.mul(smoothstep(0, 3, positionWorld.y).mul(0.35).add(0.82));
-    col = col.mul(mx_noise_float(positionWorld.xz.mul(0.01), 0.15, 1));
+    // Anti-tiling: the grain is sampled at three non-commensurate scales and rotations, blended by
+    // slow world sines (weights always > 0.05), then re-contrasted so the average of three does not
+    // wash out. No scale repeats on the same grid, so no tile is readable at any distance.
+    const p = positionWorld.xz.div(TILE);
+    const turn = (deg: number, k: number, ox: number, oy: number) => {
+      const c = Math.cos((deg * Math.PI) / 180);
+      const s = Math.sin((deg * Math.PI) / 180);
+      const q = p.mul(k);
+      return vec2(q.x.mul(c).sub(q.y.mul(s)).add(ox), q.x.mul(s).add(q.y.mul(c)).add(oy));
+    };
+    const grain = (q: Node<"vec2">) => dot(texture(t.groundDiff, q).rgb, vec3(0.299, 0.587, 0.114));
+    const w = positionWorld.xz;
+    const w0 = sin(w.x.mul(0.0071).add(w.y.mul(0.0043)))
+      .mul(0.3)
+      .add(0.35);
+    const w1 = sin(w.y.mul(0.0059).sub(w.x.mul(0.0037)).add(2))
+      .mul(0.3)
+      .add(0.35);
+    const w2 = sin(w.x.mul(0.011).add(w.y.mul(0.013)).add(4))
+      .mul(0.25)
+      .add(0.3);
+    const sum = w0.add(w1).add(w2);
+    const norm = sqrt(w0.mul(w0).add(w1.mul(w1)).add(w2.mul(w2))).div(sum);
+    const q0 = turn(0, 1, 0, 0);
+    const l0 = grain(q0);
+    const l1 = grain(turn(37, 0.31, 0.27, 0.61));
+    const l2 = grain(turn(-23, 1.7, 0.43, 0.12));
+    const mean = float(0.14);
+    // Emboss: the first layer's brightness against itself a few cm toward the sun reads as relief.
+    const emboss = l0
+      .sub(grain(q0.add(vec2(0.004, 0.004))))
+      .mul(2.5)
+      .min(0.12)
+      .max(-0.12);
+    const luma = w0
+      .mul(l0.sub(mean))
+      .add(w1.mul(l1.sub(mean)))
+      .add(w2.mul(l2.sub(mean)))
+      .div(sum)
+      .div(norm)
+      .add(emboss);
+    let col = desertGround(luma);
     // The arena: a pale packed-sand floor with painted rings that give speed and range cues.
     const r = length(positionWorld.xz.sub(vec2(rail.arenaCenter.x, rail.arenaCenter.z)));
-    col = mix(col, rgb(0xdba66c), smoothstep(ARENA_RADIUS + 30, ARENA_RADIUS - 10, r).mul(0.55));
+    col = mix(col, rgb(0xdba66c), smoothstep(ARENA_RADIUS + 30, ARENA_RADIUS - 10, r).mul(0.2));
     let rings = smoothstep(6, 2, r.sub(75).abs());
     for (const r0 of [150, 225, 300]) rings = rings.max(smoothstep(6, 2, r.sub(r0).abs()));
     ground.colorNode = mix(col, col.mul(vec3(0.42, 0.32, 0.3)), rings.mul(0.9));
   }
 
+  /** A heightfield grid, `cx` by `cz` metres a cell (same `cz` in neighbours, so borders match). */
   const grid = (
     x0: number,
     x1: number,
     z0: number,
     z1: number,
-    cell: number,
+    cx: number,
+    cz: number,
     h: (x: number, z: number) => number,
   ) => {
-    const nx = Math.max(1, Math.round((x1 - x0) / cell));
-    const nz = Math.max(1, Math.round((z1 - z0) / cell));
+    const nx = Math.max(1, Math.round((x1 - x0) / cx));
+    const nz = Math.max(1, Math.round((z1 - z0) / cz));
     const pos: number[] = [];
-    const uv: number[] = [];
     for (let j = 0; j <= nz; j += 1) {
       for (let i = 0; i <= nx; i += 1) {
         const x = x0 + ((x1 - x0) * i) / nx;
         const z = z0 + ((z1 - z0) * j) / nz;
         pos.push(x, h(x, z), z);
-        uv.push(x / TILE, z / TILE);
       }
     }
     const idx: number[] = [];
@@ -331,195 +403,63 @@ export function buildStage(rail: Rail, t: IStageTextures): IStage {
     }
     const g = new BufferGeometry();
     g.setAttribute("position", new Float32BufferAttribute(pos, 3));
-    g.setAttribute("uv", new Float32BufferAttribute(uv, 2));
     g.setIndex(idx);
     g.computeVertexNormals();
     g.computeBoundingSphere();
     return g;
   };
-  const dunes = new Mesh(grid(-720, 720, zCanyon - 140, 320, 14, groundHeight), ground);
-  dunes.receiveShadow = true;
+  // The course ground in three x bands over the whole z span (same z pitch inside a band, finer near
+  // the axis): 10 m cells within 130 m, 20 m to 400 m, 50 m to 900 m, 100 m out to 2.4 km where the hills close the horizon.
+  const CORE = 130;
+  const z0 = zEnd - 1400;
+  const z1 = 1400;
+  const bands: [number, number, number, number][] = [
+    [-2400, -900, 100, 20],
+    [-900, -400, 50, 10],
+    [-400, -CORE, 20, 10],
+    [-CORE, CORE, 10, 10],
+    [CORE, 400, 20, 10],
+    [400, 900, 50, 10],
+    [900, 2400, 100, 20],
+  ];
+  // One mesh (one draw) from the bands: they share no vertices, only borders.
+  const land = new Mesh(
+    mergeGeometries(bands.map(([x0, x1, cx, cz]) => grid(x0, x1, z0, z1, cx, cz, groundHeight))),
+    ground,
+  );
+  land.receiveShadow = true;
   const far = new Mesh(
-    grid(-9000, 9000, rail.arenaCenter.z - 9000, 9000, 18000, () => -0.3),
+    grid(-9000, 9000, z0 - 9000, 9000, 18000, 18000, () => -0.3),
     ground,
   );
   far.receiveShadow = true;
-  // The flat ground nearer than the far plane: the course corridor, full detail, no gap in the mist.
-  const flat = new Mesh(
-    grid(-900, 900, rail.arenaCenter.z - 800, zCanyon - 100, 300, () => 0),
-    ground,
-  );
-  root.add(dunes, flat, far);
+  root.add(land, far);
 
   // ---- rock -----------------------------------------------------------------------------------
   // One rock material for the spires and mesas: rocks.ts carries the strata palette in a vertex
   // colour and samples the grain triplanar in world space, so the mesas' non-uniform sx=r, sy=h
   // scale cannot stretch the texture into bands.
-  const rockSpire = rockMaterial(t);
-  const rockMesa = rockSpire;
-  const rockWall = warmRock(t, 0x401a10, 0x9a4228, 0xd8804a);
-  rockWall.vertexColors = true;
-  rockWall.side = DoubleSide;
-
-  type Bucket = { geo: BufferGeometry; list: IPlacement[]; mat: MeshStandardNodeMaterial };
-  const bucket = (geo: BufferGeometry, mat: MeshStandardNodeMaterial): Bucket => ({
-    geo,
-    list: [],
-    mat,
-  });
-  // The mesh and the hit spheres share one radius-by-height profile per spire size.
-  const profileS = hoodooProfile(5, 0.4, 1.1);
-  const profileM = hoodooProfile(4, 0.5, 2.3);
-  const profileL = hoodooProfile(7, 0.35, 0.4);
-  const spireS = bucket(hoodooGeometry(15, 2.6, profileS, 8, 18, 11), rockSpire);
-  const spireM = bucket(hoodooGeometry(27, 3.6, profileM, 9, 20, 12), rockSpire);
-  const spireL = bucket(hoodooGeometry(44, 5.2, profileL, 10, 24, 13), rockSpire);
-  const boulderA = bucket(boulderGeometry(1.6, 14, 10, 6), rockSpire);
-  const boulderB = bucket(boulderGeometry(2.2, 15, 9, 6), rockSpire);
-  const mesaA = bucket(
-    mesaGeometry({ radius: 1, height: 1, sides: 14, rows: 10, layers: 4, seed: 16 }),
-    rockMesa,
-  );
-  const mesaB = bucket(
-    mesaGeometry({ radius: 1, height: 1, sides: 12, rows: 9, layers: 3, seed: 17 }),
-    rockMesa,
-  );
-  const buckets = [spireS, spireM, spireL, boulderA, boulderB, mesaA, mesaB];
-  const spireProfile = new Map<Bucket, { h: number; r: number; p: (t: number) => number }>([
-    [spireS, { h: 15, r: 2.6, p: profileS }],
-    [spireM, { h: 27, r: 3.6, p: profileM }],
-    [spireL, { h: 44, r: 5.2, p: profileL }],
-  ]);
-  const rnd = rng(2026);
-  const range = (a: number, b: number): number => a + (b - a) * rnd();
-  const pick = <T>(...xs: T[]): T => xs[Math.floor(rnd() * xs.length)] as T;
+  const rockSpire = rockMaterial(t, true);
+  const rockMesa = rockMaterial(t);
+  root.add(new Mesh(ridgelineGeometry(rail.frame(0, f).position, rail.arenaCenter), rockMesa));
 
   /** World point `l` metres right of the path at `s`. */
   const at = (s: number, l: number, out: Vector3): Vector3 => {
     rail.frame(s, f);
     return out.copy(f.position).addScaledVector(f.right, l);
   };
-  const place = (b: Bucket, s: number, l: number, scale = 1, hit = false): void => {
-    at(s, l, _p);
-    const gy = groundHeight(_p.x, _p.z);
-    const sy = scale * range(0.9, 1.15);
-    b.list.push({
-      x: _p.x,
-      y: gy,
-      z: _p.z,
-      yaw: rnd() * TAU,
-      sx: scale,
-      sy,
-      sz: scale,
-      tint: range(0.8, 1.1),
-    });
-    const prof = spireProfile.get(b);
-    if (hit && prof !== undefined) {
-      for (const tt of [0.08, 0.3, 0.52, 0.74]) {
-        const y = gy - 1.5 + tt * (prof.h + 1.5) * sy;
-        if (y > 34) break;
-        obstacles.push({
-          center: new Vector3(_p.x, y, _p.z),
-          radius: Math.max(1.3, prof.r * prof.p(tt) * scale * 0.92 + 0.5),
-        });
-      }
-    } else if (hit) {
-      obstacles.push({
-        center: new Vector3(_p.x, gy + 1.2 * scale, _p.z),
-        radius: 2 * scale + 0.6,
-      });
-    }
-  };
   const nearArch = (s: number): boolean => ARCH_S.some((a) => Math.abs(a - s) < 55);
-
-  // Section A: dunes, spires standing in and around the corridor.
-  for (let s = 140; s < SECTION.canyon - 60; s += range(24, 44)) {
-    const inside = rnd() < 0.3;
-    const side = rnd() < 0.5 ? -1 : 1;
-    const l = inside ? range(-14, 14) : side * range(24, 110);
-    const b = inside ? pick(spireS, spireM, spireM, spireL) : pick(spireM, spireL, spireL, spireS);
-    place(b, s, l, range(0.85, 1.2), inside);
-  }
-  // Section B: a few boulders and low fangs in the corridor, tall rock only in the walls.
-  for (let s = SECTION.canyon + 70; s < SECTION.plain - 90; s += range(55, 100)) {
-    if (nearArch(s)) continue;
-    const l = range(-12, 12);
-    if (rnd() < 0.5) place(pick(spireS, spireS, spireM), s, l, range(0.8, 1.05), true);
-    else place(pick(boulderA, boulderB), s, l, range(1.1, 1.7), true);
-  }
-  // Section C: open plain, sparse rock in the corridor.
-  for (let s = SECTION.plain + 40; s < rail.length - 220; s += range(70, 120)) {
-    const inside = rnd() < 0.45;
-    const side = rnd() < 0.5 ? -1 : 1;
-    const l = inside ? range(-13, 13) : side * range(30, 120);
-    place(pick(spireS, spireM, spireL), s, l, range(0.85, 1.15), inside);
-  }
-  // Boulder scatter on the ground: parallax at 30 m/s.
-  for (let s = 20; s < rail.length; s += range(5, 11)) {
-    if (s > SECTION.canyon - 20 && s < SECTION.plain + 20) {
-      if (rnd() < 0.6) continue;
-    }
-    const l = (rnd() < 0.5 ? -1 : 1) * range(5, 95);
-    // Boulders within 40 m of the path are solid: they register as obstacles the ship collides with.
-    place(pick(boulderA, boulderB), s, l, range(0.5, 2.2), Math.abs(l) < 40);
-  }
-
-  // Mesas: flat-topped, flanking section C, a skyline everywhere, and a ring around the arena.
-  const mesa = (x: number, z: number, r: number, h: number): void => {
-    const b = rnd() < 0.5 ? mesaA : mesaB;
-    b.list.push({
-      x,
-      y: groundHeight(x, z) - 1,
-      z,
-      yaw: rnd() * TAU,
-      sx: r,
-      sy: h,
-      sz: r * range(0.7, 1.1),
-      tint: range(0.8, 1.05),
-    });
-  };
-  for (let s = SECTION.plain - 100; s < rail.length; s += range(110, 190)) {
-    for (const side of [-1, 1]) {
-      at(s, side * range(110, 420), _p);
-      mesa(_p.x, _p.z, range(22, 62), range(16, 52));
-    }
-  }
-  for (let s = 100; s < rail.length; s += range(200, 320)) {
-    const side = rnd() < 0.5 ? -1 : 1;
-    if (s > SECTION.canyon - 100 && s < SECTION.plain + 100) continue;
-    at(s, side * range(520, 1500), _p);
-    mesa(_p.x, _p.z, range(70, 170), range(45, 130));
-  }
-  rail.frame(rail.length, f);
-  const approach = Math.atan2(f.position.z - rail.arenaCenter.z, f.position.x - rail.arenaCenter.x);
-  for (let k = 0; k < 28; k += 1) {
-    const a = (k / 28) * TAU + range(-0.05, 0.05);
-    const d = Math.atan2(Math.sin(a - approach), Math.cos(a - approach));
-    if (Math.abs(d) < 0.5) continue; // the gate the course enters by
-    const rr = ARENA_RADIUS + range(55, 110);
-    mesa(
-      rail.arenaCenter.x + Math.cos(a) * rr,
-      rail.arenaCenter.z + Math.sin(a) * rr,
-      range(45, 82),
-      range(42, 95),
-    );
-  }
-  // Boulders on the arena floor, clear of the middle.
-  for (let k = 0; k < 40; k += 1) {
-    const a = rnd() * TAU;
-    const rr = range(60, ARENA_RADIUS - 10);
-    const b = pick(boulderA, boulderB);
-    b.list.push({
-      x: rail.arenaCenter.x + Math.cos(a) * rr,
-      y: 0,
-      z: rail.arenaCenter.z + Math.sin(a) * rr,
-      yaw: rnd() * TAU,
-      sx: 1,
-      sy: 1,
-      sz: 1,
-      tint: range(0.8, 1.1),
-    });
-  }
+  // Towers, boulder clusters and mesas: forms in rockForms.ts, placement and hit spheres in rockScatter.ts.
+  const rockBatches = scatterRocks({
+    rail,
+    frame: f,
+    groundHeight,
+    obstacles,
+    at,
+    nearArch,
+    seed: 2026,
+  });
+  root.add(createGroundClutter(at, groundHeight, rail.length, rail.arenaCenter, ARENA_RADIUS));
 
   // ---- arches ---------------------------------------------------------------------------------
   // Two legs and a half ring in one swept, jagged tube; the hole in the middle is the way through.
@@ -566,82 +506,31 @@ export function buildStage(rail: Rail, t: IStageTextures): IStage {
   archs.computeBoundingBox();
   root.add(archs);
 
-  for (const b of buckets) {
-    if (b.list.length === 0) continue;
-    root.add(instanced(b.geo, b.mat, b.list, 99));
-  }
+  for (const b of rockBatches) root.add(new Mesh(b.geo, b.mesa ? rockMesa : rockSpire));
 
   // ---- canyon walls ---------------------------------------------------------------------------
+  // Ledged, eroded cliffs from rocks.ts (strata colours in the vertex colour, world-space grain).
   {
-    const rows: [number, number][] = [
-      [0, -1],
-      [0.5, 10],
-      [2.5, 24],
-      [6, 40],
-      [14, 56],
-      [28, 61],
-      [56, 42],
-      [106, 16],
-      [160, 0],
-    ];
     const S0 = SECTION.canyon - 160;
     const S1 = SECTION.plain + 160;
-    const step = 14;
-    const rw = rng(77);
-    const pos: number[] = [];
-    const uv: number[] = [];
-    const col: number[] = [];
-    for (const side of [-1, 1]) {
-      const grid: Vector3[][] = [];
-      const shade: number[][] = [];
-      for (let s = S0; s <= S1; s += step) {
-        const env =
-          smooth(SECTION.canyon - 60, SECTION.canyon + 180, s) *
-          (1 - smooth(SECTION.plain - 180, SECTION.plain + 40, s));
-        const width = 24 + 5 * Math.sin(s * 0.017 + side) + 3 * Math.sin(s * 0.05);
-        const line: Vector3[] = [];
-        const lit: number[] = [];
-        for (const [d, h] of rows) {
-          // Shake every vertex along the course too, so no seam runs straight down the cliff.
-          rail.frame(s + (d > 1 ? (rw() - 0.5) * step * 0.8 : 0), f);
-          const hh = Math.max(-1, h * env + (h > 2 ? (rw() - 0.5) * 9 * env : 0));
-          const dd = width + d + (d > 1 ? (rw() - 0.5) * 8 : 0);
-          line.push(
-            new Vector3(
-              f.position.x + f.right.x * side * dd,
-              Math.max(-1, hh),
-              f.position.z + f.right.z * side * dd,
-            ),
-          );
-          // Fake the shadow a low sun leaves in a canyon: dark base, lit crest.
-          lit.push(0.38 + 0.62 * smooth(0, 38, Math.max(0, hh)));
-        }
-        grid.push(line);
-        shade.push(lit);
-      }
-      for (let i = 0; i < grid.length - 1; i += 1) {
-        for (let j = 0; j < rows.length - 1; j += 1) {
-          const corner = (ii: number, jj: number): void => {
-            const v = (grid[ii] as Vector3[])[jj] as Vector3;
-            pos.push(v.x, v.y, v.z);
-            uv.push(
-              (S0 + ii * step) / ROCK_TILE,
-              (rows[jj] as [number, number])[0] / 18 + v.y / ROCK_TILE,
-            );
-            const c = (shade[ii] as number[])[jj] as number;
-            col.push(c, c * 0.95, c * 0.92);
-          };
-          corner(i, j);
-          corner(i, j + 1);
-          corner(i + 1, j);
-          corner(i, j + 1);
-          corner(i + 1, j + 1);
-          corner(i + 1, j);
-        }
-      }
+    const stations: IWallStation[] = [];
+    for (let s = S0; s <= S1; s += 4) {
+      const env =
+        smooth(SECTION.canyon - 60, SECTION.canyon + 180, s) *
+        (1 - smooth(SECTION.plain - 180, SECTION.plain + 40, s));
+      const width = (side: number): number =>
+        24 + 5 * Math.sin(s * 0.017 + side) + 3 * Math.sin(s * 0.05);
+      rail.frame(s, f);
+      stations.push({
+        x: f.position.x,
+        z: f.position.z,
+        rx: f.right.x,
+        rz: f.right.z,
+        width: [width(-1), width(1)],
+        env,
+      });
     }
-    const wall = new Mesh(soup(pos, uv, col), rockWall);
-    root.add(wall);
+    for (const wall of canyonWallChunks(stations, 77)) root.add(new Mesh(wall, rockSpire));
   }
 
   // ---- ship shadow ----------------------------------------------------------------------------
@@ -658,12 +547,24 @@ export function buildStage(rail: Rail, t: IStageTextures): IStage {
   blob.frustumCulled = false;
   root.add(blob);
   for (const child of root.children) if (child !== blob) markStatic(child);
+  // Ground dust moves every frame, so it joins the root after the freeze.
+  const dust = createGroundDust((mesh) => {
+    root.add(mesh);
+    return mesh;
+  }, groundHeight);
+  const skyBodies = createSkyBodies(SUN_DIRECTION);
+  root.add(skyBodies.group);
+  let lastTime = performance.now();
 
   return {
     root,
     obstacles,
     groundHeight,
-    trackShip(p) {
+    trackShip(p, camera) {
+      const now = performance.now();
+      dust.update(p, camera, Math.min(0.1, (now - lastTime) / 1000));
+      lastTime = now;
+      skyBodies.update(camera);
       blob.visible = true;
       const gy = groundHeight(p.x, p.z);
       const alt = Math.max(0, p.y - gy);

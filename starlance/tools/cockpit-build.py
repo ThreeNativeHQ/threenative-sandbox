@@ -3,6 +3,8 @@
   blender -b <cockpit.blend> --python tools/cockpit-build.py -- <out.glb>
   pnpm exec gltf-transform optimize <out.glb> assets/cockpit.glb --flatten false --join false \
     --instance false --palette false --compress false --vertex-layout separate --texture-compress false
+  pnpm exec gltf-transform jpeg assets/cockpit.glb assets/cockpit.glb --formats png \
+    --slots metallicRoughnessTexture --quality 85
 
 What it does: drops the hidden, text, light, camera, glazing, screen-texture and third-party-brand
 objects; replaces the brand marks with Starlance's (tools/cockpit-brand/*.png); joins the static
@@ -16,24 +18,28 @@ import re
 import sys
 
 import bmesh
+import numpy as np
 import bpy
 from mathutils import Vector
 
 OUT = sys.argv[-1]
-BRAND = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cockpit-brand")
 
 DROP = re.compile(
-    r"^(HUD |Heading tape|Canopy inner glazing|Side 04 stencil|Side fox stencil|Yoke fox stencil|"
+    r"^(HUD |Yoke face inset|Heading tape|Canopy inner glazing|"
     r"Red fox insignia|Tactical fighter display|Crew communications display|Radar display|"
     r"Lower communications console|Lower weapons console|Crew portrait|Radar contact|Signal bar|"
     r"Comms indicator|Status gauge)"
 )
 STICK = re.compile(r"^(Ergonomic grip|Grip armored cap|Grip cap inset|Grip cap screw|Trigger black surround)")
 TRIGGER = re.compile(r"^Trigger luminous red")
-YOKE = re.compile(r"^(Yoke center shell|Yoke face inset|Yoke arm|Yoke pivot|Yoke crossbar|Yoke centerpiece)")
+YOKE = re.compile(r"^(Yoke center shell|Yoke metal shaft|Yoke arm|Yoke pivot|Yoke crossbar|Yoke centerpiece|Yoke fox stencil)")
 PEDAL = re.compile(r"^(Pilot pedal|Pedal grip)")
 LAMP = re.compile(r"^Switch lens")
 
+# The canopy window's outline (the glazing sheet is dropped below), in Blender x, z at y = 0.1.
+_glass = bpy.data.objects["Canopy inner glazing"]
+WINDOW = [(v.co.x, v.co.z) for v in _glass.data.vertices]
+WINDOW_Y = 0.42  # the back of the canopy frame
 # 1. drop what must not ship -----------------------------------------------------------------
 for o in list(bpy.data.objects):
     if o.type != "MESH" or o.hide_render or DROP.match(o.name):
@@ -155,11 +161,11 @@ def adopt(o, parent):
 
 
 pivots = {
-    "stick_L": (-1.0, -2.2, 0.55),
-    "stick_R": (1.0, -2.2, 0.55),
-    "yoke": (0.0, -1.86, 1.3),
-    "pedal_L": (-0.82, -1.24, 0.15),
-    "pedal_R": (0.82, -1.24, 0.15),
+    "stick_L": (-1.0, -2.2, -0.45),
+    "stick_R": (1.0, -2.2, -0.45),
+    "yoke": (0.0, -1.5, -0.5),  # the base of the shaft, so the handle leans about its foot
+    "pedal_L": (-0.82, -1.24, -0.85),
+    "pedal_R": (0.82, -1.24, -0.85),
 }
 nodes = {}
 for name, loc in pivots.items():
@@ -170,6 +176,13 @@ for s in "LR":
     for o in joined.get("trigger_" + s, []):
         o.name = "trigger_" + s
         adopt(o, nodes["stick_" + s])
+# Shorter and a little thicker, so a grip clears the lower screens (it sits nearer the eye than they do,
+# so it projects outward over them): the cockpit's source grips are 1.3 m tall.
+for s in "LR":
+    nodes["stick_" + s].scale = (1.0, 1.0, 0.6)
+# The yoke is one rigid group (hub, two grips, column) on one pivot at the column foot, lifted so a stub
+# of the column shows under the head at the bottom edge.
+nodes["yoke"].location.z += 0.2
 
 
 # 6. new parts: throttle slider beside the stores screen, Starlance marks ---------------------------------
@@ -189,7 +202,7 @@ def box(name, size, centre, mat, parent=None):
     return o
 
 
-TH = (-1.68, -0.3, 0.95)  # a vertical throttle slot beside the stores screen; the knob slides up to boost
+TH = (-1.68, -0.3, -0.05)  # a vertical throttle slot beside the stores screen; the knob slides up to boost
 throttle = empty("throttle", TH)
 box("throttle_slot", (0.1, 0.04, 0.56), TH, "Soft black rubber")
 box("throttle_rail", (0.02, 0.05, 0.5), (TH[0], TH[1] - 0.005, TH[2]), "Edge steel")
@@ -197,44 +210,146 @@ box("throttle_knob", (0.17, 0.08, 0.07), (TH[0], TH[1] - 0.05, TH[2]), "Edge ste
 box("throttle_grip", (0.12, 0.09, 0.025), (TH[0], TH[1] - 0.052, TH[2]), "Amber switch lights", throttle)
 
 
-def decal(name, x0, x1, z0, z1, y, png, parent=None):
-    """A flat, glowing panel facing the pilot (-Y) carrying one Starlance mark."""
+def canopy_plate():
+    """The roof and cheek panels round the canopy window. The source scene frames the arch tight; a
+    wider lens past it looked out over its edges, so this solid sheet (hole = the window) closes them."""
+    cx = sum(p[0] for p in WINDOW) / len(WINDOW)
+    cz = sum(p[1] for p in WINDOW) / len(WINDOW)
+    # Convex window, ordered by angle round its centre.
+    ring = sorted(WINDOW, key=lambda p: math.atan2(p[1] - cz, p[0] - cx))
+    X0, X1, Z0, Z1 = -14.0, 14.0, -1.0, 14.0
+    outer = []
+    for x, z in ring:  # push each window vertex radially out to the big rectangle
+        dx, dz = x - cx, z - cz
+        k = min(
+            ((X1 if dx > 0 else X0) - cx) / dx if dx else 1e9,
+            ((Z1 if dz > 0 else Z0) - cz) / dz if dz else 1e9,
+        )
+        outer.append((cx + dx * k, cz + dz * k))
     bm = bmesh.new()
-    vs = [bm.verts.new(p) for p in ((x0, y, z0), (x1, y, z0), (x1, y, z1), (x0, y, z1))]
-    f = bm.faces.new(vs)
-    uv = bm.loops.layers.uv.new("UVMap")
-    for loop, (u, v) in zip(f.loops, ((0, 0), (1, 0), (1, 1), (0, 1))):
-        loop[uv].uv = (u, v)
-    me = bpy.data.meshes.new(name)
+    inner_v = [bm.verts.new((x, WINDOW_Y, z)) for x, z in ring]
+    outer_v = [bm.verts.new((x, WINDOW_Y, z)) for x, z in outer]
+    corners = {c: bm.verts.new((c[0], WINDOW_Y, c[1])) for c in ((X0, Z0), (X1, Z0), (X1, Z1), (X0, Z1))}
+    n = len(ring)
+    for i in range(n):
+        j = (i + 1) % n
+        a, b = outer[i], outer[j]
+        quad = [inner_v[i], inner_v[j], outer_v[j], outer_v[i]]
+        bm.faces.new(quad)
+        # Consecutive outer points on different rectangle edges leave a corner to fill.
+        for (cxx, czz), cv in corners.items():
+            if all(abs(p[0] - cxx) < 1e-6 or abs(p[1] - czz) < 1e-6 for p in (a, b)) and a[0] != b[0] and a[1] != b[1]:
+                bm.faces.new([outer_v[i], outer_v[j], cv])
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for f in bm.faces:  # face the pilot (-Y), double-sided anyway
+        if f.normal.y > 0:
+            f.normal_flip()
+    me = bpy.data.meshes.new("canopy_plate")
     bm.to_mesh(me)
     bm.free()
-    img = bpy.data.images.load(os.path.join(BRAND, png))
-    m = bpy.data.materials.new(name)
-    m.use_nodes = True
-    bsdf = next(n for n in m.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
-    tex = m.node_tree.nodes.new("ShaderNodeTexImage")
-    tex.image = img
-    m.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
-    m.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Emission Color"])
-    bsdf.inputs["Emission Strength"].default_value = 0.8
-    bsdf.inputs["Roughness"].default_value = 0.6
-    me.materials.append(m)
-    o = bpy.data.objects.new(name, me)
+    lining = bpy.data.materials.new("Cockpit headliner")
+    lining.use_nodes = True
+    bsdf = next(n for n in lining.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Base Color"].default_value = (0.004, 0.004, 0.005, 1)
+    bsdf.inputs["Roughness"].default_value = 1.0
+    bsdf.inputs["Metallic"].default_value = 0.0
+    bsdf.inputs["Specular IOR Level"].default_value = 0.0
+    me.materials.append(lining)
+    o = bpy.data.objects.new("static_canopy_plate", me)
     bpy.context.scene.collection.objects.link(o)
-    if parent is not None:
-        adopt(o, parent)
+    uv = me.uv_layers.new(name="UVMap")
+    for loop in me.loops:
+        v = me.vertices[loop.vertex_index].co
+        uv.data[loop.index].uv = (v.x * 0.25, v.z * 0.25)
+    return o
 
 
-decal("brand_wall_L", -4.05, -3.57, 2.62, 3.1, -0.135, "emblem.png")
-decal("brand_wall_R", 3.59, 4.13, 2.64, 3.12, -0.135, "wordmark.png")
-decal("brand_yoke", -0.21, 0.21, 1.27, 1.64, -2.1, "yoke.png", nodes["yoke"])
+canopy_plate()
+
+
+BRAND_IMAGES = {"emblem-alpha", "wordmark-alpha", "spear-alpha.png"}  # keyed marks (alpha) in the .blend
+
+# Red trigger caps on the two handgrips (the arms), in the yoke group.
+_red = bpy.data.materials.get("Red switch") or bpy.data.materials.new("Red switch")
+for sx in (-1, 1):
+    box("yoke_cap_" + ("L" if sx < 0 else "R"), (0.13, 0.07, 0.13), (sx * 0.66, -2.03, 0.72), _red.name, nodes["yoke"])
+
+# 6b. ambient occlusion into vertex colours (COLOR_0 multiplies the albedo): every seam, bevel and
+# corner reads dark, and the interior sits under its canopy. Baked at the rest pose.
+
+AO_FLOOR = 0.22  # the darkest a fully-enclosed vertex gets
+AO_SKIP = re.compile(r"^(lamp_|brand_|throttle_grip)")
+meshes = [o for o in bpy.data.objects if o.type == "MESH" and not AO_SKIP.match(o.name)]
+for o in meshes:
+    if "AO" not in o.data.color_attributes:
+        o.data.color_attributes.new(name="AO", type="BYTE_COLOR", domain="CORNER")
+    o.data.color_attributes.active_color = o.data.color_attributes["AO"]
+scene = bpy.context.scene
+scene.render.engine = "CYCLES"
+scene.cycles.device = "CPU"
+scene.cycles.samples = int(os.environ.get("AO_SAMPLES", "32"))
+if scene.world is None:
+    scene.world = bpy.data.worlds.new("w")
+scene.world.light_settings.distance = 0.9
+bpy.ops.object.select_all(action="DESELECT")
+for o in meshes:
+    o.select_set(True)
+bpy.context.view_layer.objects.active = meshes[0]
+bpy.ops.object.bake(type="AO", target="VERTEX_COLORS")
+for o in meshes:
+    attr = o.data.color_attributes["AO"]
+    buf = np.zeros(len(attr.data) * 4, dtype=np.float32)
+    attr.data.foreach_get("color", buf)
+    buf = buf.reshape(-1, 4)
+    buf[:, :3] = AO_FLOOR + (1 - AO_FLOOR) * buf[:, :3]
+    if o.name.startswith("static_canopy_plate"):
+        buf[:, :3] = 0.15  # a lining behind the frame: never lit by the sky
+    attr.data.foreach_set("color", buf.reshape(-1))
+print("AO baked on", len(meshes), "meshes")
+
+# Edge wear mask for the material look: a second UV layer "WEAR" (TEXCOORD_1 in the glb),
+# u = convexity (outer edges, where paint chips), v = concavity (seams, where grime gathers).
+for o in meshes:
+    me = o.data
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    convex = np.zeros(len(bm.verts), dtype=np.float32)
+    concave = np.zeros(len(bm.verts), dtype=np.float32)
+    count = np.zeros(len(bm.verts), dtype=np.float32)
+    for e in bm.edges:
+        if len(e.link_faces) != 2:
+            continue
+        a = e.calc_face_angle_signed(0.0)
+        for v in e.verts:
+            count[v.index] += 1
+            if a > 0:
+                convex[v.index] += a
+            else:
+                concave[v.index] -= a
+    bm.free()
+    count = np.maximum(count, 1)
+    convex = np.clip(convex / count / 0.6, 0, 1)  # 0.6 rad of mean bend is fully convex
+    concave = np.clip(concave / count / 0.6, 0, 1)
+    loops = np.zeros(len(me.loops), dtype=np.int32)
+    me.loops.foreach_get("vertex_index", loops)
+    # Shipped as a second UV set (TEXCOORD_1): u = convexity, v = concavity. A second colour attribute
+    # (COLOR_1) loses the web renderer, and AO already rides COLOR_0.
+    wear = me.uv_layers.new(name="WEAR")
+    uv = np.stack([convex[loops], concave[loops]], axis=1).astype(np.float32)
+    wear.data.foreach_set("uv", uv.reshape(-1))
+    me.color_attributes.active_color = me.color_attributes["AO"]
 
 # 7. export -------------------------------------------------------------------------------------
 for i in list(bpy.data.images):
     if i.users == 0:
         bpy.data.images.remove(i)
-    elif i.size[0] > 1024:
-        i.scale(1024, 1024)
+        continue
+    brand = i.name in BRAND_IMAGES  # keyed marks keep their alpha
+    limit = 512 if brand else 1024
+    if max(i.size) > limit:
+        k = limit / max(i.size)
+        i.scale(round(i.size[0] * k), round(i.size[1] * k))
+    i.file_format = "PNG" if brand else "JPEG"
 bpy.ops.outliner.orphans_purge(do_recursive=True)
 bpy.ops.export_scene.gltf(
     filepath=OUT,
@@ -243,7 +358,9 @@ bpy.ops.export_scene.gltf(
     export_cameras=False,
     export_lights=False,
     export_yup=True,
-    export_image_format="JPEG",
+    export_image_format="AUTO",
     export_jpeg_quality=85,
+    export_vertex_color="ACTIVE",
+    export_active_vertex_color_when_no_material=True,
     use_visible=False,
 )

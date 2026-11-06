@@ -502,6 +502,12 @@ export function createShotFx(ctx: GameCtx): IShotFx {
         }
         const k = (1 - t) ** 1.6;
         m.mesh.position.copy(lastNose).addScaledVector(dir, 0.4).addScaledVector(m.off, k);
+        // The cockpit view sits 1.4 m behind the orb, inside the motes' reach: a mote in the pilot's
+        // lap would draw over the dash, so it goes out before it gets there.
+        if (m.mesh.position.distanceToSquared(ctx.camera.position) < 0.64) {
+          m.mesh.visible = false;
+          continue;
+        }
         m.mesh.quaternion.setFromUnitVectors(NEG_Z, _v.copy(m.off).negate().normalize());
         m.mesh.scale.set(0.045, 0.045, 0.45 * (1 - t) + 0.05);
       }

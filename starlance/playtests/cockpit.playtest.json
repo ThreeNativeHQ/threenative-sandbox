@@ -55,6 +55,84 @@
     },
     {
       "kind": "input",
+      "label": "arrow-left",
+      "press": "ArrowLeft",
+      "holdTicks": 50,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "arrow-up",
+      "press": "ArrowUp",
+      "holdTicks": 40,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "arrow-down",
+      "press": "ArrowDown",
+      "holdTicks": 40,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "mouse-right",
+      "pointerPosition": {
+        "x": 0.95,
+        "y": 0.5,
+        "buttons": 0
+      },
+      "holdTicks": 50,
+      "release": false,
+      "screenshot": "yoke-mouse-right"
+    },
+    {
+      "kind": "input",
+      "label": "mouse-left",
+      "pointerPosition": {
+        "x": 0.05,
+        "y": 0.5,
+        "buttons": 0
+      },
+      "holdTicks": 60,
+      "release": false,
+      "screenshot": "yoke-mouse-left"
+    },
+    {
+      "kind": "input",
+      "label": "mouse-top",
+      "pointerPosition": {
+        "x": 0.5,
+        "y": 0.05,
+        "buttons": 0
+      },
+      "holdTicks": 50,
+      "release": false
+    },
+    {
+      "kind": "input",
+      "label": "mouse-bottom",
+      "pointerPosition": {
+        "x": 0.5,
+        "y": 0.95,
+        "buttons": 0
+      },
+      "holdTicks": 50,
+      "release": false
+    },
+    {
+      "kind": "input",
+      "label": "mouse-centre",
+      "pointerPosition": {
+        "x": 0.5,
+        "y": 0.5,
+        "buttons": 0
+      },
+      "holdTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "input",
       "label": "fire",
       "press": "Space",
       "holdTicks": 40,
@@ -248,6 +326,126 @@
           {
             "label": "charge",
             "equals": true
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "yokeLeansRight",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "steer-right",
+            "equals": true
+          },
+          {
+            "label": "arrow-left",
+            "equals": false
+          },
+          {
+            "label": "mouse-right",
+            "equals": true
+          },
+          {
+            "label": "mouse-left",
+            "equals": false
+          },
+          {
+            "label": "mouse-centre",
+            "equals": false
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "yokeLeansLeft",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "arrow-left",
+            "equals": true
+          },
+          {
+            "label": "mouse-right",
+            "equals": false
+          },
+          {
+            "label": "mouse-left",
+            "equals": true
+          },
+          {
+            "label": "mouse-centre",
+            "equals": false
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "yokePulledBack",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "pull-up",
+            "equals": true
+          },
+          {
+            "label": "arrow-up",
+            "equals": true
+          },
+          {
+            "label": "arrow-down",
+            "equals": false
+          },
+          {
+            "label": "mouse-top",
+            "equals": true
+          },
+          {
+            "label": "mouse-bottom",
+            "equals": false
+          },
+          {
+            "label": "mouse-centre",
+            "equals": false
+          }
+        ]
+      },
+      {
+        "entity": "camera",
+        "component": "yokePushedIn",
+        "atSteps": [
+          {
+            "label": "rest",
+            "equals": false
+          },
+          {
+            "label": "arrow-up",
+            "equals": false
+          },
+          {
+            "label": "arrow-down",
+            "equals": true
+          },
+          {
+            "label": "mouse-top",
+            "equals": false
+          },
+          {
+            "label": "mouse-bottom",
+            "equals": true
+          },
+          {
+            "label": "mouse-centre",
+            "equals": false
           }
         ]
       }

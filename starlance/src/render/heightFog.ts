@@ -74,7 +74,8 @@ export function heightFogDepth(
   return segment(camera, k, p.startDistance, length);
 }
 
-const SUN_COLOUR = new Color(0xfff1d6);
+// Named override (look lane): the glow toward the sun is orange, not cream, so the haze reads as dust.
+const SUN_COLOUR = new Color(0xff9a50);
 
 /**
  * `T_distance x T_height`, on `scene.fogNode`: three applies it to every material where `scene.fog`

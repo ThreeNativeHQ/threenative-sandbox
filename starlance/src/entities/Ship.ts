@@ -51,7 +51,7 @@ const ROLL_RATE = 900 * D2R;
 const ROLL_TIME = 0.33;
 const ROLL_SETTLE = 150 * D2R; // 5 deg/upd closes the last of the turn
 const ROLL_LATERAL = 1.5;
-// arwing-boost / arwing-brake (fox_play.c:4962-5168)
+// boost / brake reference cards (fox_play.c:4962-5168)
 const BOOST_SPEED = 18;
 const BRAKE_SPEED = -12;
 const GAUGE_FILL = 1; // per second: 1 s to fill

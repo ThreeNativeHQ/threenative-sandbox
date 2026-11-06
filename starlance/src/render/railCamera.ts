@@ -22,7 +22,12 @@ const DISTANCE_SMOOTH = 0.1; // per 30 Hz update
 // Cockpit view: the eye in hull space (nose -Z), where the pilot sits.
 const COCKPIT_EYE = new Vector3(0, 0.35, -0.6);
 const CHASE_FOV = 60;
-const COCKPIT_FOV = 55;
+// Cockpit lens: the source scene's 27 mm on 36 mm film is 41 deg tall at 16:9. Wider screens keep
+// the shell's width, not its height, so no edge ever looks past the modelled walls.
+const COCKPIT_FOV = 41;
+const COCKPIT_MAX_HFOV = 90; // deg; the canopy plate in the glb closes everything past the arch
+const CHASE_NEAR = 0.1;
+const COCKPIT_NEAR = 0.02; // the cockpit is a 0.9 m bubble
 
 const _eye = new Vector3();
 const _aim = new Vector3();
@@ -54,6 +59,8 @@ export class RailCamera {
     stickRoll: 0,
     stickPitch: 0,
     yokeRoll: 0,
+    yokeRollDeg: 0,
+    yokePitchDeg: 0,
     throttle: 0,
     pedalBoost: 0,
     pedalBrake: 0,
@@ -63,6 +70,10 @@ export class RailCamera {
     mapContacts: 0,
     yokeRight: false,
     yokeBack: false,
+    yokeLeansRight: false,
+    yokeLeansLeft: false,
+    yokePulledBack: false,
+    yokePushedIn: false,
     throttleForward: false,
     pedalDown: false,
     triggerFired: false,
@@ -81,9 +92,15 @@ export class RailCamera {
     const ship = w.ship;
     if (this.cockpitReady && w.ctx.input.justPressed("cockpit")) this.cockpit = !this.cockpit;
     if (!ship.alive) this.cockpit = false; // the wreck is worth watching from outside
-    const fov = this.cockpit ? COCKPIT_FOV : CHASE_FOV;
-    if (this.camera.fov !== fov) {
+    let fov = CHASE_FOV;
+    if (this.cockpit) {
+      const reach = Math.tan(MathUtils.degToRad(COCKPIT_MAX_HFOV / 2)) / this.camera.aspect;
+      fov = Math.min(COCKPIT_FOV, MathUtils.radToDeg(2 * Math.atan(reach)));
+    }
+    const near = this.cockpit ? COCKPIT_NEAR : CHASE_NEAR;
+    if (this.camera.fov !== fov || this.camera.near !== near) {
       this.camera.fov = fov;
+      this.camera.near = near;
       this.camera.updateProjectionMatrix();
     }
     if (this.cockpit) {

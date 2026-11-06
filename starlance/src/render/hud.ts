@@ -14,6 +14,7 @@ import {
   Vector3,
 } from "three";
 import type { GameState } from "../state.js";
+import { createStatusStyle } from "./hudStyle.js";
 import { lookbook } from "./lookbook.js";
 import type { World } from "../world.js";
 
@@ -287,7 +288,7 @@ export function createHud(camera: PerspectiveCamera): IHud {
   camera.add(mesh);
   mesh.position.set(0, 0, -DISTANCE);
 
-  const { quad, rect, text, textWidth, frame, brackets } = painter;
+  const { quad, rect, text, textWidth, brackets } = painter;
   let aspect = 16 / 9;
   let clock = 0;
 
@@ -310,6 +311,7 @@ export function createHud(camera: PerspectiveCamera): IHud {
   const s0 = { x: 0, y: 0, depth: 0 };
   const s1 = { x: 0, y: 0, depth: 0 };
 
+  const status = createStatusStyle();
   let lockId = -1;
   let lockT = 0;
   const blink = (hz: number): boolean => Math.sin(clock * hz * Math.PI * 2) > 0;
@@ -331,7 +333,7 @@ export function createHud(camera: PerspectiveCamera): IHud {
     const h = 2 * DISTANCE * Math.tan((camera.fov * Math.PI) / 360);
     mesh.scale.setScalar(h);
     // Soft ground shadow under the ship (stage.ts); this is the one per-frame hook the stage gets.
-    w.stage.trackShip(w.ship.position);
+    w.stage.trackShip(w.ship.position, camera);
 
     painter.begin();
     const left = -aspect / 2 + 0.035;
@@ -341,88 +343,31 @@ export function createHud(camera: PerspectiveCamera): IHud {
     const ship = w.ship;
     const flying = state.phase === "flying" || state.phase === "arena";
     const px = 0.0052;
-    const lab = 0.092; // x of a row's pips, past its label
 
     const low = state.shield <= 100;
     const crit = state.shield <= 50;
     // The cockpit panels show these gauges, so the overlay drops them there.
     if (!w.cameraRig.cockpit) {
-      // ---- shield bar (the 383 cap shows as a longer frame with a notch at 255) ----------------
-      const unit = 0.28 / 255;
-      const barW = state.shieldMax * unit;
-      const ratio = Math.max(0, Math.min(1, state.shield / state.shieldMax));
-      const shieldColor = crit ? (blink(4) ? RED : AMBER) : low ? AMBER : CYAN;
-      text("SHIELD", left, top, px, CYAN);
-      text(String(Math.ceil(state.shield)), left + barW, top, px, WHITE, "right");
-      const by = top - 6.5 * px;
-      rect(left, by, left + barW, by - 0.02, BACK);
-      rect(
-        left + 0.003,
-        by - 0.003,
-        left + 0.003 + (barW - 0.006) * ratio,
-        by - 0.017,
-        shieldColor,
+      status.draw(
+        painter,
+        {
+          shield: state.shield,
+          shieldMax: state.shieldMax,
+          boost: state.boost,
+          boostLatched: ship.boostLatched,
+          hits: state.hits,
+          bombs: state.bombs,
+          laserLevel: state.laserLevel,
+          wings: [ship.wings.left, ship.wings.right],
+        },
+        { left, right, top, bottom, px },
+        dt,
+        clock,
       );
-      for (let k = 1; k < 5; k += 1)
-        rect(left + (barW * k) / 5 - 0.0008, by, left + (barW * k) / 5 + 0.0008, by - 0.02, BACK);
-      frame(left, by, left + barW, by - 0.02, 0.0022, VIOLET);
-      if (state.shieldMax > 255) {
-        const nx = left + 255 * unit;
-        rect(nx - 0.0012, by + 0.008, nx + 0.0012, by - 0.028, WHITE);
-        text("MAX " + Math.round(state.shieldMax), left, by - 0.026, px * 0.85, AMBER);
-      }
-
-      // ---- boost gauge (latched = amber, waiting out the cooldown) ----------------------------
-      const gy = by - (state.shieldMax > 255 ? 0.062 : 0.036);
-      const boostColor = ship.boostLatched ? AMBER : CYAN;
-      text(ship.boostLatched ? "BOOST WAIT" : "BOOST", left, gy, px * 0.85, boostColor);
-      const gw = 0.2;
-      rect(left, gy - 0.026, left + gw, gy - 0.036, BACK);
-      rect(
-        left + 0.002,
-        gy - 0.028,
-        left + 0.002 + (gw - 0.004) * Math.max(0, Math.min(1, state.boost)),
-        gy - 0.034,
-        boostColor,
-      );
-      frame(left, gy - 0.026, left + gw, gy - 0.036, 0.0016, VIOLET);
-
-      // ---- hit counter -----------------------------------------------------------------------
-      text("HITS", right, top, px, CYAN, "right");
-      text(String(state.hits).padStart(3, "0"), right, top - 6.5 * px, px * 1.9, WHITE, "right");
-
-      // ---- bombs, laser level, wings (bottom left) -------------------------------------------
-      let ly = bottom + 0.105;
-      text("BOMB", left, ly, px, CYAN);
-      for (let k = 0; k < 9; k += 1) {
-        const lit = k < state.bombs;
-        quad(left + lab + k * 0.014, ly - 0.0115, 0.009, 0.009, lit ? CYAN : DIM, Math.PI / 4);
-      }
-      ly -= 0.038;
-      text("LASER", left, ly, px, CYAN);
-      for (let k = 0; k < 3; k += 1) {
-        const lit = k <= state.laserLevel;
-        const x = left + lab + 0.006 + k * 0.02;
-        quad(x, ly - 0.011, 0.014, 0.0035, lit ? CYAN : DIM, 0.6);
-        quad(x, ly - 0.011 + 0.006, 0.014, 0.0035, lit ? CYAN : DIM, -0.6);
-      }
-      ly -= 0.038;
-      text("WING", left, ly, px, CYAN);
-      for (const [k, hp] of [ship.wings.left, ship.wings.right].entries()) {
-        const x = left + lab + k * 0.034;
-        const frac = Math.max(0, Math.min(1, hp / 60));
-        const col = hp <= 0 ? RED : frac < 0.5 ? AMBER : CYAN;
-        rect(x, ly, x + 0.028, ly - 0.022, BACK);
-        if (hp > 0) rect(x + 0.002, ly - 0.002, x + 0.002 + 0.024 * frac, ly - 0.02, col);
-        else if (blink(2)) {
-          quad(x + 0.014, ly - 0.011, 0.03, 0.003, RED, 0.7);
-          quad(x + 0.014, ly - 0.011, 0.03, 0.003, RED, -0.7);
-        }
-        frame(x, ly, x + 0.028, ly - 0.022, 0.0016, VIOLET);
-      }
     }
 
-    if (flying) {
+    // The cockpit's combiner (cockpitHud.ts) draws its own reticles and lock box.
+    if (flying && !w.cameraRig.cockpit) {
       // ---- aim reticles along the nose: near (25 m) and far (60 m) ---------------------------
       v.copy(ship.position).addScaledVector(ship.forward, 25);
       const nearOk = project(v, s0);
@@ -486,7 +431,9 @@ export function createHud(camera: PerspectiveCamera): IHud {
           text("LOCK", s0.x, s0.y - half - 0.01, px * 0.85, CYAN, "center");
         }
       } else lockId = -1;
+    }
 
+    if (flying) {
       // ---- help markers over chased wingmen --------------------------------------------------
       for (const m of w.wingmen.members) {
         if (!m.chased || !m.alive || !blink(2.5)) continue;

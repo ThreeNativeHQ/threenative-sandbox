@@ -14,6 +14,7 @@ import { Weapons } from "../entities/Weapons.js";
 import { Wingmen } from "../entities/Wingmen.js";
 import { type IEnvironmentSample, sampleEnvironment } from "../render/environmentSampling.js";
 import { type ICockpit, createCockpit } from "../render/cockpit.js";
+import { CREW_TEXTURES } from "../render/cockpitScreens.js";
 import { createFx } from "../render/fx.js";
 import { createHud } from "../render/hud.js";
 import { setupLighting } from "../render/lighting.js";
@@ -46,6 +47,9 @@ const TEXTURES = {
   rockDiff: "rock_face_03_diff",
   rockNormal: "rock_face_03_nor_gl",
   rockRough: "rock_face_03_rough",
+  cliffDiff: "cliff_diff",
+  cliffNormal: "cliff_nor_gl",
+  cliffRough: "cliff_rough",
 } as const;
 
 const INITIAL: GameState = {
@@ -208,9 +212,13 @@ export class Play extends Scene<GameState> {
       loading.update();
       if (!cockpitRequested) {
         cockpitRequested = true;
-        void frameCtx.assets.model<{ scene: Object3D }>("cockpit.glb").then((model) => {
+        void Promise.all([
+          frameCtx.assets.model<{ scene: Object3D }>("cockpit.glb"),
+          Promise.all(CREW_TEXTURES.map((path) => frameCtx.assets.texture(path))),
+        ]).then(([model, crew]) => {
           if (!sceneLive) return;
-          cockpit = createCockpit(model.scene, camera);
+          const cards = Object.fromEntries(CREW_TEXTURES.map((path, i) => [path, crew[i] as Texture]));
+          cockpit = createCockpit(model.scene, camera, cards);
           w.cameraRig.cockpitReady = true;
         });
       }

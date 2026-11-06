@@ -1,0 +1,241 @@
+{
+ "name": "cockpit-yoke",
+ "target": "web",
+ "schemaVersion": 1,
+ "viewport": {
+  "width": 1280,
+  "height": 720
+ },
+ "warmupFrames": 30,
+ "subject": "ship",
+ "steps": [
+  {
+   "kind": "wait",
+   "label": "load",
+   "waitTicks": 90,
+   "release": true
+  },
+  {
+   "kind": "input",
+   "label": "on",
+   "press": "KeyC",
+   "holdTicks": 3,
+   "release": true
+  },
+  {
+   "kind": "wait",
+   "label": "rest",
+   "waitTicks": 40,
+   "release": true,
+   "screenshot": "r02-rest"
+  },
+  {
+   "kind": "input",
+   "label": "yc",
+   "pointerPosition": {
+    "x": 0.5,
+    "y": 0.5,
+    "buttons": 0
+   },
+   "holdTicks": 40,
+   "release": false,
+   "screenshot": "yoke-0-centre"
+  },
+  {
+   "kind": "input",
+   "label": "yl",
+   "pointerPosition": {
+    "x": 0.02,
+    "y": 0.5,
+    "buttons": 0
+   },
+   "holdTicks": 45,
+   "release": false,
+   "screenshot": "yoke-1-full-left"
+  },
+  {
+   "kind": "input",
+   "label": "yl2",
+   "pointerPosition": {
+    "x": 0.25,
+    "y": 0.5,
+    "buttons": 0
+   },
+   "holdTicks": 40,
+   "release": false,
+   "screenshot": "yoke-2-half-left"
+  },
+  {
+   "kind": "input",
+   "label": "yr2",
+   "pointerPosition": {
+    "x": 0.75,
+    "y": 0.5,
+    "buttons": 0
+   },
+   "holdTicks": 60,
+   "release": false,
+   "screenshot": "yoke-3-half-right"
+  },
+  {
+   "kind": "input",
+   "label": "yr",
+   "pointerPosition": {
+    "x": 0.98,
+    "y": 0.5,
+    "buttons": 0
+   },
+   "holdTicks": 40,
+   "release": false,
+   "screenshot": "yoke-4-full-right"
+  },
+  {
+   "kind": "input",
+   "label": "yb",
+   "pointerPosition": {
+    "x": 0.5,
+    "y": 0.02,
+    "buttons": 0
+   },
+   "holdTicks": 50,
+   "release": false,
+   "screenshot": "yoke-5-full-back"
+  },
+  {
+   "kind": "input",
+   "label": "yf",
+   "pointerPosition": {
+    "x": 0.5,
+    "y": 0.98,
+    "buttons": 0
+   },
+   "holdTicks": 50,
+   "release": false,
+   "screenshot": "yoke-6-full-forward"
+  },
+  {
+   "kind": "input",
+   "label": "yc2",
+   "pointerPosition": {
+    "x": 0.5,
+    "y": 0.5,
+    "buttons": 0
+   },
+   "holdTicks": 40,
+   "release": true
+  },
+  {
+   "kind": "input",
+   "label": "fire-left",
+   "pointerPosition": {
+    "x": 0.1,
+    "y": 0.5,
+    "buttons": 0
+   },
+   "holdTicks": 40,
+   "release": false,
+   "press": "Space",
+   "screenshot": "r02-steer-left-fire"
+  },
+  {
+   "kind": "input",
+   "label": "fire-right",
+   "pointerPosition": {
+    "x": 0.9,
+    "y": 0.5,
+    "buttons": 0
+   },
+   "holdTicks": 40,
+   "release": true,
+   "press": "Space",
+   "screenshot": "r02-steer-right-fire"
+  },
+  {
+   "kind": "input",
+   "label": "charge",
+   "press": "KeyF",
+   "holdTicks": 80,
+   "release": false,
+   "screenshot": "r02-charge"
+  },
+  {
+   "kind": "input",
+   "label": "charge-fire",
+   "press": "Space",
+   "holdTicks": 20,
+   "release": false,
+   "screenshot": "r02-charge-fire"
+  },
+  {
+   "kind": "wait",
+   "label": "mini",
+   "waitTicks": 60,
+   "release": true,
+   "screenshot": "r02-minimap"
+  }
+ ],
+ "assert": {
+  "diagnostics": {
+   "noConsoleErrors": true,
+   "runtimeReady": true
+  },
+  "components": [
+   {
+    "entity": "camera",
+    "component": "yokeLeansRight",
+    "atSteps": [
+     {
+      "label": "yl",
+      "equals": false
+     },
+     {
+      "label": "yr",
+      "equals": true
+     }
+    ]
+   },
+   {
+    "entity": "camera",
+    "component": "yokeLeansLeft",
+    "atSteps": [
+     {
+      "label": "yl",
+      "equals": true
+     },
+     {
+      "label": "yr",
+      "equals": false
+     }
+    ]
+   },
+   {
+    "entity": "camera",
+    "component": "yokePulledBack",
+    "atSteps": [
+     {
+      "label": "yb",
+      "equals": true
+     },
+     {
+      "label": "yf",
+      "equals": false
+     }
+    ]
+   },
+   {
+    "entity": "camera",
+    "component": "yokePushedIn",
+    "atSteps": [
+     {
+      "label": "yb",
+      "equals": false
+     },
+     {
+      "label": "yf",
+      "equals": true
+     }
+    ]
+   }
+  ]
+ }
+}
