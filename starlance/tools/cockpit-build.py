@@ -5,6 +5,8 @@
     --instance false --palette false --compress false --vertex-layout separate --texture-compress false
   pnpm exec gltf-transform jpeg assets/cockpit.glb assets/cockpit.glb --formats png \
     --slots metallicRoughnessTexture --quality 85
+  uv run --with pillow --with numpy --with scikit-image python -I tools/texture-squeeze.py \
+    assets/cockpit.glb assets/cockpit.glb
 
 What it does: drops the hidden, text, light, camera, glazing, screen-texture and third-party-brand
 objects; replaces the brand marks with Starlance's (tools/cockpit-brand/*.png); joins the static

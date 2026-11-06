@@ -101,6 +101,15 @@ const FINISH: Record<string, IFinish> = {
     normal: 1,
     env: 0.3,
   },
+  // The side console shells and the screen step rings: dark gunmetal, same finish as the frame.
+  "Side armor silver": {
+    color: [0.0035, 0.0038, 0.0049],
+    rough: 2.4,
+    metal: 1,
+    normal: 1,
+    env: 0.3,
+  },
+  "Bezel edge gunmetal": { color: [0.011, 0.0115, 0.0125], rough: 1.6, metal: 1, env: 0.4 },
   // The side consoles: bare worn steel, a step lighter than the gunmetal frame.
   "Console worn steel": {
     color: [0.011, 0.0115, 0.0125],

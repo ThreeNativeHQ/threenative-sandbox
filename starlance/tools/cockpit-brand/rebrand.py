@@ -103,8 +103,11 @@ crew.convert("RGB").save(f"{HERE}/sl-crew.png")
 # Comms: COMMS, SHLD (was G-DIFF), WPN, NAV. The /// tick marks and lamps stay.
 cm = inpaint(Image.open(f"{SRC}/comms-clean.png"),
              [(200, 5, 540, 72), (200, 100, 560, 190), (200, 218, 480, 312), (200, 350, 480, 470)], thr=6, grow=15).convert("RGBA")
-F = ImageFont.truetype(DJB, 58)
-for y, t in ((8, "COMMS"), (112, "SHLD"), (236, "WPN"), (366, "NAV")):
+sel = Image.new("RGBA", cm.size)  # the active row, lit like the stores screen's selected LASER
+ImageDraw.Draw(sel).rounded_rectangle((200, 2, 512, 84), 10, fill=(40, 190, 120, 150))
+cm.alpha_composite(sel.filter(ImageFilter.GaussianBlur(1.5)))
+F = ImageFont.truetype(DJB, 66)
+for y, t in ((6, "COMMS"), (110, "SHLD"), (232, "WPN"), (362, "NAV")):
     soft_text(cm, (216, y), t, F)
 cm.convert("RGB").save(f"{HERE}/sl-comms.png")
 
@@ -114,7 +117,7 @@ wp = inpaint(Image.open(f"{SRC}/weapons-clean.png"),
              ).convert("RGBA")
 ic = ship_layer((180, 108), (110, 235, 190))
 wp.alpha_composite(ic, (128 - ic.width // 2, 96 - ic.height // 2))
-F = ImageFont.truetype(DJBO, 54)
+F = ImageFont.truetype(DJBO, 60)
 soft_text(wp, (276, 44), "LASER", F, fill=(226, 255, 238))
 for x, y, t in ((262, 146), (240, 246), (214, 356)) and ((262, 146, "BLASTER"), (240, 246, "BOMB"), (214, 356, "LOCK-ON")):
     soft_text(wp, (x, y), t, F)
