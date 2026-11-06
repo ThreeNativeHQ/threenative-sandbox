@@ -83,7 +83,7 @@ interface IFinish {
 // The sun is so strong here that a 0.035 albedo already clips to white on a sun-facing facet.
 const FINISH: Record<string, IFinish> = {
   // The pillar and arch frames: light worn steel against the dark plates, as the source renders them.
-  "Edge steel": { shade: 2.5, color: [0.0024, 0.0028, 0.0035], rough: 3.4, metal: 1, env: 0.4 },
+  "Edge steel": { shade: 1.4, color: [0.0024, 0.0028, 0.0035], rough: 3.4, metal: 1, env: 0.4 },
   "Cockpit headliner": { color: [0.0021, 0.0024, 0.0031], rough: 1.2, metal: 1, env: 0.3 },
   "Soft black rubber": { color: [0.0014, 0.0016, 0.0021], rough: 1.3, metal: 1, env: 0.3 },
   "Worn blue graphite | microtexture": {
@@ -319,6 +319,13 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
     mesh.material = l;
   });
 
+  const amber: MeshStandardMaterial[] = [];
+  model.traverse((object) => {
+    const m = (object as Mesh).material as MeshStandardMaterial | undefined;
+    if (m?.name !== "Amber switch lights" || amber.includes(m)) return;
+    m.userData.amber = { color: m.color.clone(), emissive: m.emissive.clone() };
+    amber.push(m);
+  });
   const [ex, ey, ez] = look.eye;
   const cabin = new PointLight(CABIN_LIGHT.colour, CABIN_LIGHT.intensity, CABIN_LIGHT.distance, 2);
   cabin.name = "cabin-light";
@@ -376,7 +383,13 @@ export function applyCockpitLook(model: Object3D, look: ICockpitLook): ICockpitL
     update() {},
     alert(level) {
       cabin.color.set(CABIN_LIGHT.colour).lerp(_red.set(CABIN_LIGHT.emergency), level);
-      cabin.intensity = CABIN_LIGHT.intensity * (1 + 2.5 * level); // red reads through the cool interior gain
+      cabin.intensity = CABIN_LIGHT.intensity * (1 + level);
+      // The amber dash lamps switch to red with it: the master-caution cue.
+      for (const lamp of amber) {
+        const base = lamp.userData.amber as { color: Color; emissive: Color };
+        lamp.color.copy(base.color).lerp(_red, level);
+        lamp.emissive.copy(base.emissive).lerp(_red, level);
+      }
     },
     dispose() {
       shell.removeFromParent();

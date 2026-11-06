@@ -260,9 +260,11 @@ export function createCockpit(
         0,
         Math.sin(clock * 53) * RATTLE_ROT * k,
       );
-      // Emergency lighting: the cabin light pulses red while the shield is low, and flashes on a hit.
-      const pulse = 0.5 + 0.5 * Math.sin(clock * Math.PI * 2 * (crit ? 2.2 : 1.4));
-      const emergency = crit ? 0.5 + 0.5 * pulse : low ? 0.2 + 0.4 * pulse : 0;
+      // Emergency lighting: the cabin light and the dash lamps strobe red while the shield is low, and flash on a hit.
+      // A hard strobe, not a glow: on 60% of each beat, faster when critical.
+      const strobe =
+        blink(crit ? 2.2 : 1.2) || Math.sin(clock * Math.PI * 2 * (crit ? 2.2 : 1.2)) > -0.3;
+      const emergency = low ? (strobe ? 1 : 0.1) : 0;
       look.alert(Math.max(jolt * 0.8, emergency));
       const peaks = w.cameraRig.cockpitState;
       peaks.rattlePeak = Math.max(Number(peaks.rattlePeak), k);
