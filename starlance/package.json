@@ -19,25 +19,25 @@
     "format:check": "biome format src"
   },
   "dependencies": {
-    "@threenative/core": "0.3.11",
-    "@threenative/physics": "0.3.11",
+    "@threenative/core": "0.3.12",
+    "@threenative/physics": "0.3.12",
     "three": "0.187.0"
   },
   "devDependencies": {
-    "@threenative/assets": "0.3.12",
-    "@threenative/playtest": "0.3.11",
+    "@biomejs/biome": "1.9.4",
+    "@gltf-transform/cli": "4.4.2",
+    "@threenative/assets": "0.3.13",
+    "@threenative/playtest": "0.3.12",
     "@types/three": "0.187.0",
-    "create-threenative": "0.2.15",
+    "create-threenative": "file:../.packages/create-threenative-0.2.17-prd829-830-0251de582fd0.tgz",
     "esbuild": "0.27.0",
+    "eslint": "10.13.0",
     "playwright": "1.62.1",
     "typescript": "7.0.2",
-    "vite": "8.2.0",
-    "@gltf-transform/cli": "4.4.2",
-    "@biomejs/biome": "1.9.4",
-    "eslint": "10.13.0"
+    "vite": "8.2.0"
   },
   "optionalDependencies": {
-    "@threenative/runtime-native": "0.3.11"
+    "@threenative/runtime-native": "0.3.12"
   },
   "overrides": {
     "sharp": ">=0.35.4",
@@ -47,7 +47,10 @@
     "overrides": {
       "sharp": ">=0.35.4"
     },
-    "onlyBuiltDependencies": ["@threenative/core", "@threenative/runtime-native"],
+    "onlyBuiltDependencies": [
+      "@threenative/core",
+      "@threenative/runtime-native"
+    ],
     "patchedDependencies": {
       "three@0.187.0": "patches/three@0.187.0.patch",
       "vite@8.2.0": "patches/vite@8.2.0.patch"
