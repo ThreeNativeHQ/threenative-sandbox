@@ -36,6 +36,11 @@ export interface IStressReport {
     jsAllocKbP50: number | null;
   };
   counts: Record<string, number>;
+  /**
+   * PRD-828 AC-1's measurement: `jsBefore`, `update`, `engineJs` and `residual` per stage, p50 across
+   * windows. A stage no window measured is absent, never zero. Absent on a build without stages.
+   */
+  stages?: Record<string, number>;
 }
 
 /** Windows the report skips after the scene is ready: shader compiles and first uploads. */
@@ -77,7 +82,11 @@ export class StressReport {
     if (this.#ready <= WARMUP_WINDOWS) return undefined;
     this.#windows.push(window);
     if (this.#windows.length > 60) this.#windows.shift();
-    return this.report();
+    const report = this.report();
+    // `pnpm stress:loop fair` reads the page's report from here, once the window has settled.
+    if (report !== undefined)
+      (globalThis as { __TN_STRESS__?: IStressReport }).__TN_STRESS__ = report;
+    return report;
   }
 
   report(): IStressReport | undefined {
@@ -102,11 +111,22 @@ export class StressReport {
     const longTasks = windows.every((w) => w.longTasks.available)
       ? windows.reduce((sum, w) => sum + (w.longTasks.available ? w.longTasks.count : 0), 0)
       : null;
+    const stageNames = new Set<string>();
+    for (const window of windows) for (const name of Object.keys(window.stages ?? {})) stageNames.add(name);
+    const stages = Object.fromEntries(
+      [...stageNames]
+        .map((name) => [
+          name,
+          pick((w) => w.stages?.[name]?.p50),
+        ] as const)
+        .filter((entry): entry is readonly [string, number] => entry[1] !== null),
+    );
     return {
       schema: "stress-lab-report/1",
       ...this.#scene,
       seconds: round(seconds),
       windows: windows.length,
+      ...(stageNames.size === 0 ? {} : { stages }),
       metrics: {
         presentedP50Ms: required("presented.p50", (w) => w.presented.p50),
         presentedP95Ms: required("presented.p95", (w) => w.presented.p95),
