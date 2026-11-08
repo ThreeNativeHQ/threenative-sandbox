@@ -1,0 +1,15 @@
+{
+  "name": "stress-lab-vanilla",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5736 --strictPort"
+  },
+  "dependencies": {
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "vite": "^7.1.3"
+  }
+}
