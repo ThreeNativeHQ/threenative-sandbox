@@ -14,7 +14,7 @@ import {
   createNautilus,
   createSoryu,
   createToneCruiser,
-  createYorktown,
+  ModelPendingError,
 } from "./imported-fleet.js";
 
 let hornet: GLTF;
@@ -22,16 +22,21 @@ let mitchell: GLTF;
 let akagi: GLTF;
 
 export async function loadImportedShips(ctx: Pick<ICtx, "assets" | "renderer">): Promise<void> {
-  [hornet, mitchell, akagi] = await Promise.all([
+  [hornet, mitchell] = await Promise.all([
     ctx.assets.model<GLTF>("hornet.glb"),
     ctx.assets.model<GLTF>("b25-mitchell.glb"),
-    ctx.assets.model<GLTF>("akagi.glb"),
   ]);
-  applyAnisotropy(ctx, [hornet, mitchell, akagi]);
+  applyAnisotropy(ctx, [hornet, mitchell]);
+}
+
+/** Akagi sails with the Japanese fleet, so she loads after the reveal with it. */
+export async function loadAkagi(ctx: Pick<ICtx, "assets" | "renderer">): Promise<void> {
+  akagi = await ctx.assets.model<GLTF>("akagi.glb");
+  applyAnisotropy(ctx, [akagi]);
 }
 
 function cloneModel(source: GLTF | undefined): T.Group {
-  if (!source) throw new Error("Load imported ships before constructing their instances.");
+  if (!source) throw new ModelPendingError("An imported ship has not loaded yet.");
   // Static hierarchy clones share geometry, materials and textures owned by ctx.assets.
   const model = source.scene.clone(true);
   model.traverse((node) => {
@@ -122,7 +127,6 @@ const SHIP_MODELS: Record<string, () => T.Group> = {
   kaga: createKaga,
   soryu: createSoryu,
   hiryu: createHiryu,
-  yorktown: createYorktown,
   tone: () => createToneCruiser("Tone"),
   mogami: () => createMogamiCruiser("Mogami"),
   kagero: () => createKageroDestroyer("Kagero"),

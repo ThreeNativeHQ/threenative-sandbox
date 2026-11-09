@@ -20,7 +20,6 @@ import {
 } from "./aircrew.js";
 import {
   createCockpitInterior,
-  ensureCockpitMaterials,
   getCockpitMaterials,
   type CockpitInterior,
 } from "./cockpit-detail.js";
@@ -135,10 +134,9 @@ export async function loadImportedAircraft(ctx: Pick<ICtx, "assets" | "renderer"
     AIRCREW_GUN_URL,
     ...new Set(Object.values(IMPORTS).flatMap((airframe) => [airframe.hero, airframe.ai])),
   ];
-  const [models] = await Promise.all([
-    Promise.all(urls.map((url) => ctx.assets.model<GLTF>(url))),
-    ensureCockpitMaterials(ctx, anisotropy),
-  ]);
+  // The cockpit textures (12.7 MB) stream after the reveal: `attachCockpitInterior` fits the
+  // interior once `ensureCockpitMaterials` lands, and the deck start shows the canopy shell.
+  const models = await Promise.all(urls.map((url) => ctx.assets.model<GLTF>(url)));
   urls.forEach((url, i) => {
     const model = models[i]!;
     imported.set(url, model);
@@ -157,6 +155,29 @@ export async function loadImportedAircraft(ctx: Pick<ICtx, "assets" | "renderer"
   source = imported.get(DOUGLAS_URL)!;
   configureAircrewPilot(imported.get(AIRCREW_PILOT_URL)!);
   configureAircrewGun(imported.get(AIRCREW_GUN_URL)!);
+}
+
+/**
+ * Fit the detailed cockpit interior into a player airframe built before its textures arrived.
+ * Does what the constructors do when the materials are already resident, and nothing twice.
+ */
+export function attachCockpitInterior(root: T.Group): void {
+  const materials = getCockpitMaterials();
+  const record = instances.get(root) ?? animatedImports.get(root);
+  if (!materials || !record || record.interior) return;
+  const at = instances.has(root) ? COCKPIT_POSITION : TBD_COCKPIT_POSITION;
+  const interior = createCockpitInterior(materials);
+  interior.root.scale.setScalar(COCKPIT_SCALE);
+  interior.root.position.set(...at);
+  record.instrumentRoot.add(interior.root);
+  record.interior = interior;
+  root.userData.cockpit = new T.Vector3(
+    at[0] + interior.eye[0] * COCKPIT_SCALE,
+    at[1] + interior.eye[1] * COCKPIT_SCALE,
+    at[2] + interior.eye[2] * COCKPIT_SCALE,
+  );
+  root.userData.cockpitInterior = record.instrumentRoot;
+  if (instances.has(root)) root.userData.cockpitRig = interior;
 }
 
 /**

@@ -129,6 +129,11 @@ export const CUE_FILES: Record<string, string> = {
   albatross: "audio/albatross.ogg",
 };
 
+/** Japanese and Midway-based engines, and combat: nothing on a US deck at the start plays them. */
+const IS_LATE_CUE = /^(catalina|zero|val|kate)Engine|^(gun|cannon|bullet|aa|flak|bomb|depthCharge|waterColumn|torpedo(Hit|Entry)|aircraftCrash|secondaryBlast|steelHit|hullCollapse|waterFragments|airframeHit|engine(Rough|Seize)|fuelFire|generalAlarm)/;
+const LATE_CUES = Object.fromEntries(Object.entries(CUE_FILES).filter(([key]) => IS_LATE_CUE.test(key)));
+const LAUNCH_CUES = Object.fromEntries(Object.entries(CUE_FILES).filter(([key]) => !IS_LATE_CUE.test(key)));
+
 /** Speech clips, keyed `speech:<slug>`; a missing clip is silent and keeps its caption. */
 const SPEECH_FILES: Record<string, string> = Object.fromEntries(
   speechSlugList().map((slug) => [`speech:${slug}`, `audio/voice/${slug}.ogg`]),
@@ -309,14 +314,29 @@ function stateWeight(rpm: number, center: number): number {
 }
 
 export class Soundscape {
-  /** Load every packaged cue and speech clip; a missing file is skipped and reported once. */
-  static async load(assets: Assets): Promise<Buffers> {
+  /** What `loadLate` streams in after the reveal: speech, plus cues the deck start cannot play. */
+  static readonly latePaths = [...Object.values(SPEECH_FILES), ...Object.values(LATE_CUES)];
+
+  /** Load the cues the deck start plays; a missing file is skipped and reported once. */
+  static load(assets: Assets): Promise<Buffers> {
+    return Soundscape.loadInto(assets, LAUNCH_CUES, new Map());
+  }
+
+  /**
+   * Add the speech clips and the combat and enemy-engine cues to `buffers` after the reveal: about
+   * 7 MB nobody hears on the deck. A cue that fires before its clip lands is silent (a line keeps
+   * its caption), exactly as a missing file always was.
+   */
+  static loadLate(assets: Assets, buffers: Buffers): Promise<Buffers> {
+    return Soundscape.loadInto(assets, { ...LATE_CUES, ...SPEECH_FILES }, buffers as Map<string, AudioBuffer>);
+  }
+
+  private static async loadInto(assets: Assets, files: Record<string, string>, buffers: Map<string, AudioBuffer>): Promise<Buffers> {
     const entries = await Promise.allSettled(
-      Object.entries({ ...CUE_FILES, ...SPEECH_FILES }).map(async ([key, path]) => [key, await assets.audio(path)] as const),
+      Object.entries(files).map(async ([key, path]) => [key, await assets.audio(path)] as const),
     );
-    const buffers = new Map<string, AudioBuffer>();
     const failed: string[] = [];
-    const names = Object.keys({ ...CUE_FILES, ...SPEECH_FILES });
+    const names = Object.keys(files);
     entries.forEach((result, index) => {
       if (result.status === "fulfilled") buffers.set(result.value[0], result.value[1]);
       else failed.push(`${names[index]}: ${String((result as PromiseRejectedResult).reason).slice(0, 90)}`);

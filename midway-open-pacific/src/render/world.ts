@@ -1,6 +1,6 @@
 /** The battle's Three.js world, built into the scene the framework owns. */
 import * as T from "three";
-import { mergeParts } from "@threenative/core";
+import { addInSlices, mergeParts } from "@threenative/core";
 import { shipClass } from "../sim/catalog.js";
 import { ROLE_AIRFRAMES } from "../sim/battle.js";
 import { REAR_RELOAD_SECONDS } from "../sim/armament.js";
@@ -9,9 +9,9 @@ import { distance2, forward, localPoint } from "../sim/math.js";
 import { addFloats, ellipsoid, mat, wakeTexture } from "./assets.js";
 import type { IViewSnapshot } from "../ui/hud-input.js";
 import { type CarrierModelId, createCarrier, createIjnCarrier, createMitchell, shipModelFor } from "./imported-ships.js";
-import { createAirframe, createDouglas, animateDouglas, animateImportedAirframe, disposeAirframe, resetAirframeAnimation, spinPropeller } from "./imported-aircraft.js";
+import { attachCockpitInterior, createAirframe, createDouglas, animateDouglas, animateImportedAirframe, disposeAirframe, resetAirframeAnimation, spinPropeller } from "./imported-aircraft.js";
 import { airframeLod } from "./airframe-lod.js";
-import { createMidwayAtoll, createZero } from "./imported-fleet.js";
+import { createMidwayAtoll, createZero, ModelPendingError } from "./imported-fleet.js";
 import { DeckCrew } from "./deck-crew.js";
 import { animateDevastator, disposeDevastator, resetDevastatorAnimation } from "./devastator.js";
 import { createRearStation, type RearStation } from "./rear-station.js";
@@ -611,7 +611,75 @@ export class WorldView {
 
   makeWorld(): void {
     const b = this.battle;
-    for (const s of b.ships) {
+    for (const s of b.ships) this.buildShipOrDefer(s);
+    this.crew = new DeckCrew();
+    this.meshes.get(b.player.home)?.add(this.crew.group);
+    this.buildIslandOrDefer();
+    this.setAirframe();
+  }
+
+  /** Ships whose model streams after the reveal; `buildStreamed` builds them when it lands. */
+  private readonly pendingShips: any[] = [];
+  private islandPending = false;
+
+  private buildShipOrDefer(s: any): void {
+    try {
+      this.buildShip(s);
+    } catch (error) {
+      if (!(error instanceof ModelPendingError)) throw error;
+      this.pendingShips.push(s);
+    }
+  }
+
+  private buildIslandOrDefer(): void {
+    try {
+      const island = createMidwayAtoll();
+      island.position.set(this.battle.island.x, 0, this.battle.island.z);
+      markReflected(island);
+      this.scene.add(island);
+      this.freezeNode(island);
+      this.islandPending = false;
+      this.streamedRoots.push(island);
+    } catch (error) {
+      if (!(error instanceof ModelPendingError)) throw error;
+      this.islandPending = true;
+    }
+  }
+
+  /** Roots built after the world, compiled by `buildStreamed` before they can first draw. */
+  private streamedRoots: T.Object3D[] = [];
+
+  /**
+   * Build every ship and the atoll whose model arrived after the reveal, then compile each one
+   * against the real scene so its first appearance pays no pipeline build. Each starts hidden;
+   * `update` places it and applies the range gate as for every other hull.
+   */
+  async buildStreamed(): Promise<void> {
+    // One ship per slice with a frame between, so the late fleet never lands as one long task.
+    // ponytail: a single ship still builds in one task — Akagi's merged stand-in is ~220 ms on this
+    // desktop; cook the stand-in offline (PRD-860 Phase 3 LOD chain) if that hitch ever shows.
+    await addInSlices(this.pendingShips.splice(0), (s) => {
+      this.buildShipOrDefer(s);
+      const mesh = this.meshes.get(s.id);
+      if (mesh) this.streamedRoots.push(mesh);
+    }, { marker: false });
+    if (this.islandPending) this.buildIslandOrDefer();
+    // ponytail: main-pass compile only; the shadow and mirror variants of a streamed hull build on
+    // its first such draw, which is far out at sea. Extend warmHiddenPasses if that ever hitches.
+    for (const root of this.streamedRoots.splice(0)) await this.compileRevealed(root);
+  }
+
+  /** Fit the late cockpit interior into every player airframe built so far, then compile it. */
+  async attachCockpits(): Promise<void> {
+    for (const airframe of this.builtAirframes.values()) {
+      attachCockpitInterior(airframe);
+      const interior = airframe.userData.cockpitInterior as T.Object3D | undefined;
+      if (interior) await this.compileRevealed(interior);
+    }
+  }
+
+  private buildShip(s: any): void {
+    {
       let mesh: T.Group;
       const classId = HULL_CLASS_BY_NAME[s.name] ?? FALLBACK_HULL_BY_KIND[s.team as string]?.[s.kind as string];
       if (classId) {
@@ -710,16 +778,7 @@ export class WorldView {
       this.scene.add(mesh);
       this.meshes.set(s.id, mesh);
       this.freezeStatic(mesh);
-
     }
-    this.crew = new DeckCrew();
-    this.meshes.get(b.player.home)?.add(this.crew.group);
-    const island = createMidwayAtoll();
-    island.position.set(b.island.x, 0, b.island.z);
-    markReflected(island);
-    this.scene.add(island);
-    this.freezeNode(island);
-    this.setAirframe();
   }
 
   /**
@@ -986,22 +1045,28 @@ export class WorldView {
     // Every hull's own pipelines, which a compile of the player's roots never reached: each hull is
     // revealed for its own compile against the real camera and put straight back. The hidden render
     // already made most of these resident, so this is a cache walk that reaches the rest.
-    for (const [id, root] of this.meshes) {
-      if (id.startsWith("air-")) continue;
-      const hidden: T.Object3D[] = [];
-      root.traverse((object) => {
-        if (!object.visible) {
-          hidden.push(object);
-          object.visible = true;
-        }
-      });
-      try {
-        await renderer.compileAsync(root, this.camera, this.scene);
-      } catch {
-        // A hull that will not precompile still draws; it just pays the stall it would have paid.
-      } finally {
-        for (const object of hidden) object.visible = false;
+    for (const [id, root] of this.meshes) if (!id.startsWith("air-")) await this.compileRevealed(root);
+  }
+
+  /** Compile one root against the real camera, every hidden node revealed for it and put back. */
+  private async compileRevealed(root: T.Object3D): Promise<void> {
+    const renderer = this.renderer as unknown as {
+      compileAsync?: (object: T.Object3D, camera: T.Camera, scene: T.Object3D) => Promise<void>;
+    };
+    if (typeof renderer.compileAsync !== "function") return;
+    const hidden: T.Object3D[] = [];
+    root.traverse((object) => {
+      if (!object.visible) {
+        hidden.push(object);
+        object.visible = true;
       }
+    });
+    try {
+      await renderer.compileAsync(root, this.camera, this.scene);
+    } catch {
+      // A hull that will not precompile still draws; it just pays the stall it would have paid.
+    } finally {
+      for (const object of hidden) object.visible = false;
     }
   }
 
