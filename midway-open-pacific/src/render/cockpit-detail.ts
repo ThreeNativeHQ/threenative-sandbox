@@ -49,12 +49,15 @@ export async function loadCockpitMaterials(
   // the whole interior fails to decode. `ctx.assets` resolves the manifest output, keeps the disk
   // cache warm, and already picks `createImageBitmap` on a host with no `<img>` (the native one).
   const load = async (name: string, file: string, srgb: boolean) => {
-    const t = await ctx.assets.texture(`cockpit/${file}`, {
-      anisotropy,
-      data: !srgb,
-      wrap: T.RepeatWrapping,
-    });
+    // No options: this game owns every `cockpit/*` path, nothing else loads one, so configuring the
+    // cached instance in place is right here. An options call hands back a configured copy, which
+    // would leave a second upload of each of the forty dial and label textures on the GPU.
+    const t = await ctx.assets.texture(`cockpit/${file}`);
     t.name = name;
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.anisotropy = anisotropy;
+    t.colorSpace = srgb ? T.SRGBColorSpace : T.NoColorSpace;
+    t.needsUpdate = true;
     textures[name] = t;
   };
   // Headless CPU checks import this module with no image decoder at all; those build the same
