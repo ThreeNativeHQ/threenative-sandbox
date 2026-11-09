@@ -261,22 +261,6 @@ export class Midway extends Scene<GameState, undefined> {
     // engine's own beforeRender phase keeps the packing off the particle meshes: an own mesh
     // onBeforeRender marks the whole scene un-batchable at the full roster.
     this.cleanups.push(ctx.beforeRender(() => this.world.particles.prepare(this.world.camera.position)));
-    // Midway has one main camera and buffer-only draw hooks. Prepare world transforms once per
-    // world draw in the engine's beforeRender seam, which runs before the render projection
-    // reconciles and hands the renderer the mirror scene; an authored-scene onBeforeRender never
-    // fires while projecting, so the walk would go stale. Shadow and reflection passes (which draw
-    // through their own cameras) reuse the transforms prepared here. The pass skips hidden subtrees
-    // — a hull's full body while the merged stand-in shows, hidden LOD levels, parked aircraft —
-    // which three's own walk would still recurse into and multiply for.
-    const scene = ctx.scene;
-    const savedAutoUpdate = scene.matrixWorldAutoUpdate;
-    if (savedAutoUpdate) {
-      scene.matrixWorldAutoUpdate = false;
-      this.cleanups.push(ctx.beforeRender(() => this.world.updateVisibleMatrixWorld()));
-      this.cleanups.push(() => {
-        scene.matrixWorldAutoUpdate = savedAutoUpdate;
-      });
-    }
     this.hud = shell.hud(this.battle, this.world);
     // HUD state, timers and input feedback update on every fixed simulation tick; the canvas is
     // drawn once per presented frame from the latest state. `hud.update` used to clear and redraw
