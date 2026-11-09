@@ -58,7 +58,7 @@ const surfaceClips = [
 /** Which airframe a group is; the id the rest of the game asks for. */
 export type AirframeId = "sbd3" | "tbd1" | "b5n2" | "a6m3";
 
-const DOUGLAS_URL = "/assets/aircraft.douglas-sbd3.glb";
+const DOUGLAS_URL = "aircraft.douglas-sbd3.glb";
 
 /**
  * The airframes imported by tools/import-aircraft.sh: metres, +Y up, span on X, wheels on y = 0,
@@ -72,8 +72,8 @@ const DOUGLAS_URL = "/assets/aircraft.douglas-sbd3.glb";
 const IMPORTS = {
   b5n2: {
     name: "Nakajima B5N2",
-    hero: "/assets/aircraft.b5n2-kate.glb",
-    ai: "/assets/aircraft.b5n2-kate.glb",
+    hero: "aircraft.b5n2-kate.glb",
+    ai: "aircraft.b5n2-kate.glb",
   },
 } as const;
 
@@ -137,7 +137,7 @@ export async function loadImportedAircraft(ctx: Pick<ICtx, "assets" | "renderer"
   ];
   const [models] = await Promise.all([
     Promise.all(urls.map((url) => ctx.assets.model<GLTF>(url))),
-    ensureCockpitMaterials(anisotropy),
+    ensureCockpitMaterials(ctx, anisotropy),
   ]);
   urls.forEach((url, i) => {
     const model = models[i]!;

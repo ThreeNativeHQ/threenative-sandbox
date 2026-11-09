@@ -23,9 +23,9 @@ let akagi: GLTF;
 
 export async function loadImportedShips(ctx: Pick<ICtx, "assets" | "renderer">): Promise<void> {
   [hornet, mitchell, akagi] = await Promise.all([
-    ctx.assets.model<GLTF>("/assets/hornet.glb"),
-    ctx.assets.model<GLTF>("/assets/b25-mitchell.glb"),
-    ctx.assets.model<GLTF>("/assets/akagi.glb"),
+    ctx.assets.model<GLTF>("hornet.glb"),
+    ctx.assets.model<GLTF>("b25-mitchell.glb"),
+    ctx.assets.model<GLTF>("akagi.glb"),
   ]);
   applyAnisotropy(ctx, [hornet, mitchell, akagi]);
 }

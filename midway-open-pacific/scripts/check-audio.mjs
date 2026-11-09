@@ -109,24 +109,24 @@ const voiceOf = (bus, key) => bus.musicCalls.filter((c) => c.key === key).at(-1)
 // 0 — bidirectional packaging check: no orphan audio/voice files on disk, no missing files in code.
 {
   const cuePaths = new Set(Object.values(CUE_FILES).map((p) => resolve(root, "public/assets", p)));
-  const speechPaths = new Set(speechSlugList().map((slug) => resolve(root, "public/assets/audio/voice", `${slug}.ogg`)));
+  const speechPaths = new Set(speechSlugList().map((slug) => resolve(root, "assets/audio/voice", `${slug}.ogg`)));
 
   const missingCues = Object.entries(CUE_FILES).filter(([, path]) => !existsSync(resolve(root, "public/assets", path)));
   assert.equal(missingCues.length, 0, `cue code names an unpackaged file: ${missingCues.map(([k, p]) => `${k} -> ${p}`).join(", ")}`);
 
-  const missingSpeech = speechSlugList().filter((slug) => !existsSync(resolve(root, "public/assets/audio/voice", `${slug}.ogg`)));
+  const missingSpeech = speechSlugList().filter((slug) => !existsSync(resolve(root, "assets/audio/voice", `${slug}.ogg`)));
   assert.equal(missingSpeech.length, 0, `speech script names an unpackaged clip: ${missingSpeech.join(", ")}`);
 
-  // Detect orphan files in public/assets/audio
-  const audioDir = resolve(root, "public/assets/audio");
+  // Detect orphan files in assets/audio
+  const audioDir = resolve(root, "assets/audio");
   const diskAudioFiles = readdirSync(audioDir, { withFileTypes: true })
     .filter((e) => e.isFile() && e.name.endsWith(".ogg"))
     .map((e) => resolve(audioDir, e.name));
   const orphanAudio = diskAudioFiles.filter((p) => !cuePaths.has(p));
   assert.equal(orphanAudio.length, 0, `orphan audio files on disk (not in CUE_FILES): ${orphanAudio.map((p) => p.replace(root + "/", "")).join(", ")}`);
 
-  // Detect orphan files in public/assets/audio/voice
-  const voiceDir = resolve(root, "public/assets/audio/voice");
+  // Detect orphan files in assets/audio/voice
+  const voiceDir = resolve(root, "assets/audio/voice");
   const diskVoiceFiles = readdirSync(voiceDir, { withFileTypes: true })
     .filter((e) => e.isFile() && e.name.endsWith(".ogg"))
     .map((e) => resolve(voiceDir, e.name));

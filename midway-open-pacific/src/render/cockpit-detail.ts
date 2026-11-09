@@ -4,6 +4,7 @@
  * `EYE`. Static geometry is batched by material; flight controls and gauge needles are kept
  * out of the batch so live flight state can drive them.
  */
+import type { ICtx } from "@threenative/core";
 import * as T from "three";
 import { Fn, cos, mix, sin, texture, uniform, uv, vec2, vec3 } from "three/tsl";
 import { MeshStandardNodeMaterial } from "three/webgpu";
@@ -38,35 +39,27 @@ export const EYE: [number, number, number] = [0, 1.42, 1.6];
 
 export type CockpitMaterials = Record<string, any> & { textures: Record<string, T.Texture> };
 
-export async function loadCockpitMaterials(base = "/assets/cockpit/", anisotropy = 8): Promise<CockpitMaterials> {
-  // Load by CAPABILITY, never by browser sniff. The native runtime has `window` and `document`
-  // but no `Image`/`HTMLImageElement`, so `TextureLoader` (which builds an <img>) cannot run
-  // there — while `fetch` + `createImageBitmap` both exist, which is exactly what
-  // `ImageBitmapLoader` uses. Sniffing for `Image` silently skipped every cockpit texture on
-  // native, and because `pbr()` takes its colour from the basecolor map alone, the whole interior
-  // rendered white and fully metallic.
-  const canImage = typeof Image !== "undefined";
-  const canBitmap = typeof createImageBitmap === "function";
-  const bitmapLoader = canImage ? undefined : new T.ImageBitmapLoader();
-  // An ImageBitmap ignores `texture.flipY`, so the flip has to happen during decode instead.
-  bitmapLoader?.setOptions({ imageOrientation: "flipY" });
-  const loader = new T.TextureLoader();
+export async function loadCockpitMaterials(
+  ctx: Pick<ICtx, "assets">,
+  anisotropy = 8,
+): Promise<CockpitMaterials> {
   const textures: Record<string, T.Texture> = {};
+  // Through the asset loader, never a loader of our own: the compile step renames every file to a
+  // content-addressed name, so a hand-built `cockpit/dial-rpm.png` url 404s in a cooked build and
+  // the whole interior fails to decode. `ctx.assets` resolves the manifest output, keeps the disk
+  // cache warm, and already picks `createImageBitmap` on a host with no `<img>` (the native one).
   const load = async (name: string, file: string, srgb: boolean) => {
-    const t = bitmapLoader === undefined
-      ? await loader.loadAsync(base + file)
-      : new T.Texture(await bitmapLoader.loadAsync(base + file) as unknown as HTMLImageElement);
-    if (bitmapLoader !== undefined) t.flipY = false;
+    const t = await ctx.assets.texture(`cockpit/${file}`, {
+      anisotropy,
+      data: !srgb,
+      wrap: T.RepeatWrapping,
+    });
     t.name = name;
-    t.wrapS = t.wrapT = T.RepeatWrapping;
-    t.anisotropy = anisotropy;
-    if (srgb) t.colorSpace = T.SRGBColorSpace;
-    t.needsUpdate = true;
     textures[name] = t;
   };
   // Headless CPU checks import this module with no image decoder at all; those build the same
   // materials map-lessly. Any target that can decode an image loads the real ones.
-  if (canImage || canBitmap) {
+  if (typeof Image !== "undefined" || typeof createImageBitmap === "function") {
     await Promise.all([
       ...PBR.flatMap((id) => [
         load(`${id}-basecolor`, `${id}-basecolor.jpg`, true),
@@ -181,8 +174,13 @@ let cachedMaterials: CockpitMaterials | undefined;
 let loadingMaterials: Promise<CockpitMaterials> | undefined;
 
 /** Cockpit textures are loaded once per session and shared by every aircraft that mounts the rig. */
-export function ensureCockpitMaterials(anisotropy = 8): Promise<CockpitMaterials> {
-  loadingMaterials ??= loadCockpitMaterials("/assets/cockpit/", anisotropy).then((loaded) => (cachedMaterials = loaded));
+export function ensureCockpitMaterials(
+  ctx: Pick<ICtx, "assets">,
+  anisotropy = 8,
+): Promise<CockpitMaterials> {
+  loadingMaterials ??= loadCockpitMaterials(ctx, anisotropy).then(
+    (loaded) => (cachedMaterials = loaded),
+  );
   return loadingMaterials;
 }
 

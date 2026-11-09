@@ -134,7 +134,7 @@ export function torpedoIntercept(
 // a unit regression is visible on the page. Nothing in `src/sim/` ever holds knots — the HUD converts
 // at its own boundary.
 //
-// SHIPPED BODY. `public/assets/weapon.torpedo.glb` is 4.089 m long and 0.569 m in diameter
+// SHIPPED BODY. `assets/weapon.torpedo.glb` is 4.089 m long and 0.569 m in diameter
 // (`WEAPON_BODIES.torpedo` in ./catalog.ts): that is a **Mark 13** and nothing else. The uniform
 // scale each other variant would need from that body, and why the scale is not enough:
 //

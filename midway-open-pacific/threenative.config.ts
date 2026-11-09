@@ -22,6 +22,12 @@ const config: IThreeNativeConfig = {
     resizable: true,
   },
   bootSplash: { backgroundColor: "#102a37" },
+  // The owned engine is the default on web, and its `clone()` refuses an InstancedMesh
+  // (`TN_NATIVE_CLONE_UNSUPPORTED`). The compact pass turns a hull's repeated parts into one, and
+  // every ship here is built by cloning its model, so the instance sub-pass stays off until the
+  // clone path handles it — the other two compaction sub-passes still run. Measured, not taste:
+  // with it on, `createCarrier` throws before the briefing draws.
+  assets: { models: { compact: { instance: false } } },
   nativeEntry: "src/game.ts",
   renderer: {
     // WebGPU by default; the ocean, sky and combat particles are TSL node materials so the same

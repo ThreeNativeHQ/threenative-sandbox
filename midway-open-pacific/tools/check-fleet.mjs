@@ -9,7 +9,7 @@ import { readFile } from "node:fs/promises";
 import { Box3, Quaternion, Vector3 } from "three";
 import { checkHumanoid, loadGlb } from "./check-humanoid.mjs";
 
-const asset = (name) => new URL(`../public/assets/${name}`, import.meta.url);
+const asset = (name) => new URL(`../assets/${name}`, import.meta.url);
 
 const sizeOf = (object) => new Box3().setFromObject(object).getSize(new Vector3());
 
@@ -67,7 +67,7 @@ const sizeOf = (object) => new Box3().setFromObject(object).getSize(new Vector3(
   const ids = new Set(ships.map((ship) => ship.id));
 
   for (const ship of ships)
-    assert(existsSync(asset(`${ship.id}.glb`)), `fleet ship ${ship.id} has no public/assets/${ship.id}.glb`);
+    assert(existsSync(asset(`${ship.id}.glb`)), `fleet ship ${ship.id} has no assets/${ship.id}.glb`);
 
   for (const ship of ships) {
     const gltf = await loadGlb(asset(`${ship.id}.glb`));
@@ -245,7 +245,7 @@ const sizeOf = (object) => new Box3().setFromObject(object).getSize(new Vector3(
   // fleet.json hull: check-aircraft.mjs asserts its triangle count and hinge and check-gunner.mjs
   // its ballistics, so it is not an unregistered fleet asset.
   const checkedUnderAnotherContract = new Set(["destroyer.samidare.glb", "weapon.rear-gun.glb"]);
-  const orphans = readdirSync(new URL("../public/assets/", import.meta.url)).filter(
+  const orphans = readdirSync(new URL("../assets/", import.meta.url)).filter(
     (name) =>
       /^(carrier|cruiser|destroyer|submarine|weapon)\..+\.glb$/.test(name) &&
       !checkedUnderAnotherContract.has(name) &&

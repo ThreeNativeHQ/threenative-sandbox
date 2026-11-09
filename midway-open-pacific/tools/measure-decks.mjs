@@ -9,7 +9,7 @@
  * survey for the imported hulls, in node, so a re-import can regenerate the table in seconds:
  *
  *   node tools/measure-decks.mjs                     # every imported carrier
- *   node tools/measure-decks.mjs public/assets/x.glb # one file
+ *   node tools/measure-decks.mjs assets/x.glb # one file
  *
  * Method, in order:
  *
@@ -192,7 +192,7 @@ export function measureDeck(root) {
 }
 
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/^.*?(?=\/tools)/, ""))) {
-  const dir = new URL("../public/assets/", import.meta.url);
+  const dir = new URL("../assets/", import.meta.url);
   const files = process.argv.length > 2
     ? process.argv.slice(2)
     : (await readdir(dir))

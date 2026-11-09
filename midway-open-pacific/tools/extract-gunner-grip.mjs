@@ -5,7 +5,7 @@
  * shipped pilot rig, verifies the two share one rest pose bone by bone — the condition that makes
  * copying bone-local quaternions valid — then prints the constants and the hand-to-hinge distances.
  *
- *   node tools/extract-gunner-grip.mjs [baked.glb] [public/assets/carrier-aircraft-pilot.glb]
+ *   node tools/extract-gunner-grip.mjs [baked.glb] [assets/carrier-aircraft-pilot.glb]
  */
 import { readFile } from "node:fs/promises";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
@@ -33,7 +33,7 @@ async function load(path) {
 }
 
 const bakedPath = process.argv[2] ?? "/tmp/douglas-gunner-grip-pose.glb";
-const pilotPath = process.argv[3] ?? "public/assets/carrier-aircraft-pilot.glb";
+const pilotPath = process.argv[3] ?? "assets/carrier-aircraft-pilot.glb";
 const baked = await load(bakedPath);
 const pilot = await load(pilotPath);
 
