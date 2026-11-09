@@ -672,7 +672,7 @@ export class WorldView {
   /** Fit the late cockpit interior into every player airframe built so far, then compile it. */
   async attachCockpits(): Promise<void> {
     for (const airframe of this.builtAirframes.values()) {
-      attachCockpitInterior(airframe);
+      await attachCockpitInterior(airframe);
       const interior = airframe.userData.cockpitInterior as T.Object3D | undefined;
       if (interior) await this.compileRevealed(interior);
     }

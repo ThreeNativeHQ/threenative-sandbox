@@ -5,7 +5,7 @@
  * own clip-driven animator. The TBD-1 and B5N2 come through tools/import-aircraft.sh already at
  * real size, so nothing here scales a model.
  */
-import { AnimationPlayer, type ICtx, softCircleDataTexture } from "@threenative/core";
+import { AnimationPlayer, addInSlices, type ICtx, softCircleDataTexture } from "@threenative/core";
 import * as T from "three";
 import type { WebGPURenderer } from "three/webgpu";
 import { mat, rod } from "./assets.js";
@@ -20,6 +20,7 @@ import {
 } from "./aircrew.js";
 import {
   createCockpitInterior,
+  cockpitInteriorSteps,
   getCockpitMaterials,
   type CockpitInterior,
 } from "./cockpit-detail.js";
@@ -157,16 +158,29 @@ export async function loadImportedAircraft(ctx: Pick<ICtx, "assets" | "renderer"
   configureAircrewGun(imported.get(AIRCREW_GUN_URL)!);
 }
 
+/** One slot per step of `cockpitInteriorSteps`; `addInSlices` needs a list, the build yields ~650 times. */
+const COCKPIT_STEP_SLOTS = Array.from({ length: 4096 }, (_, i) => i);
+
 /**
  * Fit the detailed cockpit interior into a player airframe built before its textures arrived.
  * Does what the constructors do when the materials are already resident, and nothing twice.
  */
-export function attachCockpitInterior(root: T.Group): void {
+
+export async function attachCockpitInterior(root: T.Group): Promise<void> {
   const materials = getCockpitMaterials();
   const record = instances.get(root) ?? animatedImports.get(root);
   if (!materials || !record || record.interior) return;
   const at = instances.has(root) ? COCKPIT_POSITION : TBD_COCKPIT_POSITION;
-  const interior = createCockpitInterior(materials);
+  // Built in slices, one per frame in that frame's headroom: in one call this interior is a ~540 ms
+  // task in the player's first seconds of play. The generator yields after each statement; the
+  // slot count only has to exceed its yields, and `while` ends the run at the last one.
+  const steps = cockpitInteriorSteps(materials);
+  let step = steps.next();
+  await addInSlices(COCKPIT_STEP_SLOTS, () => {
+    step = steps.next();
+  }, { marker: false, while: () => !step.done });
+  while (!step.done) step = steps.next();
+  const interior = step.value;
   interior.root.scale.setScalar(COCKPIT_SCALE);
   interior.root.position.set(...at);
   record.instrumentRoot.add(interior.root);

@@ -260,20 +260,32 @@ function createAttitudeFace(moving: T.Texture | undefined, overlay: T.Texture | 
   };
 }
 
-export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
+export function* cockpitInteriorSteps(m: CockpitMaterials): Generator<void, CockpitInterior, void> {
   const root = new T.Group();
+  yield;
   root.name = "Cockpit interior";
+  yield;
   const staticRoot = new T.Group();
+  yield;
   staticRoot.name = "Cockpit static";
+  yield;
   const animatedRoot = new T.Group();
+  yield;
   animatedRoot.name = "Cockpit controls";
+  yield;
   root.add(staticRoot, animatedRoot);
+  yield;
   const g = createGeometryTools(T, m, staticRoot);
+  yield;
   const { part, add, box, plate, cylinder, sphere, torus, curve, tube, rod, beam, glassPolygon, lens, lathe, bolt, boltLine, decal, roundedShape, extruded } = g;
+  yield;
   const PI = Math.PI;
+  yield;
   m.olive.side = T.DoubleSide;
+  yield;
   m.frame.side = T.DoubleSide;
 
+  yield;
   const mk = (geometry: T.BufferGeometry, material: T.Material, p?: number[], rotation?: number[], parent = animatedRoot) => {
     const o = new T.Mesh(geometry, material);
     if (p) o.position.set(p[0], p[1], p[2]);
@@ -284,18 +296,29 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     parent.add(o);
     return o;
   };
+  yield;
   const sub = (a: number[], b: number[]) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  yield;
   const tubeGeo = (pts: number[][], r: number, segments = 48, radial = 10, closed = false) =>
     new T.TubeGeometry(curve(pts as any, closed), segments, r, radial, closed);
+  yield;
   const boxGeo = (w: number, h: number, d: number, r = 0.008) => extruded(roundedShape(w, h, r), d, Math.min(0.003, r * 0.35, d * 0.15));
 
+  yield;
   // ----- Cockpit tub, side sheet metal, floor and rear bulkhead -----
+  yield;
   part("Airframe");
+  yield;
   const tubPos: number[] = [];
+  yield;
   const tubUV: number[] = [];
+  yield;
   const tubIdx: number[] = [];
+  yield;
   const rows = 30;
+  yield;
   const cols = 12;
+  yield;
   for (let j = 0; j <= cols; j += 1)
     for (let i = 0; i <= rows; i += 1) {
       const a = -PI / 2 + (i / rows) * PI;
@@ -303,27 +326,39 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
       tubPos.push(0.91 * Math.sin(a), 0.955 - 0.88 * Math.cos(a), z);
       tubUV.push((i / rows) * 2, (j / cols) * 3);
     }
+  yield;
   for (let j = 0; j < cols; j += 1)
     for (let i = 0; i < rows; i += 1) {
       const a = j * (rows + 1) + i;
       const b = a + rows + 1;
       tubIdx.push(a, b, a + 1, a + 1, b, b + 1);
     }
+  yield;
   const tub = new T.BufferGeometry();
+  yield;
   tub.setAttribute("position", new T.Float32BufferAttribute(tubPos, 3));
+  yield;
   tub.setAttribute("uv", new T.Float32BufferAttribute(tubUV, 2));
+  yield;
   tub.setIndex(tubIdx);
+  yield;
   tub.computeVertexNormals();
+  yield;
   add(tub, m.olive);
+  yield;
   box(1.16, 2.23, 0.035, [0, 0.17, 0.69], m.olive, 0.025, [-PI / 2, 0, 0]);
+  yield;
   for (const side of [-1, 1]) {
     beam([[side * 0.52, 0.205, -0.45], [side * 0.52, 0.205, 1.79]], 0.065, 0.038, m.frame, 12);
     box(0.31, 0.86, 0.023, [side * 0.31, 0.205, -0.12], m.darkEdge, 0.018, [-PI / 2, 0, 0]);
+    yield;
     for (let j = 0; j < 12; j += 1) box(0.22, 0.012, 0.007, [side * 0.31, 0.221, -0.47 + j * 0.06], m.rubber, 0.003, [-PI / 2, 0, 0]);
     for (let j = 0; j < 15; j += 1) bolt([side * 0.54, 0.235, -0.42 + j * 0.145], [0, 1, 0], 0.006, j * 0.37);
     beam([[side * 0.892, 0.944, -0.56], [side * 0.887, 0.941, 0.3], [side * 0.875, 0.93, 1.9]], 0.055, 0.055, m.frame, 38);
+    yield;
     tube([[side * 0.913, 0.927, -0.5], [side * 0.917, 0.927, 0.5], [side * 0.9, 0.92, 1.95]], 0.012, m.darkEdge, 48);
     for (let j = 0; j < 16; j += 1) bolt([side * 0.856, 0.947, -0.46 + j * 0.148], [0, 1, 0], 0.0065, j);
+    yield;
     for (const z of [-0.35, 0.22, 0.82, 1.48, 1.93]) {
       const pts: number[][] = [];
       for (let j = 0; j <= 12; j += 1) {
@@ -332,18 +367,27 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
       }
       beam(pts, 0.035, 0.026, m.frame, 24);
       for (const a of [0.9, 1.22, 1.48]) bolt([side * 0.873 * Math.sin(a), 0.955 - 0.84 * Math.cos(a), z + 0.018], [0, 0, 1], 0.006);
+      yield;
     }
     box(0.025, 0.29, 0.61, [side * 0.865, 0.695, 0.57], m.panel, 0.012, [0, (side * PI) / 2, 0]);
     for (let i = 0; i < 5; i += 1) bolt([side * 0.839, 0.805, 0.33 + i * 0.117], [-side, 0, 0], 0.0057, i);
     for (let i = 0; i < 5; i += 1) bolt([side * 0.839, 0.585, 0.33 + i * 0.117], [-side, 0, 0], 0.0057, i + 0.6);
   }
+  yield;
   plate([[-0.7, 0.18], [0.7, 0.18], [0.81, 0.69], [0.73, 1.25], [0.49, 1.35], [-0.49, 1.35], [-0.73, 1.25], [-0.81, 0.69]], 0.029, [0, 0, 1.98], m.olive, 0.008);
+  yield;
   for (let i = 0; i < 14; i += 1) bolt([-0.67 + i * 0.103, 1.235, 2.006], [0, 0, 1], 0.006, i);
+  yield;
   beam([[-0.88, 0.55, 1.91], [-0.79, 1.16, 1.91], [-0.58, 1.75, 1.91], [0, 2.08, 1.91], [0.58, 1.75, 1.91], [0.79, 1.16, 1.91], [0.88, 0.55, 1.91]], 0.047, 0.041, m.frame, 90);
+  yield;
   box(0.66, 0.67, 0.07, [0, 0.4, 1.36], m.olive, 0.075, [-PI / 2, 0, 0]);
+  yield;
   box(0.58, 0.59, 0.06, [0, 0.452, 1.34], m.seat, 0.06, [-PI / 2, 0, 0]);
+  yield;
   box(0.65, 0.75, 0.055, [0, 0.785, 1.72], m.olive, 0.083, [-0.13, 0, 0]);
+  yield;
   box(0.53, 0.57, 0.048, [0, 0.835, 1.675], m.seat, 0.073, [-0.13, 0, 0]);
+  yield;
   for (const side of [-1, 1]) {
     beam([[side * 0.17, 1.19, 1.65], [side * 0.12, 0.9, 1.6], [side * 0.11, 0.64, 1.59]], 0.072, 0.007, m.canvas, 28);
     beam([[side * 0.3, 0.49, 1.42], [side * 0.21, 0.51, 1.26], [side * 0.065, 0.52, 1.22]], 0.083, 0.008, m.canvas, 24);
@@ -351,20 +395,31 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     box(0.053, 0.075, 0.018, [side * 0.11, 0.67, 1.622], m.slot, 0.004);
     rod([side * 0.29, 0.21, 1.12], [side * 0.29, 0.43, 1.38], 0.018, m.edge);
   }
+  yield;
   box(0.1, 0.062, 0.019, [0, 0.536, 1.225], m.steel, 0.008, [-PI / 2, 0, 0]);
 
+  yield;
   // ----- Bevelled, riveted canopy framing -----
+  yield;
   part("Canopy");
+  yield;
   const mainPoints: number[][] = [[-1.015, 0.28, 0.3], [-0.957, 0.66, 0.235], [-0.8, 1.1, 0.13], [-0.652, 1.56, 0.018], [-0.461, 1.894, -0.076], [-0.233, 2.067, -0.117], [0, 2.113, -0.13], [0.233, 2.067, -0.117], [0.461, 1.894, -0.076], [0.652, 1.56, 0.018], [0.8, 1.1, 0.13], [0.957, 0.66, 0.235], [1.015, 0.28, 0.3]];
+  yield;
   mainPoints.forEach((p) => {
     p[0] *= 1.125;
     if (p[1] > 1.5) p[1] -= 0.024;
   });
+  yield;
   const main = beam(mainPoints, 0.082, 0.058, m.frame, 160).curve;
+  yield;
   boltLine(main, 43, 0.038, 0.009);
+  yield;
   const edgeOuter: T.Vector3[] = [];
+  yield;
   const edgeInner: T.Vector3[] = [];
+  yield;
   const rubberSeal: T.Vector3[] = [];
+  yield;
   for (let i = 0; i <= 160; i += 1) {
     const t = i / 160;
     const p = main.getPoint(t);
@@ -374,13 +429,21 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     edgeInner.push(p.clone().addScaledVector(n, 0.0395).add(new T.Vector3(0, 0, 0.027)));
     rubberSeal.push(p.clone().addScaledVector(n, -0.052).add(new T.Vector3(0, 0, -0.012)));
   }
+  yield;
   tube(edgeOuter, 0.0033, m.darkEdge, 160, 8);
+  yield;
   tube(edgeInner, 0.00145, m.edge, 160, 6);
+  yield;
   tube(rubberSeal, 0.007, m.rubber, 160, 8);
+  yield;
   for (let i = 4; i < 152; i += 11) tube(edgeOuter.slice(i, i + 4).map((p) => p.clone().add(new T.Vector3(0, 0, 0.005))), 0.00125, m.edge, 6, 5);
+  yield;
   const frontTop: number[][] = [[-0.524, 1.882, -1.084], [-0.395, 1.934, -1.11], [-0.207, 1.982, -1.136], [0, 1.998, -1.148], [0.207, 1.982, -1.136], [0.395, 1.934, -1.11], [0.524, 1.882, -1.084]];
+  yield;
   const top = beam(frontTop, 0.048, 0.04, m.frame, 85).curve;
+  yield;
   boltLine(top, 14, 0.026, 0.0065);
+  yield;
   for (const side of [-1, 1]) {
     const frontLeg = [[side * 0.712, 1.081, -0.602], [side * 0.625, 1.42, -0.803], [side * 0.524, 1.882, -1.084]];
     const strut = beam(frontLeg, 0.051, 0.042, m.frame, 40).curve;
@@ -404,32 +467,52 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     cylinder(0.015, 0.025, [side * 0.711, 1.091, -0.516], m.black);
     bolt([side * 0.711, 1.09, -0.499], [0, 0, 1], 0.009);
   }
+  yield;
   glassPolygon([[-0.696, 1.094, -0.618], [0.696, 1.094, -0.618], [0.511, 1.87, -1.088], [0.392, 1.921, -1.115], [0.203, 1.97, -1.14], [0, 1.985, -1.15], [-0.203, 1.97, -1.14], [-0.392, 1.921, -1.115], [-0.511, 1.87, -1.088]], m.glass);
+  yield;
   for (const side of [-1, 1]) {
     beam([[side * 0.845, 1.28, 0.085], [side * 0.994, 1.28, 0.85], [side * 1.055, 1.28, 1.9]], 0.044, 0.038, m.frame, 55);
     tube([[side * 0.848, 1.292, 0.09], [side * 0.997, 1.292, 0.85], [side * 1.058, 1.292, 1.9]], 0.002, m.edge, 55, 6);
     for (const z of [0.12, 0.34, 0.68, 1.14, 1.64]) bolt([side * (0.845 + (z - 0.085) * 0.11), 1.292, z], [0, 1, 0], 0.0065, z);
   }
 
+  yield;
   // ----- Stacked instrument panel and padded coaming -----
+  yield;
   part("Instruments");
+  yield;
   const panelOutline: number[][] = [[-0.824, 0.23], [0.8, 0.23], [0.797, 0.816], [0.75, 1.05], [0.666, 1.085], [-0.681, 1.085], [-0.786, 1.04], [-0.824, 0.851]];
+  yield;
   plate(panelOutline, 0.05, [0, 0, -0.455], m.darkEdge, 0.008);
+  yield;
   const innerOutline = panelOutline.map(([x, y]) => [x * 0.979, (y - 0.64) * 0.979 + 0.64]);
+  yield;
   plate(innerOutline, 0.018, [0, 0, -0.419], m.panel, 0.004);
+  yield;
   for (let i = 0; i < 14; i += 1) bolt([-0.716 + i * 0.108, 1.053, -0.399], [0, 0, 1], 0.0075, i * 0.64);
+  yield;
   for (let i = 0; i < 14; i += 1) bolt([-0.757 + i * 0.112, 0.258, -0.399], [0, 0, 1], 0.0072, i * 0.74);
+  yield;
   for (let i = 0; i < 5; i += 1)
     for (const s of [-1, 1]) bolt([s * 0.778, 0.35 + i * 0.138, -0.393], [0, 0, 1], 0.0069, i);
+  yield;
   box(1.43, 0.365, 0.04, [0, 1.086, -0.663], m.black, 0.044, [-PI / 2, 0, 0]);
+  yield;
   const coaming: number[][] = [[-0.811, 0.977, -0.382], [-0.744, 1.079, -0.389], [-0.49, 1.099, -0.393], [0, 1.108, -0.393], [0.49, 1.099, -0.393], [0.744, 1.079, -0.389], [0.805, 0.977, -0.382]];
+  yield;
   const coam = tube(coaming, 0.021, m.leather, 90, 12);
+  yield;
   coam.scale.z = 1.13;
+  yield;
   tube(coaming.map((p) => [p[0], p[1] + 0.007, p[2] + 0.015]), 0.0012, m.darkEdge, 90, 6);
+  yield;
   decal("instruments", 0.49, 0.026, [-0.08, 1.039, -0.395]);
 
+  yield;
   // ----- Live gauges: static bezels and lens, needles driven by flight state -----
+  yield;
   const needles: Array<{ set: (theta: number) => void }> = [];
+  yield;
   const makeNeedle = (x: number, y: number, z: number, r: number, length = 1, width = 1, material = m.needle) => {
     const points: number[][] = [[-0.0034 * width, -r * 0.175], [0.0034 * width, -r * 0.175], [0.0028 * width, r * 0.56 * length], [0.0007, r * 0.82 * length], [0, r * 0.865 * length], [-0.0009, r * 0.79 * length], [-0.0027 * width, r * 0.56 * length]];
     const shape = new T.Shape(points.map((p) => new T.Vector2(p[0], p[1])));
@@ -451,7 +534,9 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     needles.push(ref);
     return ref;
   };
+  yield;
   const attitudeFace = createAttitudeFace(m.textures["attitude-moving"], m.textures["attitude-overlay"]);
+  yield;
   const gauge = (type: string, x: number, y: number, r: number) => {
     const z = -0.387;
     box((r + 0.019) * 2, (r + 0.019) * 2, 0.017, [x, y, z - 0.01], m.black, 0.02);
@@ -477,48 +562,81 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
       torus(0.01, 0.0013, [nx, ny, z + 0.041], m.edge);
     }
   };
+  yield;
   gauge("airspeed", -0.481, 0.851, 0.146);
+  yield;
   gauge("altimeter", -0.113, 0.851, 0.148);
+  yield;
   gauge("rpm", 0.259, 0.851, 0.146);
+  yield;
   gauge("fuel", -0.482, 0.478, 0.141);
+  yield;
   gauge("climb", -0.113, 0.478, 0.142);
+  yield;
   gauge("oil", 0.259, 0.478, 0.142);
+  yield;
   gauge("attitude", 0.58, 0.815, 0.105);
+  yield;
   box(0.21, 0.167, 0.013, [0.58, 0.589, -0.392], m.black, 0.009);
+  yield;
   decal("serial", 0.171, 0.114, [0.58, 0.591, -0.382]);
+  yield;
   for (const x of [0.486, 0.672])
     for (const y of [0.513, 0.665]) bolt([x, y, -0.376], [0, 0, 1], 0.0049, x + y);
+  yield;
   gauge("compass", 0.574, 0.36, 0.08);
+  yield;
   for (const [x, y] of [[0.765, 0.86], [0.765, 0.756], [0.766, 0.663], [-0.745, 0.733]]) {
     cylinder(0.023, 0.033, [x, y, -0.373], m.black, "z", 28);
     torus(0.023, 0.003, [x, y, -0.35], m.darkEdge);
     cylinder(0.015, 0.036, [x, y, -0.345], m.rubber, "z", 24);
   }
+  yield;
   for (const x of [-0.624, -0.406, -0.2, 0.008, 0.218, 0.409]) {
     cylinder(0.014, 0.02, [x, 0.204, -0.393], m.brass, "z", 20);
     cylinder(0.009, 0.03, [x, 0.204, -0.381], m.rubber, "z", 20);
   }
+  yield;
   const needleAirspeed = makeNeedle(-0.481, 0.851, -0.367, 0.146);
+  yield;
   const needleAltThousands = makeNeedle(-0.113, 0.851, -0.367, 0.148);
+  yield;
   const needleAltTenThousands = makeNeedle(-0.113, 0.851, -0.363, 0.148, 0.61, 1.5);
+  yield;
   const needleAltHundreds = makeNeedle(-0.113, 0.851, -0.359, 0.148, 0.37, 1.0, m.darkEdge);
+  yield;
   const needleRpm = makeNeedle(0.259, 0.851, -0.367, 0.146);
+  yield;
   const needleFuel = makeNeedle(-0.482, 0.478, -0.367, 0.141);
+  yield;
   const needleClimb = makeNeedle(-0.113, 0.478, -0.367, 0.142);
+  yield;
   const needleOil = makeNeedle(0.259, 0.478, -0.367, 0.142);
+  yield;
   const needleCompass = makeNeedle(0.574, 0.36, -0.367, 0.08);
 
+  yield;
   // ----- Reflector gunsight -----
+  yield;
   part("Gunsight");
+  yield;
   box(0.533, 0.078, 0.29, [0, 1.13, -0.64], m.black, 0.016);
+  yield;
   box(0.588, 0.022, 0.328, [0, 1.087, -0.64], m.darkEdge, 0.012);
+  yield;
   box(0.458, 0.019, 0.249, [0, 1.178, -0.64], m.panel, 0.012);
+  yield;
   for (const x of [-0.237, 0.237])
     for (const z of [-0.53, -0.744]) bolt([x, 1.179, z], [0, 1, 0], 0.007, x + z);
+  yield;
   cylinder(0.123, 0.083, [0, 1.187, -0.747], m.black, "y", 64);
+  yield;
   torus(0.107, 0.007, [0, 1.231, -0.747], m.darkEdge, [PI / 2, 0, 0]);
+  yield;
   const optic = add(new T.CircleGeometry(0.101, 64), m.lens, [0, 1.232, -0.747], [-PI / 2, 0, 0]);
+  yield;
   optic.renderOrder = 11;
+  yield;
   for (const side of [-1, 1]) {
     box(0.032, 0.175, 0.055, [side * 0.205, 1.258, -0.667], m.black, 0.006);
     box(0.052, 0.022, 0.094, [side * 0.205, 1.183, -0.661], m.darkEdge, 0.003);
@@ -529,31 +647,55 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     torus(0.024, 0.003, [side * 0.278, 1.128, -0.493], m.darkEdge);
     bolt([side * 0.278, 1.128, -0.491], [0, 0, 1], 0.009, side);
   }
+  yield;
   const sightShape = roundedShape(0.408, 0.342, 0.046);
+  yield;
   add(new T.ShapeGeometry(sightShape, 16), m.sightGlass, [0, 1.427, -0.661]);
+  yield;
   const contour = sightShape.getPoints(15).map((p) => [p.x, p.y + 1.427, -0.662]);
+  yield;
   tube(contour, 0.005, m.black, 128, 8, true);
+  yield;
   tube(contour.map((p) => [p[0], p[1], p[2] + 0.002]), 0.0011, m.darkEdge, 128, 6, true);
+  yield;
   const center: number[] = [0, 1.469, -0.65];
+  yield;
   const rr = 0.041;
+  yield;
   torus(rr, 0.00095, center, m.reticle);
+  yield;
   torus(rr, 0.0022, [0, 1.469, -0.6503], m.reticleGlow);
+  yield;
   for (const a of [0, PI / 2, PI, PI * 1.5])
     rod([Math.cos(a) * rr * 1.3, 1.469 + Math.sin(a) * rr * 1.3, -0.65], [Math.cos(a) * rr * 1.83, 1.469 + Math.sin(a) * rr * 1.83, -0.65], 0.0008, m.reticle, 6);
+  yield;
   sphere(0.0016, center, m.reticle, [1, 1, 0.3], 12);
+  yield;
   rod([0, 1.369, -0.65], [0, 1.413, -0.65], 0.0006, m.reticle, 6);
+  yield;
   box(0.104, 0.024, 0.003, [0, 1.119, -0.49], m.darkEdge, 0.002);
+  yield;
   for (const x of [-0.045, 0.045]) bolt([x, 1.119, -0.486], [0, 0, 1], 0.0028);
 
+  yield;
   // ----- Side controls, switchgear, hydraulic plumbing; static parts -----
+  yield;
   part("Controls");
+  yield;
   cylinder(0.045, 0.028, [-0.798, 0.754, 0.07], m.black, "x", 40);
+  yield;
   torus(0.039, 0.004, [-0.817, 0.754, 0.07], m.edge, [0, PI / 2, 0]);
+  yield;
   tube([[-0.35, 0.235, 0.72], [-0.31, 0.53, 0.64], [-0.235, 0.776, 0.55], [-0.185, 0.929, 0.55]], 0.016, m.black, 48, 12);
+  yield;
   sphere(0.049, [-0.185, 0.95, 0.55], m.leather, [1, 1.1, 0.94], 28);
+  yield;
   torus(0.034, 0.004, [-0.185, 0.98, 0.55], m.darkEdge, [PI / 2, 0, 0]);
+  yield;
   box(0.197, 0.238, 0.041, [0.722, 0.73, 0.294], m.black, 0.016, [0, -0.16, 0]);
+  yield;
   decal("electric", 0.178, 0.048, [0.722, 0.825, 0.325], [0, -0.16, 0]);
+  yield;
   for (let row = 0; row < 2; row += 1)
     for (let col = 0; col < 4; col += 1) {
       const x = 0.659 + col * 0.044;
@@ -566,16 +708,26 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
       sphere(0.0055, end, m.steel, [1, 1, 1], 12);
       bolt([x, y - 0.027, z], [0, 0, 1], 0.0028, col);
     }
+  yield;
   for (const x of [0.638, 0.809])
     for (const y of [0.623, 0.837]) bolt([x, y, 0.329 - (x - 0.722) * 0.16], [0, 0, 1], 0.0062, x + y);
+  yield;
   box(0.136, 0.16, 0.06, [0.736, 0.496, 0.319], m.olive, 0.014);
+  yield;
   decal("gear", 0.121, 0.046, [0.736, 0.548, 0.354]);
+  yield;
   rod([0.736, 0.485, 0.358], [0.736, 0.503, 0.429], 0.008, m.steel);
+  yield;
   sphere(0.022, [0.736, 0.503, 0.439], m.rubber, [1, 1, 1], 22);
+  yield;
   cylinder(0.052, 0.022, [-0.747, 0.443, 0.158], m.darkEdge);
+  yield;
   cylinder(0.03, 0.03, [-0.747, 0.443, 0.176], m.brass, "z", 32);
+  yield;
   box(0.018, 0.077, 0.032, [-0.747, 0.443, 0.197], m.rubber, 0.006, [0, 0, -0.8]);
+  yield;
   decal("fuel", 0.19, 0.039, [-0.747, 0.36, 0.172]);
+  yield;
   for (const side of [-1, 1]) {
     for (let j = 0; j < 3; j += 1) {
       const x = side * (0.79 + j * 0.025);
@@ -604,29 +756,48 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
       ring.quaternion.setFromUnitVectors(new T.Vector3(0, 0, 1), tangent.normalize());
     }
   }
+  yield;
   decal("warning", 0.226, 0.037, [0.857, 0.933, 0.87], [0, -PI / 2, 0]);
 
+  yield;
   // ----- Animated flight controls: stick, throttle, pedals, trim, dive brakes -----
+  yield;
   const stickPivot: number[] = [0.075, 0.325, 0.73];
+  yield;
   const stick = new T.Group();
+  yield;
   stick.name = "Control stick";
+  yield;
   stick.position.set(stickPivot[0], stickPivot[1], stickPivot[2]);
+  yield;
   animatedRoot.add(stick);
+  yield;
   mk(tubeGeo([[0.075, 0.325, 0.73], [0.077, 0.548, 0.651], [0.075, 0.761, 0.589], [0.072, 0.884, 0.552]].map((p) => sub(p, stickPivot)), 0.021, 55, 16), m.black, undefined, undefined, stick);
+  yield;
   mk(new T.CylinderGeometry(0.026, 0.026, 0.072, 32), m.darkEdge, sub([0.072, 0.864, 0.552], stickPivot), undefined, stick);
+  yield;
   mk(boxGeo(0.088, 0.166, 0.088, 0.036), m.leather, sub([0.072, 0.937, 0.552], stickPivot), [-0.18, 0, -0.03], stick);
+  yield;
   const knuckle = mk(new T.SphereGeometry(0.044, 28, 18), m.leather, sub([0.071, 1.021, 0.535], stickPivot), undefined, stick);
+  yield;
   knuckle.scale.set(1, 0.58, 1);
+  yield;
   for (let i = 0; i < 8; i += 1) {
     const y = 0.876 + i * 0.017;
     mk(tubeGeo([[0.034, y, 0.59], [0.071, y + 0.003, 0.6], [0.108, y, 0.585]].map((p) => sub(p, stickPivot)), 0.00125, 12, 5), m.darkEdge, undefined, undefined, stick);
   }
+  yield;
   mk(new T.CylinderGeometry(0.012, 0.012, 0.006, 24), m.darkRed, sub([0.066, 1.043, 0.527], stickPivot), [PI / 2, 0, 0], stick);
+  yield;
   mk(boxGeo(0.016, 0.032, 0.027, 0.006), m.brass, sub([0.072, 0.998, 0.488], stickPivot), [-0.2, 0, 0], stick);
 
+  yield;
   const levers: T.Group[] = [];
+  yield;
   box(0.191, 0.16, 0.315, [-0.687, 0.809, 0.045], m.black, 0.028, [0.12, 0, -0.1]);
+  yield;
   box(0.218, 0.034, 0.337, [-0.688, 0.886, 0.045], m.darkEdge, 0.021, [0.12, 0, -0.1]);
+  yield;
   for (let i = 0; i < 3; i += 1) {
     const x = -0.756 + i * 0.064;
     const points = [[x, 0.814, 0.118], [x, 0.908, 0.075], [x, 0.967 - 0.024 * i, -0.03 - 0.036 * i], [x, 0.996 - 0.028 * i, -0.112 - 0.02 * i]];
@@ -653,13 +824,20 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     rod([x, 0.899, 0.13], [x, 0.899, -0.13], 0.006, m.slot, 6);
     bolt([x, 0.881, 0.213], [0, 0, 1], 0.006, i);
   }
+  yield;
   decal("engine", 0.174, 0.041, [-0.685, 0.804, 0.212]);
 
+  yield;
   const trimWheelPivot: number[] = [-0.697, 0.545, 0.415];
+  yield;
   const trimWheel = new T.Group();
+  yield;
   trimWheel.name = "Trim wheel";
+  yield;
   trimWheel.position.set(trimWheelPivot[0], trimWheelPivot[1], trimWheelPivot[2]);
+  yield;
   animatedRoot.add(trimWheel);
+  yield;
   {
     const ring = new T.Mesh(new T.TorusGeometry(0.115, 0.013, 8, 64), m.rubber);
     ring.rotation.y = PI / 2;
@@ -675,12 +853,18 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     hub.rotation.y = PI / 2;
     trimWheel.add(hub);
   }
+  yield;
   rod([-0.715, 0.635, 0.488], [-0.756, 0.635, 0.488], 0.01, m.steel);
+  yield;
   cylinder(0.016, 0.052, [-0.776, 0.635, 0.488], m.rubber, "x", 20);
+  yield;
   decal("trim", 0.216, 0.044, [-0.82, 0.464, 0.415], [0, PI / 2, 0]);
 
+  yield;
   const pedals: Array<{ mesh: T.Object3D; base: number; sign: number }> = [];
+  yield;
   rod([-0.48, 0.292, -0.16], [0.48, 0.292, -0.16], 0.017, m.steel, 20);
+  yield;
   for (const s of [-1, 1]) {
     const group = new T.Group();
     group.name = s < 0 ? "Left rudder pedal" : "Right rudder pedal";
@@ -692,11 +876,17 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     pedals.push({ mesh: group, base: -0.143, sign: s });
   }
 
+  yield;
   const brakeHandleParts: T.Object3D[] = [];
+  yield;
   cylinder(0.027, 0.025, [-0.745, 1.02, -0.276], m.darkEdge);
+  yield;
   const brakeGroup = new T.Group();
+  yield;
   brakeGroup.position.set(-0.745, 1.02, -0.276);
+  yield;
   animatedRoot.add(brakeGroup);
+  yield;
   {
     const stem = new T.Mesh(new T.CylinderGeometry(0.021, 0.021, 0.031, 24), m.red);
     stem.rotation.x = PI / 2;
@@ -716,10 +906,14 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     brakeHandleParts.push(pull as T.Object3D);
   }
 
+  yield;
   const boltCount = g.buildHardware();
-  g.optimize();
+  yield;
+  yield* g.optimizeSteps();
+  yield;
   root.userData.boltCount = boltCount;
 
+  yield;
   function update(p: any): void {
     const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
     const sweep = (v: number, max: number, lo = 190, span = 290) => lo + clamp(v / max, 0, 1) * span;
@@ -751,6 +945,7 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
     attitudeFace?.update(p.pitch ?? 0, p.roll ?? 0);
   }
 
+  yield;
   function dispose(): void {
     // Materials and textures are shared through the session cache; only per-instance geometry and
     // the live attitude face (created per interior) are owned here.
@@ -767,6 +962,15 @@ export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
   }
 
   return { root, eye: EYE, update, dispose };
+}
+
+/** The whole interior in one call. A frame-sliced build drives `cockpitInteriorSteps` instead. */
+export function createCockpitInterior(m: CockpitMaterials): CockpitInterior {
+  const steps = cockpitInteriorSteps(m);
+  for (;;) {
+    const step = steps.next();
+    if (step.done) return step.value;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -1030,10 +1234,14 @@ function createGeometryTools(Tg: typeof T, materials: CockpitMaterials, root: T.
     }
     return bolts.length;
   }
+  function optimize() {
+    for (const _ of optimizeSteps());
+  }
   function pushArray(dst: number[], src: ArrayLike<number>) {
     for (let i = 0; i < src.length; i += 1) dst.push(src[i]);
   }
-  function optimize() {
+  /** `optimize` one source mesh per step, for a frame-sliced build. */
+  function* optimizeSteps(): Generator<void, void, void> {
     // The toolkit's `root` is the static shell group; the live controls hang off its sibling
     // `animatedRoot`, which this never visits, so a gauge needle or a lever can never be dragged
     // into a batch. Batch the shell by material across every part rather than within one part: the
@@ -1072,6 +1280,7 @@ function createGeometryTools(Tg: typeof T, materials: CockpitMaterials, root: T.
         g.dispose();
         o.parent!.remove(o);
         o.geometry.dispose();
+        yield;
       }
       const g = new Tg.BufferGeometry();
       g.setAttribute("position", new Tg.Float32BufferAttribute(positions, 3));
@@ -1118,6 +1327,7 @@ function createGeometryTools(Tg: typeof T, materials: CockpitMaterials, root: T.
     planarUV,
     buildHardware,
     optimize,
+    optimizeSteps,
     parts,
     V,
   };
