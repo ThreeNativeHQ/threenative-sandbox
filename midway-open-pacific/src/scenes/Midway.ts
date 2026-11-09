@@ -7,10 +7,11 @@ import { Battle } from "../sim/battle.js";
 import { LOADOUTS } from "../sim/armament.js";
 import { ASSIGNMENTS, type Assignment } from "../sim/sortie.js";
 import { clamp, distance2 } from "../sim/math.js";
-import { loadImportedShips } from "../render/imported-ships.js";
+import { loadAkagi, loadImportedShips } from "../render/imported-ships.js";
+import { cockpitTexturePaths, ensureCockpitMaterials } from "../render/cockpit-detail.js";
 import { loadEnvironment } from "../render/environment.js";
 import { loadImportedAircraft } from "../render/imported-aircraft.js";
-import { loadImportedFleet, loadImportedHulls } from "../render/imported-fleet.js";
+import { ATOLL_URLS, hullUrls, LATE_HULLS, loadImportedFleet, loadImportedHulls, loadMidwayAtoll, SPAWN_HULLS } from "../render/imported-fleet.js";
 import { loadDeckCrew } from "../render/deck-crew.js";
 import { WorldView } from "../render/world.js";
 import { nullShell, shell, type IHud, type Intent } from "../ui/port.js";
@@ -227,7 +228,7 @@ export class Midway extends Scene<GameState, undefined> {
       // The imported hulls the fleet is built from — Yorktown, the three Japanese carriers, the
       // cruisers, destroyers and submarines. Their sizes come from src/sim/catalog.ts, which
       // `Battle` has already read; this only brings in the geometry to draw them with.
-      timed("hulls", loadImportedHulls(ctx)),
+      timed("hulls", loadImportedHulls(ctx, SPAWN_HULLS)),
       timed("deck-crew", loadDeckCrew(ctx)),
       timed("environment", loadEnvironment(ctx)),
       timed("audio", Soundscape.load(ctx.assets)),
@@ -237,6 +238,34 @@ export class Midway extends Scene<GameState, undefined> {
     console.log(`TN_LOAD_STEP:{"label":"scene-load-total","ms":${performance.now().toFixed(1)}}`);
     // Keep the opaque loading layer up until the first update has built the world and placed the
     // camera; hiding it here showed a few frames of an unlit, half-built scene.
+  }
+
+  /**
+   * The Japanese fleet and the atoll, after the reveal. The spawn camera is on a US deck about
+   * 200 km from both, so they cost the launch 61 MB it never showed; the speech clips and the combat cues follow the same path. `prefetch` names them first:
+   * a load after the reveal that was not prefetched reports `TN_ASSET_LATE`, the pop-in line.
+   */
+  private async streamFleet(ctx: ICtx<GameState, undefined>): Promise<void> {
+    // Prefetch order is arrival order: the cockpit first (the player can switch to it at once),
+    // then the escorts, then sound, then the far fleet and the atoll.
+    void ctx.assets.prefetch([
+      ...cockpitTexturePaths(),
+      ...hullUrls(LATE_HULLS),
+      ...Soundscape.latePaths,
+      "akagi.glb",
+      ...ATOLL_URLS,
+    ]);
+    const anisotropy = (ctx.renderer.raw as { getMaxAnisotropy?: () => number }).getMaxAnisotropy?.() ?? 8;
+    await ensureCockpitMaterials(ctx, anisotropy);
+    await this.world.attachCockpits();
+    await Promise.all([
+      Soundscape.loadLate(ctx.assets, this.audioBuffers),
+      loadImportedHulls(ctx, LATE_HULLS),
+      loadAkagi(ctx),
+      loadMidwayAtoll(ctx),
+    ]);
+    await this.world.buildStreamed();
+    console.log(`TN_LOAD_STEP:{"label":"fleet-streamed","ms":${performance.now().toFixed(1)}}`);
   }
 
   enter(ctx: ICtx<GameState, undefined>): void {
@@ -301,6 +330,7 @@ export class Midway extends Scene<GameState, undefined> {
     if (held) startup.hold!("midway-warm-passes", Promise.resolve().then(() => this.world.warmUpViews()), 45000);
     console.log(`TN_LOAD_STEP:{"label":"enter","ms":${performance.now().toFixed(1)}}`);
     void ctx.startup.whenReady().then(() => {
+      void this.streamFleet(ctx);
       this.stopReporting();
       console.log(`TN_LOAD_STEP:{"label":"ready","ms":${performance.now().toFixed(1)}}`);
       this.started = true;

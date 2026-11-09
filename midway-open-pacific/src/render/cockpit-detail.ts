@@ -39,6 +39,26 @@ export const EYE: [number, number, number] = [0, 1.42, 1.6];
 
 export type CockpitMaterials = Record<string, any> & { textures: Record<string, T.Texture> };
 
+/** Every cockpit texture as [name, file, sRGB]: what `loadCockpitMaterials` loads. */
+function cockpitTextures(): [string, string, boolean][] {
+  return [
+    ...PBR.flatMap((id): [string, string, boolean][] => [
+      [`${id}-basecolor`, `${id}-basecolor.jpg`, true],
+      [`${id}-normal`, `${id}-normal.png`, false],
+      [`${id}-orm`, `${id}-orm.png`, false],
+    ]),
+    ["glass-normal", "glass-normal.png", false],
+    // The artificial horizon's two baked faces. See tools/bake-attitude.mjs.
+    ["attitude-moving", "attitude-moving.png", true],
+    ["attitude-overlay", "attitude-overlay.png", true],
+    ...DIALS.map((d): [string, string, boolean] => [`dial-${d}`, `dial-${d}.png`, true]),
+    ...LABELS.map((l): [string, string, boolean] => [`label-${l}`, `label-${l}.png`, true]),
+  ];
+}
+
+/** The cockpit's logical paths, for a `prefetch` ahead of `ensureCockpitMaterials`. */
+export const cockpitTexturePaths = (): string[] => cockpitTextures().map(([, file]) => `cockpit/${file}`);
+
 export async function loadCockpitMaterials(
   ctx: Pick<ICtx, "assets">,
   anisotropy = 8,
@@ -63,19 +83,7 @@ export async function loadCockpitMaterials(
   // Headless CPU checks import this module with no image decoder at all; those build the same
   // materials map-lessly. Any target that can decode an image loads the real ones.
   if (typeof Image !== "undefined" || typeof createImageBitmap === "function") {
-    await Promise.all([
-      ...PBR.flatMap((id) => [
-        load(`${id}-basecolor`, `${id}-basecolor.jpg`, true),
-        load(`${id}-normal`, `${id}-normal.png`, false),
-        load(`${id}-orm`, `${id}-orm.png`, false),
-      ]),
-      load("glass-normal", "glass-normal.png", false),
-      // The artificial horizon's two baked faces. See tools/bake-attitude.mjs.
-      load("attitude-moving", "attitude-moving.png", true),
-      load("attitude-overlay", "attitude-overlay.png", true),
-      ...DIALS.map((d) => load(`dial-${d}`, `dial-${d}.png`, true)),
-      ...LABELS.map((l) => load(`label-${l}`, `label-${l}.png`, true)),
-    ]);
+    await Promise.all(cockpitTextures().map(([name, file, srgb]) => load(name, file, srgb)));
   }
 
   const m: CockpitMaterials = { textures } as CockpitMaterials;

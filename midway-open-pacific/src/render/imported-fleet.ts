@@ -15,16 +15,6 @@ import { cylinder, mat, rod } from "./assets.js";
 const ZERO_SPAN = 11.13;
 
 /**
- * Samidare is a Shiratsuyu-class destroyer. Arashi and Nowaki were Kagero-class, so this is a
- * class substitution, not those ships: a comparable IJN destroyer silhouette at the ranges the
- * player ever sees one. The supplied hull measures 143.92m bow to stern and its bow is +X.
- */
-const SAMIDARE_HULL = 143.92;
-const SAMIDARE_LENGTH = 111;
-/** The model floats about a metre and a half high; measured against its own boot topping. */
-const SAMIDARE_DRAUGHT = -1.35;
-
-/**
  * The supplied atoll is a flat photogrammetry disc two units across, with Midway's islands,
  * lagoon and 1942 runways in its texture rather than its geometry. Nothing in the file states a
  * metre scale, so the horizontal scale is set from the real barrier reef, about 8km across, and
@@ -43,7 +33,6 @@ const ATOLL_RELIEF = 12;
 const ATOLL_DATUM = 0;
 
 let zero: GLTF;
-let samidare: GLTF;
 let atoll: GLTF;
 let garrison: GLTF;
 let radar: GLTF;
@@ -70,18 +59,23 @@ export function applyAnisotropy(
 }
 
 export async function loadImportedFleet(ctx: Pick<ICtx, "assets" | "renderer">): Promise<void> {
-  [zero, samidare, atoll, garrison, radar] = await Promise.all([
-    ctx.assets.model<GLTF>("aircraft.mitsubishi-a6m3.glb"),
-    ctx.assets.model<GLTF>("destroyer.samidare.glb"),
-    ctx.assets.model<GLTF>("midway-atoll.glb"),
-    ctx.assets.model<GLTF>("structures.garrison-camp.glb"),
-    ctx.assets.model<GLTF>("structures.radar-station.glb"),
-  ]);
-  applyAnisotropy(ctx, [zero, samidare, atoll, garrison, radar]);
+  zero = await ctx.assets.model<GLTF>("aircraft.mitsubishi-a6m3.glb");
+  applyAnisotropy(ctx, [zero]);
 }
 
+/** The atoll and what stands on it: 14 MB the spawn camera, 200 km out, never shows. */
+export const ATOLL_URLS = ["midway-atoll.glb", "structures.garrison-camp.glb", "structures.radar-station.glb"] as const;
+
+export async function loadMidwayAtoll(ctx: Pick<ICtx, "assets" | "renderer">): Promise<void> {
+  [atoll, garrison, radar] = await Promise.all(ATOLL_URLS.map((url) => ctx.assets.model<GLTF>(url)));
+  applyAnisotropy(ctx, [atoll, garrison, radar]);
+}
+
+/** A model that streams after the reveal and has not arrived yet; the world builds it later. */
+export class ModelPendingError extends Error {}
+
 function clone(source: GLTF | undefined, what: string): T.Group {
-  if (!source) throw new Error(`Load the imported fleet before constructing ${what}.`);
+  if (!source) throw new ModelPendingError(`${what} has not loaded yet.`);
   // Static hierarchies share geometry, materials and textures owned by ctx.assets.
   const model = source.scene.clone(true);
   model.traverse((node) => {
@@ -135,20 +129,6 @@ export function createZero(): T.Group {
   root.add(load);
   // The airframe's geometry is shared with every other Zero; only the gear was built for this one.
   root.userData = { prop, gear, load, owned: [gear], importedAircraft: true, airframe: "zero" };
-  return root;
-}
-
-/** An IJN destroyer, bow -Z, scaled to a real hull length. */
-export function createSamidare(): T.Group {
-  const root = new T.Group();
-  root.name = "IJN destroyer";
-  const model = clone(samidare, "the destroyer");
-  model.scale.multiplyScalar(SAMIDARE_LENGTH / SAMIDARE_HULL);
-  // The supplied hull runs bow-first along +X; the game sails every ship bow-first along -Z.
-  model.rotation.y = Math.PI / 2;
-  model.position.y = SAMIDARE_DRAUGHT;
-  root.add(model);
-  root.userData.importedShip = true;
   return root;
 }
 
@@ -236,14 +216,12 @@ const HULL_URLS = {
   "carrier.kaga": "carrier.kaga.glb",
   "carrier.soryu": "carrier.soryu.glb",
   "carrier.hiryu": "carrier.hiryu.glb",
-  "carrier.yorktown": "carrier.yorktown.glb",
   "cruiser.tone": "cruiser.tone.glb",
   "cruiser.mogami": "cruiser.mogami.glb",
   "destroyer.kagero": "destroyer.kagero.glb",
   "destroyer.hammann": "destroyer.hammann.glb",
   "submarine.i168": "submarine.i168.glb",
   "submarine.nautilus": "submarine.nautilus.glb",
-  "weapon.torpedo": "weapon.torpedo.glb",
 } as const;
 
 type HullId = keyof typeof HULL_URLS;
@@ -251,11 +229,26 @@ type HullId = keyof typeof HULL_URLS;
 const hulls = new Map<HullId, GLTF>();
 
 /**
- * Load every imported hull. Idempotent: ctx.assets owns the cache, so a second call re-reads the
- * same models it already handed out and leaves the same state behind.
+ * Hulls the spawn camera does not show, measured by `TN_STARTUP_OFFSCREEN_BYTES`: the US escorts
+ * and Nautilus sit outside the deck view, the Japanese fleet is about 200 km out. They load after
+ * the reveal (`loadImportedHulls(ctx, LATE_HULLS)`), escorts first, and the world builds each ship
+ * when it lands.
  */
-export async function loadImportedHulls(ctx: Pick<ICtx, "assets" | "renderer">): Promise<void> {
-  const ids = Object.keys(HULL_URLS) as HullId[];
+export const LATE_HULLS: readonly HullId[] = [
+  "destroyer.hammann", "submarine.nautilus",
+  "carrier.kaga", "carrier.soryu", "carrier.hiryu", "cruiser.mogami", "destroyer.kagero", "submarine.i168",
+];
+export const SPAWN_HULLS = (Object.keys(HULL_URLS) as HullId[]).filter((id) => !LATE_HULLS.includes(id));
+export const hullUrls = (ids: readonly HullId[]): string[] => ids.map((id) => HULL_URLS[id]);
+
+/**
+ * Load the named imported hulls. Idempotent: ctx.assets owns the cache, so a second call re-reads
+ * the same models it already handed out and leaves the same state behind.
+ */
+export async function loadImportedHulls(
+  ctx: Pick<ICtx, "assets" | "renderer">,
+  ids: readonly HullId[] = Object.keys(HULL_URLS) as HullId[],
+): Promise<void> {
   const loaded = await Promise.all(ids.map((id) => ctx.assets.model<GLTF>(HULL_URLS[id])));
   ids.forEach((id, i) => hulls.set(id, loaded[i]));
   applyAnisotropy(ctx, loaded);
@@ -279,10 +272,6 @@ export function createSoryu(): T.Group {
 
 export function createHiryu(): T.Group {
   return hull("carrier.hiryu", "IJN Hiryu");
-}
-
-export function createYorktown(): T.Group {
-  return hull("carrier.yorktown", "USS Yorktown");
 }
 
 /** Tone or Chikuma; the class's two ships were near-identical at Midway. */
@@ -312,7 +301,3 @@ export function createNautilus(): T.Group {
   return hull("submarine.nautilus", "USS Nautilus");
 }
 
-/** The Mark 13 body a Devastator drops; a weapon, not a ship. */
-export function createTorpedoBody(): T.Group {
-  return hull("weapon.torpedo", "Mark 13 torpedo", "importedWeapon");
-}
