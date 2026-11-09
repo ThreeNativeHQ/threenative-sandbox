@@ -1,0 +1,4 @@
+Midway Open Pacific — prebuilt web build (static files, no build step).
+Game source: ThreeNativeHQ/threenative-sandbox main 3ea6d5f (midway-open-pacific/)
+Engine: ThreeNativeHQ/threenative-engine feat/prd-859-finish 131cd4a39 (PR #642), packed locally,
+Wasm engine built from that commit (not the npm 0.3.12 engine).

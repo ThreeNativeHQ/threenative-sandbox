@@ -1,0 +1,21 @@
+{
+  "background_color": "#102a37",
+  "display": "fullscreen",
+  "icons": [
+    {
+      "purpose": "any",
+      "src": "/favicon.svg",
+      "type": "image/svg+xml"
+    },
+    {
+      "purpose": "maskable",
+      "src": "/icon.png",
+      "type": "image/png"
+    }
+  ],
+  "name": "midway-open-pacific",
+  "orientation": "landscape",
+  "short_name": "midway-open-pacific",
+  "start_url": ".",
+  "theme_color": "#102a37"
+}
