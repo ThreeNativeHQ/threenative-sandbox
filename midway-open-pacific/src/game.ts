@@ -14,6 +14,7 @@ const game = defineGame<GameState>({
   scenes: { midway: Midway },
   start: "midway",
   step: 1 / 60,
+  autoBatch: false,
 });
 
 /**
