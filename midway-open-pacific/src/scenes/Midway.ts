@@ -335,6 +335,14 @@ export class Midway extends Scene<GameState, undefined> {
       console.log(`TN_LOAD_STEP:{"label":"ready","ms":${performance.now().toFixed(1)}}`);
       this.started = true;
       shell.screen("loading", false);
+      // The launch listener stops at the reveal, but a GPU can still be lost mid-flight: the world
+      // then goes black under a live HUD with nothing said. Bring the panel back with the reason.
+      this.cleanups.push(
+        onLaunchFailure((reported) => {
+          shell.screen("loading", true);
+          shell.loading({ failure: reported.message, label: "The game stopped drawing.", progress: 1 });
+        }),
+      );
       if (this.battle.status === "briefing") {
         // Nothing on a native target can click "take the deck", so the sortie starts itself.
         if (shell === nullShell) this.begin(false);

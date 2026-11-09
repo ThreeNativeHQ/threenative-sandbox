@@ -10,7 +10,7 @@ import { addFloats, ellipsoid, mat, wakeTexture } from "./assets.js";
 import type { IViewSnapshot } from "../ui/hud-input.js";
 import { type CarrierModelId, createCarrier, createIjnCarrier, createMitchell, shipModelFor } from "./imported-ships.js";
 import { attachCockpitInterior, createAirframe, createDouglas, animateDouglas, animateImportedAirframe, disposeAirframe, resetAirframeAnimation, spinPropeller } from "./imported-aircraft.js";
-import { airframeLod } from "./airframe-lod.js";
+import { type AirframeLod, airframeLod, airframeLodSliced, setStandInRenderer } from "./airframe-lod.js";
 import { createMidwayAtoll, createZero, ModelPendingError } from "./imported-fleet.js";
 import { DeckCrew } from "./deck-crew.js";
 import { animateDevastator, disposeDevastator, resetDevastatorAnimation } from "./devastator.js";
@@ -554,6 +554,7 @@ export class WorldView {
     this.scene = host.scene;
     this.camera = host.camera;
     this.renderer = host.renderer.raw as T.WebGLRenderer;
+    setStandInRenderer(this.renderer);
     this.renderer.outputColorSpace = T.SRGBColorSpace;
     this.renderer.toneMapping = T.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 0.95;
@@ -654,7 +655,11 @@ export class WorldView {
    * against the real scene so its first appearance pays no pipeline build. Each starts hidden;
    * `update` places it and applies the range gate as for every other hull.
    */
+  /** Set once the late fleet streams: from then on a hull's stand-in merges in frame slices. */
+  private sliceStandIns = false;
+
   async buildStreamed(): Promise<void> {
+    this.sliceStandIns = true;
     // One ship per slice with a frame between, so the late fleet never lands as one long task.
     // ponytail: a single ship still builds in one task — Akagi's merged stand-in is ~220 ms on this
     // desktop; cook the stand-in offline (PRD-860 Phase 3 LOD chain) if that hitch ever shows.
@@ -2081,23 +2086,43 @@ export class WorldView {
    * it nothing changes and the hull keeps every material, turret and cable.
    */
   private addHullLod(mesh: T.Group, detailed: T.Group, key: string): void {
-    const lod = airframeLod(detailed, key);
-    if (!lod) return;
+    if (!this.sliceStandIns) {
+      const lod = airframeLod(detailed, key);
+      if (lod) this.attachHullLow(mesh, detailed, this.wrapHullBody(mesh, detailed), lod);
+      return;
+    }
+    // After the reveal the merge runs one source mesh per frame; the full hull draws until it lands.
+    const body = this.wrapHullBody(mesh, detailed);
+    void airframeLodSliced(detailed, key).then(async (lod) => {
+      if (!lod || mesh.userData.hullBody !== body) return;
+      const low = this.attachHullLow(mesh, detailed, body, lod);
+      await this.compileRevealed(low);
+    });
+  }
+
+  /** The hull's own children, gathered under one `body` the range gate can hide as a unit. */
+  private wrapHullBody(mesh: T.Group, detailed: T.Group): T.Group {
+    const body = new T.Group();
+    body.name = "hull";
+    for (const child of [...detailed.children]) body.add(child);
+    detailed.add(body);
+    mesh.userData.hullBody = body;
+    return body;
+  }
+
+  private attachHullLow(mesh: T.Group, detailed: T.Group, body: T.Group, lod: AirframeLod): T.Mesh {
     const low = new T.Mesh(lod.geometry, lod.material);
     low.name = `${detailed.name} (merged)`;
     low.castShadow = true;
     low.receiveShadow = true;
     low.visible = false;
-    const body = new T.Group();
-    body.name = "hull";
-    for (const child of [...detailed.children]) body.add(child);
-    detailed.add(body);
     // A sibling of `body`, not of `detailed`: it shares `detailed`'s frame, which is where the merge
     // was baked, and is hidden and shown against `body` alone.
     detailed.add(low);
     mesh.userData.hullBody = body;
     mesh.userData.hullLow = low;
     mesh.userData.hullRadius = lod.geometry.boundingSphere?.radius ?? 0;
+    return low;
   }
 
   private buildAircraft(a: any, detail: boolean): T.Group {

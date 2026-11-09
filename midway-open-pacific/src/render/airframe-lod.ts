@@ -17,7 +17,7 @@
  * animated node stays on the full-detail path, which the caller keeps and toggles between.
  */
 import * as T from "three";
-import { mergeParts } from "@threenative/core";
+import { addInSlices, mergeParts } from "@threenative/core";
 
 export interface AirframeLod {
   geometry: T.BufferGeometry;
@@ -26,8 +26,10 @@ export interface AirframeLod {
 
 /** Merged stand-ins, keyed by build (`Mitsubishi A6M3`, `Douglas TBD-1 Devastator`, `hornet`, ...). */
 const cache = new Map<string, AirframeLod | null>();
-/** Average texture colour, keyed by texture uuid, so a material shared by many meshes samples once. */
-const textureColour = new Map<string, T.Color>();
+/** Average texture colour, so a material shared by many meshes samples once. */
+// Keyed by the texture itself: the owned engine binds no `uuid` on a texture, so a uuid key folds
+// every texture into one `undefined` entry.
+const textureColour = new WeakMap<T.Texture, T.Color>();
 
 /**
  * The merged stand-in for `full`, built and cached on first request. Null when there is nothing to merge.
@@ -56,9 +58,49 @@ export function clearAirframeLod(): void {
 }
 
 function buildLod(full: T.Object3D): AirframeLod | null {
+  const steps = buildLodSteps(full);
+  for (;;) {
+    const step = steps.next();
+    if (step.done) return step.value;
+  }
+}
+
+/** One slot per step of `buildLodSteps`: one per mesh of the largest hull, with room to spare. */
+const LOD_STEP_SLOTS = Array.from({ length: 8192 }, (_, i) => i);
+const pending = new Map<string, Promise<AirframeLod | null>>();
+
+/**
+ * `airframeLod`, built one source mesh per step in the frame's headroom. A hull that streams in
+ * after the reveal merged its stand-in in one task of 190-490 ms; the caller shows the full hull
+ * until this settles. Two hulls of one class share the one build.
+ */
+export function airframeLodSliced(full: T.Object3D, key: string): Promise<AirframeLod | null> {
+  const cached = cache.get(key);
+  if (cached !== undefined) return Promise.resolve(cached);
+  let build = pending.get(key);
+  if (build === undefined) {
+    build = (async () => {
+      const steps = buildLodSteps(full);
+      let step = steps.next();
+      await addInSlices(LOD_STEP_SLOTS, () => {
+        step = steps.next();
+      }, { marker: false, while: () => !step.done });
+      while (!step.done) step = steps.next();
+      cache.set(key, step.value);
+      pending.delete(key);
+      return step.value;
+    })();
+    pending.set(key, build);
+  }
+  return build;
+}
+
+function* buildLodSteps(full: T.Object3D): Generator<void, AirframeLod | null, void> {
+  // Every source and its placement in `full`'s frame, read now: the hull keeps sailing while the
+  // steps run, and a park or decor added after this call must stay out of the stand-in.
   full.updateMatrixWorld(true);
   const toLocal = full.matrixWorld.clone().invert();
-  const parts: T.BufferGeometry[] = [];
+  const sources: Array<{ geometry: T.BufferGeometry; place: T.Matrix4 }> = [];
   let representative: T.Material | null = null;
   let heaviest = -1;
   full.traverse((node) => {
@@ -76,6 +118,11 @@ function buildLod(full: T.Object3D): AirframeLod | null {
       heaviest = triangles;
       representative = mesh.material;
     }
+    sources.push({ geometry, place: new T.Matrix4().multiplyMatrices(toLocal, mesh.matrixWorld) });
+  });
+  const parts: T.BufferGeometry[] = [];
+  for (const { geometry, place } of sources) {
+    yield;
     // Non-indexed and position/normal/uv only: `mergeGeometries` rejects a mixed attribute set and
     // the second UV or vertex-colour channel a supplied model may carry is not worth a second draw.
     const plain = geometry.index ? geometry.toNonIndexed() : geometry.clone();
@@ -86,10 +133,11 @@ function buildLod(full: T.Object3D): AirframeLod | null {
       const count = plain.getAttribute("position").count;
       plain.setAttribute("uv", new T.Float32BufferAttribute(new Float32Array(count * 2), 2));
     }
-    plain.applyMatrix4(new T.Matrix4().multiplyMatrices(toLocal, mesh.matrixWorld));
+    plain.applyMatrix4(place);
     parts.push(plain);
-  });
+  }
   if (!parts.length || !representative) return null;
+  yield;
   const merged = mergeLod(parts);
   for (const part of parts) part.dispose();
   if (!merged) return null;
@@ -100,6 +148,7 @@ function buildLod(full: T.Object3D): AirframeLod | null {
     envMapIntensity: 0.6,
     side: (representative as T.MeshStandardMaterial).side,
   });
+  paintFromGpu(representative, material);
   return { geometry: merged, material };
 }
 
@@ -127,12 +176,13 @@ function mergeLod(parts: T.BufferGeometry[]): T.BufferGeometry | null {
  * A flat material carries the colour outright. A mapped one has white as its colour and its whole
  * look in the texture, so the texture is averaged once into a single sRGB average and converted to
  * linear — a white Kate is exactly the "loses its markings" revert this file exists to avoid. With
- * neither, or with an image this platform cannot draw, a mid grey stands in.
+ * neither, or with an image this platform cannot draw, a mid grey stands in until `paintFromGpu`
+ * reads the texture's mean off the GPU.
  */
 function averageColour(material: T.Material): T.Color {
   const standard = material as T.MeshStandardMaterial;
   if (standard.map) {
-    const key = standard.map.uuid;
+    const key = standard.map;
     const cached = textureColour.get(key);
     if (cached) return cached;
     const sampled = sampleAverage(standard.map);
@@ -140,8 +190,71 @@ function averageColour(material: T.Material): T.Color {
       textureColour.set(key, sampled);
       return sampled;
     }
+    return new T.Color(0x808080);
   }
   return standard.color?.clone() ?? new T.Color(0x808080);
+}
+
+interface IMeanRenderer {
+  render(scene: T.Object3D, camera: T.Camera): void;
+  getRenderTarget(): unknown;
+  setRenderTarget(target: unknown): void;
+  readRenderTargetPixelsAsync?(target: unknown, x: number, y: number, w: number, h: number): Promise<ArrayLike<number>>;
+}
+
+let meanRenderer: IMeanRenderer | undefined;
+const gpuMeans = new WeakMap<T.Texture, Promise<T.Color | null>>();
+
+/** The renderer `paintFromGpu` draws with. The owned engine keeps no CPU pixels to average. */
+export function setStandInRenderer(renderer: unknown): void {
+  meanRenderer = renderer as IMeanRenderer;
+}
+
+/**
+ * The owned engine's `texture.image` is `{ width, height }` with no pixels, so the canvas average
+ * throws and every textured stand-in drew white. The GPU has the pixels: one quad draws the map into
+ * a 1x1 target, where the sampler takes the 1x1 mip — the mean of the whole image — and that one
+ * pixel is read back.
+ */
+function paintFromGpu(source: T.Material, standIn: T.MeshStandardMaterial): void {
+  const map = (source as T.MeshStandardMaterial).map;
+  if (!map || textureColour.has(map)) return;
+  let mean = gpuMeans.get(map);
+  if (mean === undefined) {
+    mean = gpuMean(map).catch(() => null);
+    gpuMeans.set(map, mean);
+  }
+  void mean.then((colour) => {
+    if (!colour) return;
+    textureColour.set(map, colour);
+    standIn.color.copy(colour);
+  });
+}
+
+async function gpuMean(map: T.Texture): Promise<T.Color | null> {
+  const renderer = meanRenderer;
+  if (!renderer?.readRenderTargetPixelsAsync) return null;
+  const target = new T.RenderTarget(1, 1, { depthBuffer: false });
+  target.texture.colorSpace = T.SRGBColorSpace;
+  const scene = new T.Scene();
+  const camera = new T.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const quad = new T.Mesh(new T.PlaneGeometry(2, 2), new T.MeshBasicMaterial({ map, toneMapped: false }));
+  scene.add(quad);
+  const previous = renderer.getRenderTarget();
+  try {
+    renderer.setRenderTarget(target);
+    renderer.render(scene, camera);
+  } finally {
+    renderer.setRenderTarget(previous);
+  }
+  try {
+    const pixel = await renderer.readRenderTargetPixelsAsync(target, 0, 0, 1, 1);
+    return new T.Color(pixel[0]! / 255, pixel[1]! / 255, pixel[2]! / 255).convertSRGBToLinear();
+  } finally {
+    quad.geometry.dispose();
+    (quad.material as T.Material).dispose();
+    target.dispose();
+  }
 }
 
 function sampleAverage(texture: T.Texture): T.Color | null {
