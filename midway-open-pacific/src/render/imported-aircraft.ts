@@ -501,14 +501,17 @@ export function animateDouglas(root: T.Group, p: IDouglasControls, dt: number): 
   flap.setEffectiveWeight(1);
   flap.time =
     flap.getClip().duration * T.MathUtils.clamp(Math.max(p.flapPos ?? 0, p.brakePos ?? 0), 0, 1);
-  for (const { group, sign, wheel } of gear.gearLegs) {
-    group.rotation.z = (-sign * (1 - (p.gearPos ?? 1)) * Math.PI) / 2;
+  const stow = 1 - (p.gearPos ?? 1);
+  for (const { group, sign, wheel, braces } of gear.gearLegs) {
+    group.rotation.z = (-sign * stow * Math.PI) / 2;
+    // The hinge sits above the imported wing (underside -0.69 m, top -0.45 m at the gear), so a leg folded
+    // there lay on top of the wing. It sinks as it folds: the stowed strut lies inside the wing and the wheel
+    // sits flush with the underside. Down, the hinge stays at -0.3 m and the wheel on the deck datum.
+    group.position.y = -0.3 - 0.28 * stow;
+    // The knee brace folds into the wing with the leg; drawn folded, it would hang below it.
+    for (const brace of braces) brace.visible = stow < 0.98;
     wheel.rotation.x = p.wheelAngle ?? 0;
   }
-  // The supplied Douglas is exported gear-up and has no wheel wells for this added gear to fold
-  // into, so a folded leg hangs in open air under the wing and reads as a pale box from above.
-  // With the gear up the aircraft simply carries none: draw the assembly only while it is down.
-  gear.gear.visible = (p.gearPos ?? 1) > 0.02;
   // Each seated man holds the sit idle, driven at the frame's own dt so a paused (dt = 0) frame
   // freezes him, exactly like the propeller.
   instance.pilot.player.update(dt);

@@ -1487,12 +1487,15 @@ export class WorldView {
       if (!merged) {
         const a0 = performance.now();
         const gearDown = (a.mode === "launch" && a.age < 4) || (a.mode === "rtb" && a.y < 80);
+        // The gear travels over 2.8 s, the player's own rate (core flight: dt * 0.36), instead of snapping.
+        const gearWas = (m.userData.gearPos as number | undefined) ?? (gearDown ? 1 : 0);
+        const gearPos = (m.userData.gearPos = gearDown ? Math.min(1, gearWas + dt / 2.8) : Math.max(0, gearWas - dt / 2.8));
         if (m.userData.devastator) {
-          animateDevastator(m, { rpm: a.engineCut ? 0.1 : 0.82, gearPos: gearDown ? 1 : 0, torpedo: a.torpedo ?? 0 }, dt);
+          animateDevastator(m, { rpm: a.engineCut ? 0.1 : 0.82, gearPos, torpedo: a.torpedo ?? 0 }, dt);
         } else if (m.userData.douglas) {
           // The imported Douglas drives its propeller, gear and control surfaces through its own
           // clips rather than the generic prop/gear handles.
-          animateDouglas(m, { rpm: a.engineCut ? 0.1 : 0.82, gearPos: gearDown ? 1 : 0 }, dt);
+          animateDouglas(m, { rpm: a.engineCut ? 0.1 : 0.82, gearPos }, dt);
         } else {
           const prop = m.userData.prop as T.Object3D | undefined;
           if (prop) prop.rotation.z += dt * (a.engineCut ? 8 : 55);

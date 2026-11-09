@@ -17,8 +17,10 @@ export function createDauntlessGear(under: T.Material = mat(0xb7beb9)) {
     leg.position.set(sign * 1.51, -0.3, -0.65);
     rod(leg, [0, 0, 0], [0, -1.22, 0], 0.064, steel);
     rod(leg, [sign * 0.1, -0.1, 0.04], [sign * 0.16, -1.2, -0.06], 0.034, darkSteel);
-    rod(leg, [sign * 0.1, -0.45, 0], [sign * 0.36, -0.95, 0], 0.034, steel);
-    rod(leg, [sign * 0.36, -0.95, 0], [sign * 0.12, -1.22, 0], 0.034, steel);
+    const braces = [
+      rod(leg, [sign * 0.1, -0.45, 0], [sign * 0.36, -0.95, 0], 0.034, steel),
+      rod(leg, [sign * 0.36, -0.95, 0], [sign * 0.12, -1.22, 0], 0.034, steel),
+    ];
     const wheel = cylinder(leg, 0.35, 0.35, 0.22, sign * 0.1, -1.19, 0, rubber, 28);
     wheel.name = "Gear wheel";
     wheel.geometry.rotateZ(Math.PI / 2);
@@ -27,7 +29,7 @@ export function createDauntlessGear(under: T.Material = mat(0xb7beb9)) {
     axle.rotation.z = Math.PI / 2;
     box(leg, 0.26, 0.62, 0.07, sign * 0.03, -0.54, -0.1, under);
     gear.add(leg);
-    gearLegs.push({ group: leg, wheel, sign });
+    gearLegs.push({ group: leg, wheel, sign, braces });
     const well = new T.Mesh(new T.CircleGeometry(0.39, 24), rubber);
     well.rotation.x = Math.PI / 2;
     well.position.set(sign * 0.81, -0.47, -0.63);
