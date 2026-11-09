@@ -1,6 +1,6 @@
 /**
  * Catalog/GLB consistency check (PRD-midway-asset-battle-integration AC-2). Proves src/sim/catalog.ts
- * still matches the bytes under public/assets/: every measured dimension is re-read from the shipped
+ * still matches the bytes under assets/: every measured dimension is re-read from the shipped
  * GLB, every keel sits on the waterline datum and every reference length is within 2%. A catalog that
  * has drifted from the shipped models fails here instead of becoming a wrong-size hull in play.
  *
@@ -153,7 +153,7 @@ for (const weapon of Object.values(WEAPON_BODIES)) {
 }
 
 // Lookups: the URL shape, a real record's identity and a named throw for an unknown id.
-assert.equal(modelUrl("destroyer.kagero"), "/assets/destroyer.kagero.glb", "modelUrl does not compose the asset path");
+assert.equal(modelUrl("destroyer.kagero"), "destroyer.kagero.glb", "modelUrl does not compose the asset path");
 assert.equal(shipClass("kagero"), SHIP_CLASSES.kagero, "shipClass returned the wrong record");
 assert.throws(
   () => shipClass("nope"),

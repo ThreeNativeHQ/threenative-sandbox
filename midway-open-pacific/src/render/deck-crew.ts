@@ -107,9 +107,9 @@ let bandRing: T.TorusGeometry | undefined;
 
 export async function loadDeckCrew(ctx: Pick<ICtx, "assets" | "renderer">): Promise<void> {
   const [crew, director, pilot] = await Promise.all([
-    ctx.assets.model<GLTF>("/assets/deck-crew.glb"),
-    ctx.assets.model<GLTF>("/assets/flight-deck-director.glb"),
-    ctx.assets.model<GLTF>("/assets/carrier-aircraft-pilot.glb"),
+    ctx.assets.model<GLTF>("deck-crew.glb"),
+    ctx.assets.model<GLTF>("flight-deck-director.glb"),
+    ctx.assets.model<GLTF>("carrier-aircraft-pilot.glb"),
   ]);
   sources.crew = crew;
   sources.director = director;

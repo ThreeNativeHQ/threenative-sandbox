@@ -9,3 +9,10 @@ node_modules/
 screenshots/*
 !screenshots/.gitkeep
 .afk/
+
+# `vite build` copies and content-hashes everything under assets/ into public/, so the cooked
+# output lives there under names that change on every rebuild. Sources stay in assets/; only the
+# authored icons are source in public/.
+public/*
+!public/favicon.svg
+!public/icon.png

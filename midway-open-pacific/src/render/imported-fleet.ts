@@ -71,11 +71,11 @@ export function applyAnisotropy(
 
 export async function loadImportedFleet(ctx: Pick<ICtx, "assets" | "renderer">): Promise<void> {
   [zero, samidare, atoll, garrison, radar] = await Promise.all([
-    ctx.assets.model<GLTF>("/assets/aircraft.mitsubishi-a6m3.glb"),
-    ctx.assets.model<GLTF>("/assets/destroyer.samidare.glb"),
-    ctx.assets.model<GLTF>("/assets/midway-atoll.glb"),
-    ctx.assets.model<GLTF>("/assets/structures.garrison-camp.glb"),
-    ctx.assets.model<GLTF>("/assets/structures.radar-station.glb"),
+    ctx.assets.model<GLTF>("aircraft.mitsubishi-a6m3.glb"),
+    ctx.assets.model<GLTF>("destroyer.samidare.glb"),
+    ctx.assets.model<GLTF>("midway-atoll.glb"),
+    ctx.assets.model<GLTF>("structures.garrison-camp.glb"),
+    ctx.assets.model<GLTF>("structures.radar-station.glb"),
   ]);
   applyAnisotropy(ctx, [zero, samidare, atoll, garrison, radar]);
 }
@@ -233,17 +233,17 @@ export function createMidwayAtoll(): T.Group {
  * quarterdeck; it is the only Mogami geometry that exists.
  */
 const HULL_URLS = {
-  "carrier.kaga": "/assets/carrier.kaga.glb",
-  "carrier.soryu": "/assets/carrier.soryu.glb",
-  "carrier.hiryu": "/assets/carrier.hiryu.glb",
-  "carrier.yorktown": "/assets/carrier.yorktown.glb",
-  "cruiser.tone": "/assets/cruiser.tone.glb",
-  "cruiser.mogami": "/assets/cruiser.mogami.glb",
-  "destroyer.kagero": "/assets/destroyer.kagero.glb",
-  "destroyer.hammann": "/assets/destroyer.hammann.glb",
-  "submarine.i168": "/assets/submarine.i168.glb",
-  "submarine.nautilus": "/assets/submarine.nautilus.glb",
-  "weapon.torpedo": "/assets/weapon.torpedo.glb",
+  "carrier.kaga": "carrier.kaga.glb",
+  "carrier.soryu": "carrier.soryu.glb",
+  "carrier.hiryu": "carrier.hiryu.glb",
+  "carrier.yorktown": "carrier.yorktown.glb",
+  "cruiser.tone": "cruiser.tone.glb",
+  "cruiser.mogami": "cruiser.mogami.glb",
+  "destroyer.kagero": "destroyer.kagero.glb",
+  "destroyer.hammann": "destroyer.hammann.glb",
+  "submarine.i168": "submarine.i168.glb",
+  "submarine.nautilus": "submarine.nautilus.glb",
+  "weapon.torpedo": "weapon.torpedo.glb",
 } as const;
 
 type HullId = keyof typeof HULL_URLS;

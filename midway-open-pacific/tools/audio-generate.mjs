@@ -33,7 +33,7 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = resolve(root, "content/audio/midway-audio.json");
-const AUDIO_DIR = resolve(root, "public/assets/audio");
+const AUDIO_DIR = resolve(root, "assets/audio");
 const MP3_DIR = resolve(root, "content/audio/mp3");
 const BASE = "https://api.elevenlabs.io/v1";
 

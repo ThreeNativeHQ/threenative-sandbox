@@ -12,10 +12,10 @@ let sky: Texture;
 let ripples: Texture;
 
 export async function loadEnvironment(ctx: Pick<ICtx, "assets">): Promise<void> {
-  const [url] = await ctx.assets.resolve("/assets/dawn-sky.hdr");
+  const [url] = await ctx.assets.resolve("dawn-sky.hdr");
   [sky, ripples] = await Promise.all([
     new HDRLoader().loadAsync(url),
-    ctx.assets.texture("/assets/ocean-normal.png"),
+    ctx.assets.texture("ocean-normal.png"),
   ]);
   sky.mapping = EquirectangularReflectionMapping;
   ripples.wrapS = ripples.wrapT = RepeatWrapping;

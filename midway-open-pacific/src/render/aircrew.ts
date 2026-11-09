@@ -13,10 +13,10 @@ import { box, mat, rod } from "./assets.js";
 import { REAR_GUN_HINGE } from "../sim/gun-mount.js";
 
 /** The deck crew's rigged pilot, which both the Douglas and the TBD seat in their cockpits. */
-export const AIRCREW_PILOT_URL = "/assets/carrier-aircraft-pilot.glb";
+export const AIRCREW_PILOT_URL = "carrier-aircraft-pilot.glb";
 
 /** The approved twin rear gun. Its cradle hinge is the origin and its barrels run aft (+Z). */
-export const AIRCREW_GUN_URL = "/assets/weapon.rear-gun.glb";
+export const AIRCREW_GUN_URL = "weapon.rear-gun.glb";
 
 let pilotRig: GLTF | undefined;
 let gunRig: GLTF | undefined;

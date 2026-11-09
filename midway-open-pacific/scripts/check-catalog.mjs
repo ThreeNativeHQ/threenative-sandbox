@@ -51,14 +51,14 @@ for (const slug of speechSlugList()) {
   const row = speechBySlug.get(slug);
   assert.ok(row, `speech ${slug} has no manifest row`);
   assert.ok(row.generations.length > 0, `speech ${slug} has no generation record`);
-  const file = resolve(root, "public/assets/audio/voice", `${slug}.ogg`);
+  const file = resolve(root, "assets/audio/voice", `${slug}.ogg`);
   assert.ok(existsSync(file), `speech ${slug} is not packaged`);
   assert.equal(sha(file), row.generations.at(-1).outputHash, `speech ${slug} bytes do not match its manifest hash`);
   checked += 1;
 }
 
 // 3 — report packaged SFX no code path consumes yet; the PRD expects these to shrink, not vanish.
-const packaged = readdirSync(resolve(root, "public/assets/audio")).filter((f) => f.endsWith(".ogg")).map((f) => f.replace(/\.ogg$/, ""));
+const packaged = readdirSync(resolve(root, "assets/audio")).filter((f) => f.endsWith(".ogg")).map((f) => f.replace(/\.ogg$/, ""));
 const unconsumed = packaged.filter((id) => !consumed.has(id) && !id.startsWith("r") && !id.startsWith("p"));
 assert.ok(checked > 100, `expected the full cue+speech catalog, checked only ${checked}`);
 console.log(

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 for (const [name, budget] of [["enterprise", 33000], ["hornet", 350000], ["b25-mitchell", 26000], ["akagi", 250000]]) {
-  const bytes = readFileSync(new URL(`../public/assets/${name}.glb`, import.meta.url));
+  const bytes = readFileSync(new URL(`../assets/${name}.glb`, import.meta.url));
   assert.equal(bytes.toString("ascii", 0, 4), "glTF");
   const gltf = JSON.parse(bytes.toString("utf8", 20, 20 + bytes.readUInt32LE(12)));
   const primitives = gltf.meshes.flatMap((mesh) => mesh.primitives);

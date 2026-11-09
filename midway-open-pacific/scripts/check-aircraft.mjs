@@ -8,7 +8,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { Box3, Raycaster, Vector3, Texture } from "three";
 
 const bytes = await readFile(
-  new URL("../public/assets/aircraft.douglas-sbd3.glb", import.meta.url),
+  new URL("../assets/aircraft.douglas-sbd3.glb", import.meta.url),
 );
 const length = bytes.readUInt32LE(12);
 const gltf = JSON.parse(bytes.subarray(20, 20 + length));
@@ -61,18 +61,18 @@ const stripGlb = async (asset) => {
     "data:application/octet-stream;base64," + raw.subarray(28 + header).toString("base64");
   return new GLTFLoader().parseAsync(JSON.stringify(model), "");
 };
-const tbdSource = await stripGlb("../public/assets/aircraft.tbd-devastator.glb");
+const tbdSource = await stripGlb("../assets/aircraft.tbd-devastator.glb");
 assert.equal(tbdSource.animations.length, 9, "the TBD ships one clip per moving part");
 const tbdParts = ["aileronleft", "aileronright", "elevator", "flapleft", "flapright", "gearleft", "gearright", "propeller", "rudder"];
 for (const name of tbdParts) assert.ok(tbdSource.scene.getObjectByName(name), `TBD ships a separated ${name}`);
 // The deck crew's pilot rig, which the Douglas also seats in its rear cockpit.
-const pilotSource = await stripGlb("../public/assets/carrier-aircraft-pilot.glb");
+const pilotSource = await stripGlb("../assets/carrier-aircraft-pilot.glb");
 assert.ok(
   pilotSource.animations.some((clip) => clip.name === "sit"),
   "the pilot rig ships the seated clip the rear gunner plays",
 );
 // The approved twin rear gun, shared by both airframes' rear stations.
-const gunSource = await stripGlb("../public/assets/weapon.rear-gun.glb");
+const gunSource = await stripGlb("../assets/weapon.rear-gun.glb");
 const gunTriangles = gunSource.scene
   .getObjectByProperty("isMesh", true)
   ?.geometry.index.count / 3;
