@@ -20,6 +20,9 @@ export interface IStressReport {
     updateP50Ms: number;
     frameP50Ms: number;
     frameP95Ms: number;
+    /** The median window's p99, and the worst window's p95: the median alone hides one bad window. */
+    frameP99Ms: number;
+    frameWorstP95Ms: number;
     mainDraws: number;
     shadowDraws: number | null;
     mainTrianglesM: number;
@@ -141,6 +144,8 @@ export class StressReport {
         updateP50Ms: required("phases.update.p50", (w) => w.phases.update.p50),
         frameP50Ms: required("frame.p50", (w) => w.frame.p50),
         frameP95Ms: required("frame.p95", (w) => w.frame.p95),
+        frameP99Ms: required("frame.p99", (w) => w.frame.p99),
+        frameWorstP95Ms: round(Math.max(...windows.map((w) => w.frame.p95))),
         mainDraws: required("passes.main.draws.p50", (w) => w.passes?.main?.draws.p50),
         shadowDraws: pick((w) => w.passes?.shadow?.draws.p50),
         mainTrianglesM: required("passes.main.triangles.p50", (w) =>

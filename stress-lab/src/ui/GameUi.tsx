@@ -15,8 +15,8 @@ export function GameUi() {
   return (
     <UiLayer>
       <Hud />
-      <StressPanel />
       <Menu />
+      <StressPanel />
     </UiLayer>
   );
 }

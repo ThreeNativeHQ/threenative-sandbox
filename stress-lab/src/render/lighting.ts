@@ -1,24 +1,60 @@
 // Generated for you. This is ordinary Three.js — edit or delete it freely.
 // ThreeNative does not read this file.
 //
-// One sun. The sky image in `sky.ts` is the fill light — its environment reaches every face the
-// sun misses — so there is no hemisphere or ambient light stacked on top to flatten the frame.
-import { Color, DirectionalLight, PCFSoftShadowMap, type Scene, Vector3 } from "three";
+// One sun. The sky in `sky.ts` is the fill light — its environment reaches every face the sun
+// misses — so there is no hemisphere or ambient light stacked on top to flatten the frame.
+import { useRoughDiffuse } from "@threenative/core";
+import {
+  Color,
+  DirectionalLight,
+  type Object3D,
+  PCFSoftShadowMap,
+  type Scene,
+  Vector3,
+} from "three";
+import type { Node } from "three/webgpu";
 import { ARENA, GROUND_Y } from "./arena.js";
-import { SUN_DIRECTION } from "./sky.js";
+import {
+  SUN_ILLUMINANCE,
+  SUN_KELVIN,
+  sunLight,
+  sunLightTransmittance,
+  temperatureColour,
+} from "./atmosphere.js";
+import { SKY_OPTIONS, SUN_DIRECTION } from "./sky.js";
+
+/** The sun as Unreal's default level has it: 6 lux at 6500 K, tinted by the air it crosses. */
+function atmosphereSun(): DirectionalLight {
+  const tint = temperatureColour(SUN_KELVIN);
+  const through = sunLightTransmittance(Math.asin(Math.min(1, Math.max(-1, SUN_DIRECTION.y))));
+  const colour = new Color().setRGB(
+    tint[0] * through[0],
+    tint[1] * through[1],
+    tint[2] * through[2],
+  );
+  const key = new DirectionalLight(colour, SUN_ILLUMINANCE);
+  // `gpuSky.ts` re-tints it when the sun moves.
+  sunLight.current = key;
+  return key;
+}
 
 type ShadowRenderer = { shadowMap: { enabled: boolean; type: number } };
+// The engine's `VirtualShadowNode` class. The scene passes it in, because this folder imports no
+// framework package.
+type VirtualShadowClass<T> = new (light: DirectionalLight, options: { clipExtents: number[] }) => T;
 
-export function setupLighting(
+export function setupLighting<T extends Node = never>(
   scene: Scene,
   renderer: ShadowRenderer,
   mobile = false,
-): { key: DirectionalLight } {
+  shadowExtents?: readonly number[],
+  VirtualShadowNode?: VirtualShadowClass<T>,
+): { key: DirectionalLight; shadows?: T; dispose: () => void } {
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
 
-  // Warm white, matched by eye to the photographed midday sun against its own sky.
-  const key = new DirectionalLight(0xfff1e0, 4.5);
+  // The photo sky keeps the warm white matched by eye to its photographed midday sun.
+  const key = SKY_OPTIONS.sky === "photo" ? new DirectionalLight(0xfff1e0, 4.5) : atmosphereSun();
   key.position.copy(SUN_DIRECTION).multiplyScalar(30);
   key.castShadow = true;
   // One map fitted to the 28 m arena: 4096² is under a centimetre a texel, so every shadow has the
@@ -42,10 +78,37 @@ export function setupLighting(
   // Small biases: a large normal bias is what lifted the mannequin's shadow off its own feet.
   key.shadow.bias = -0.0002;
   key.shadow.normalBias = 0.005;
+  // Named override for a world wider than the arena, such as a streamed forest. `shadowExtents`
+  // are the wider windows in metres that the caller measures from its terrain. The finest window
+  // stays the arena window above, so near shadows keep this map's texel and softness. Each level inherits the map
+  // size, radius and biases above, re-renders when its window moves, and redraws only the region
+  // an `invalidateRegion` names. Godrays need an ordinary shadow map and refuse this light by name.
+  let shadows: T | undefined;
+  if (shadowExtents !== undefined) {
+    if (VirtualShadowNode === undefined)
+      throw new Error("setupLighting: shadowExtents needs the VirtualShadowNode class.");
+    const clipExtents = [extent, ...shadowExtents];
+    if (
+      !clipExtents.every((value, i) => Number.isFinite(value) && value > (clipExtents[i - 1] ?? 0))
+    )
+      throw new RangeError(
+        `setupLighting: shadowExtents must increase past ${extent} m, got [${shadowExtents.join(", ")}].`,
+      );
+    shadows = new VirtualShadowNode(key, { clipExtents });
+    key.shadow.shadowNode = shadows;
+  }
   scene.add(key);
   // The key light is returned because `WorldEnvironment`'s godrays stage raymarches against its
   // shadow map, so `setupPost` needs the light itself.
-  return { key };
+  return {
+    key,
+    shadows,
+    dispose: () => {
+      shadows?.dispose();
+      key.removeFromParent();
+      key.dispose();
+    },
+  };
 }
 
 /** Material conventions are game-owned; each scene gets independent mutable controls. */
@@ -71,4 +134,13 @@ export function createLightingConvention(
     maxSourceTexels: 65536,
     ...overrides,
   };
+}
+
+/**
+ * Rough surfaces take the sun the way a fresh Unreal project's Substrate shades them: the EON diffuse in place of
+ * Lambert, with no energy conservation. Call it once the scene's models are attached; delete the call for three's
+ * Lambert, or set `material.roughDiffuse = false` on one material.
+ */
+export function shadeLikeSubstrate(root: Object3D): void {
+  useRoughDiffuse(root);
 }

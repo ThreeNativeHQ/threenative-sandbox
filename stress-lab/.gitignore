@@ -5,6 +5,7 @@ public/*.[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].*
 
 # ThreeNative local authoring state and dependency secrets
 .dream-loop/
+.threenative/discovery-gate.json
 node_modules/
 .env
 .env.*

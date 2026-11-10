@@ -27,21 +27,21 @@ const game = defineGame<GameState, IPhysicsContext>({
       right: ["ArrowRight", "KeyD"],
       up: ["ArrowUp", "KeyW"],
     },
-    run: { keys: ["ShiftLeft", "ShiftRight"] },
+    // Pad buttons use the W3C standard numbers: 0 is ✕ on a DualShock, 7 is R2, 9 is OPTIONS.
+    run: { buttons: [7], keys: ["ShiftLeft", "ShiftRight"] },
     jump: { buttons: [0], keys: ["Space"] },
     flagGust: { keys: ["KeyG"] },
-    restart: { keys: ["KeyR"] },
+    restart: { buttons: [9], keys: ["KeyR"] },
     // Wheel, pinch and the right stick share one portable camera intent. Negative DOM deltaY
     // (toward-user) is positive scroll intent on browser and native; the scene owns the framing.
     zoom: { gamepadAxes: [3], pinch: true, scroll: true },
   },
   plugins: [rapier(), replay(), playtest()],
   display: config.display,
-  render: config.renderer,
+  renderer: config.renderer,
   scenes: { play: Play, stress: Stress },
   seed: 90210,
-  // `?stress` (TN_DEBUG_STRESS=1 natively) opens the stress lab; the starter course stays the
-  // default so the kit's own playtests keep proving it.
+  // `?stress` (TN_DEBUG_STRESS=1 natively) opens the stress lab; the starter course stays the default.
   start: debugFlag("stress") ? "stress" : "play",
 });
 
@@ -55,7 +55,7 @@ export default game;
  * state instead, which keeps one source of truth on the side that owns the simulation.
  */
 game.ui.onIntent((intent) => {
-  if (intent === "restart") void game.goto(game.state.getState().mode);
+  if (intent === "restart") void game.goto("play");
   if (intent === "pause") game.pause();
   if (intent === "resume") game.resume();
   game.state.set({

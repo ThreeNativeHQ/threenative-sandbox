@@ -5,10 +5,12 @@ import {
   type SceneFrame,
   createRandom,
   getPlatform,
+  isConsole,
   isMobile,
   isTouchscreenAvailable,
   resolveTargetFps,
 } from "@threenative/core";
+import { type IEnvironmentSample, sampleEnvironment } from "@threenative/core/render/environment";
 import { Area3D, CollisionShape3D, type IPhysicsContext, RigidBody3D } from "@threenative/physics";
 import {
   BufferAttribute,
@@ -24,16 +26,16 @@ import { Goal, ISLAND } from "../entities/Goal.js";
 import { type IPlayerModel, PLAYER_STAND_Y, Player } from "../entities/Player.js";
 import { createArena, platform } from "../render/arena.js";
 import { createSpringArm } from "../render/camera.js";
+import { cloudTextures, primeCloudTextures } from "../render/clouds.js";
 import { pickupRiseEase } from "../render/easing.js";
-import { type IEnvironmentSample, sampleEnvironment } from "../render/environmentSampling.js";
-import { setupLighting } from "../render/lighting.js";
+import { setupLighting, shadeLikeSubstrate } from "../render/lighting.js";
 import { createLoadingScreen } from "../render/loading.js";
 import { createMaterialLighting } from "../render/materialLighting.js";
 import { createPennantMaterial, propMaterial } from "../render/materials.js";
 import { setupPost } from "../render/postprocessing.js";
 import { isWebGLFallbackRenderer, materialLightingEnabled } from "../render/quality.js";
 import { ball, block, spike, tube } from "../render/shapes.js";
-import { setupSky } from "../render/sky.js";
+import { SKY_OPTIONS, setupSky } from "../render/sky.js";
 import { TouchControls } from "../render/touch-controls.js";
 import { STARTER_MIST, createVolumetricFog } from "../render/volumetricFog.js";
 import type { GameState } from "../state.js";
@@ -43,8 +45,7 @@ export type GameCtx = ICtx<GameState, IPhysicsContext>;
 const KILL_PLANE = -4;
 const STARTING_LIVES = 3;
 const FLOOR_SURFACE_Y = 0;
-const FLOOR_BOUNDS = { maxX: 5, minX: -5, maxZ: 2, minZ: -2 } as const;
-/** The near platform's own footprint, which the support surface below answers for. */
+/** The near platform's own footprint. */
 const FLOOR_SIZE = { depth: 4.2, width: 10 } as const;
 
 export class Play extends Scene<GameState, IPhysicsContext> {
@@ -55,6 +56,8 @@ export class Play extends Scene<GameState, IPhysicsContext> {
   #environmentSample: IEnvironmentSample | undefined;
 
   static override readonly initialState: GameState = {
+    mode: "play",
+    stress: null,
     coyoteJumps: 0,
     entityCount: 0,
     flagDisplacement: 0,
@@ -63,10 +66,9 @@ export class Play extends Scene<GameState, IPhysicsContext> {
     flagSteps: 0,
     jumps: 0,
     levelX: -99,
-    mode: "play",
-    stress: null,
     lives: STARTING_LIVES,
     odometer: 0,
+    pad: false,
     paused: false,
     peakRise: 0,
     playerX: -2,
@@ -82,10 +84,13 @@ export class Play extends Scene<GameState, IPhysicsContext> {
       ctx.assets.texture("native-proof.png"),
       ctx.assets.model<{ scene: Group }>("native-proof.glb"),
       ctx.assets.model<IPlayerModel>("mannequin.glb"),
-      ctx.assets.texture("sky.jpg"),
+      // Only the photo-sky override reads the photograph; the atmosphere sky is computed.
+      SKY_OPTIONS.sky === "photo" ? ctx.assets.texture("sky.jpg") : undefined,
     ]);
     this.#playerModel = playerModel;
     this.#sky = sky;
+    // The cloud noise is the same every run of this build: generate it once, then read it back.
+    primeCloudTextures(await ctx.assets.memo("clouds", () => cloudTextures()));
     setupSky(ctx.scene, sky, ctx.renderer.softwareAdapter !== undefined);
     this.#environmentSample = await sampleEnvironment(ctx.renderer.raw, ctx.scene, {
       web: getPlatform().runtime === "web",
@@ -137,11 +142,7 @@ export class Play extends Scene<GameState, IPhysicsContext> {
   }
 
   override enter(ctx: GameCtx): SceneFrame<GameState, IPhysicsContext> {
-    if (
-      this.#assetProof === undefined ||
-      this.#playerModel === undefined ||
-      this.#sky === undefined
-    )
+    if (this.#assetProof === undefined || this.#playerModel === undefined)
       throw new Error("Starter scene did not finish loading.");
     const state = ctx.state.getState();
     const player = ctx.entities.add(
@@ -155,15 +156,30 @@ export class Play extends Scene<GameState, IPhysicsContext> {
     // Observation is armed by playtest's first sample; ordinary games retain no frame series.
     let observeMotion = false;
     let wasMovingRight = false;
+    let simulatedMs = 0;
+    // Presented frames: one per drawn frame. That is the display's cadence on the web engine and
+    // the tick's own cadence on the native one, whose frame clock is the host's frame duration.
     const presented: Array<[number, number, number]> = [];
-    this.#observeMotion = () => {
-      if (!observeMotion) return;
+    // World updates: one per fixed step, timed by the steps themselves. A distance over those is
+    // the player's speed; the same distance over the frame clock would be the host's.
+    const ticks: Array<[number, number, number]> = [];
+    const sampleMotion = (series: Array<[number, number, number]>, time: number): void => {
       const movingRight = ctx.input.vector("move").x > 0;
-      if (movingRight && !wasMovingRight) presented.length = 0;
+      if (movingRight && !wasMovingRight) {
+        presented.length = 0;
+        ticks.length = 0;
+      }
       wasMovingRight = movingRight;
       if (!movingRight) return;
-      presented.push([ctx.frameTime, player.body.object.position.x, ctx.camera.position.x]);
-      if (presented.length > 31) presented.shift();
+      series.push([time, player.body.object.position.x, ctx.camera.position.x]);
+      if (series.length > 31) series.shift();
+    };
+    this.#observeMotion = () => {
+      if (observeMotion) sampleMotion(presented, ctx.frameTime);
+    };
+    const recordMotionTick = (dt: number): void => {
+      simulatedMs += dt * 1000;
+      if (observeMotion) sampleMotion(ticks, simulatedMs);
     };
     ctx.entities.add("smooth-motion", {
       debug: () => {
@@ -172,6 +188,12 @@ export class Play extends Scene<GameState, IPhysicsContext> {
           presented.slice(1).map((frame, index) => {
             const previous = presented[index];
             if (previous === undefined) throw new Error("Missing presented motion sample.");
+            return (frame[axis] - previous[axis]) / ((frame[0] - previous[0]) / 1000);
+          });
+        const tickSpeeds = (axis: 1 | 2): number[] =>
+          ticks.slice(1).map((frame, index) => {
+            const previous = ticks[index];
+            if (previous === undefined) throw new Error("Missing tick motion sample.");
             return (frame[axis] - previous[axis]) / ((frame[0] - previous[0]) / 1000);
           });
         const cv = (values: number[]): number | null => {
@@ -187,7 +209,11 @@ export class Play extends Scene<GameState, IPhysicsContext> {
           samples: presented.length,
           playerCv: cv(speeds(1)),
           cameraCv: cv(speeds(2)),
+          tickSamples: ticks.length,
+          tickPlayerCv: cv(tickSpeeds(1)),
+          tickCameraCv: cv(tickSpeeds(2)),
           presented,
+          ticks,
         };
       },
     });
@@ -197,11 +223,12 @@ export class Play extends Scene<GameState, IPhysicsContext> {
     setupSky(ctx.scene, this.#sky, ctx.renderer.softwareAdapter !== undefined);
     // isMobile() arrives as an argument because src/render/ imports no framework package:
     // the platform decision is made here, in portable game code, exactly like createRandom.
-    const { key } = setupLighting(
+    const { key, dispose: disposeLighting } = setupLighting(
       ctx.scene,
       ctx.renderer.raw as Parameters<typeof setupLighting>[1],
       isMobile(),
     );
+    this.#disposeLighting = disposeLighting;
     const materialEnvironment = {
       web: getPlatform().runtime === "web",
       rendererKind: ctx.renderer.kind,
@@ -279,7 +306,10 @@ export class Play extends Scene<GameState, IPhysicsContext> {
     ctx.add(fixed(floorMesh));
     ctx.add(fixed(floorBase));
     lensBlockers.push(...arena.solids, floorMesh, floorBase);
-    ctx.entities.add("crate", new Crate(ctx, levelX, 4, -1.5, propMaterial));
+    ctx.entities.add(
+      "crate",
+      new Crate(ctx, levelX, 4, -1.5, propMaterial, () => this.#post?.tier === "low"),
+    );
     const pickupBase = block(0.42, 0.14, 0.42, propMaterial);
     const pickupStem = tube(0.08, 0.08, 0.3, propMaterial);
     const pickupOrb = ball(0.16, propMaterial);
@@ -301,6 +331,7 @@ export class Play extends Scene<GameState, IPhysicsContext> {
     // `load()` above, which is what the native asset gate greps for.
     const goal = ctx.entities.add("goal", new Goal(ctx, this.#assetProof));
     // All borrowed materials, including the cloned skinned mannequin and arena, now exist.
+    shadeLikeSubstrate(ctx.scene);
     this.#materialLighting = ctx.entities.add(
       "material-lighting",
       createMaterialLighting(ctx.scene, ctx.camera, key, {
@@ -317,25 +348,6 @@ export class Play extends Scene<GameState, IPhysicsContext> {
         this.#environmentSample,
       );
     }
-    const supportSurfaceY = (position: { readonly x: number; readonly z: number }):
-      | number
-      | undefined => {
-      if (
-        position.x >= FLOOR_BOUNDS.minX &&
-        position.x <= FLOOR_BOUNDS.maxX &&
-        position.z >= FLOOR_BOUNDS.minZ &&
-        position.z <= FLOOR_BOUNDS.maxZ
-      )
-        return FLOOR_SURFACE_Y;
-      if (
-        position.x >= ISLAND.x - ISLAND.width / 2 &&
-        position.x <= ISLAND.x + ISLAND.width / 2 &&
-        position.z >= ISLAND.z - ISLAND.depth / 2 &&
-        position.z <= ISLAND.z + ISLAND.depth / 2
-      )
-        return ISLAND.top;
-      return undefined;
-    };
     // The area says the character is over the island; the run is only won once it is also
     // standing on it. Ending on the overlap alone freezes the character in mid-air at the
     // lip of the island, half a metre short of a landing, which is what it looks like.
@@ -344,7 +356,8 @@ export class Play extends Scene<GameState, IPhysicsContext> {
       if (body === player.body) overGoal = true;
     });
     let entityCount = 4;
-    ctx.state.set({ entityCount });
+    // A console has a pad and no keyboard: the menu reads `pad` to show DualShock prompts.
+    ctx.state.set({ entityCount, pad: isConsole() });
     const pickup = new Area3D({
       physics: ctx.physics,
       position: { x: pickupX, y: 0.5, z: 0 },
@@ -382,6 +395,7 @@ export class Play extends Scene<GameState, IPhysicsContext> {
     const frameState: Partial<GameState> = {};
     // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: starter frame coordinates existing gameplay state transitions.
     return (frameCtx, dt) => {
+      recordMotionTick(dt);
       loading.update();
       // Restart resets the store before clearing entities and scheduled callbacks.
       if (frameCtx.input.justPressed("restart")) {
@@ -399,7 +413,7 @@ export class Play extends Scene<GameState, IPhysicsContext> {
         frameCtx.state.set((state) => ({ flagGusts: state.flagGusts + 1 }));
       }
       const touch = touchControls?.update(frameCtx.input.raw.pointers, frameCtx.viewport.size);
-      player.update(frameCtx, dt, supportSurfaceY, touch);
+      player.update(frameCtx, dt, touch);
       let respawned = false;
       let lives = previous.lives;
       if (player.mesh.position.y < KILL_PLANE) {
@@ -458,6 +472,7 @@ export class Play extends Scene<GameState, IPhysicsContext> {
   }
 
   #post: ReturnType<typeof setupPost> | undefined;
+  #disposeLighting: (() => void) | undefined;
   #materialLighting: ReturnType<typeof createMaterialLighting> | undefined;
 
   override render(): void {
@@ -471,6 +486,9 @@ export class Play extends Scene<GameState, IPhysicsContext> {
     // Also releases the medium `setupPost` built, with the graph it composed into.
     this.#post?.dispose();
     this.#post = undefined;
+    // After the post graph, whose godrays stage reads the sun's shadow map.
+    this.#disposeLighting?.();
+    this.#disposeLighting = undefined;
     super.exit(ctx);
   }
 }

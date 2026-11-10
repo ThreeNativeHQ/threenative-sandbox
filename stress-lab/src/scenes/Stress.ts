@@ -9,14 +9,28 @@ import {
   debugFlag,
   getPlatform,
   isMobile,
+  resolveTargetFps,
   version,
 } from "@threenative/core";
 import { CollisionShape3D, type IPhysicsContext, RigidBody3D } from "@threenative/physics";
 import { Group, Mesh, Object3D, type PerspectiveCamera, PointLight, type Texture } from "three";
+import config from "../../threenative.config.js";
 import { type IPlayerModel } from "../entities/Player.js";
-import { setupLighting } from "../render/lighting.js";
+import { cloudTextures, primeCloudTextures } from "../render/clouds.js";
+import { setupLighting, shadeLikeSubstrate } from "../render/lighting.js";
+import { createMaterialLighting } from "../render/materialLighting.js";
 import { setupPost } from "../render/postprocessing.js";
-import { setupSky } from "../render/sky.js";
+import { isWebGLFallbackRenderer, materialLightingEnabled } from "../render/quality.js";
+import { SKY_OPTIONS, setupSky } from "../render/sky.js";
+import {
+  AVENUE,
+  THROW,
+  WALKER_FADE_SECONDS,
+  WALKER_STATES,
+  WALKER_STATE_SECONDS,
+  playCamera,
+  playKit,
+} from "../render/stressPlay.js";
 import {
   TORCH_COLOR,
   TORCH_INTENSITY,
@@ -80,7 +94,8 @@ const DENSITY = ["trees", "rocks", "houses", "props", "crowd", "bodies"] as cons
 function loadFactor(): number {
   const raw = new URLSearchParams(globalThis.location?.search ?? "").get("load");
   const load = raw === null ? 1 : Number(raw);
-  if (!(load > 0 && load <= 16)) throw new Error(`?load must be a number in (0, 16], got "${raw}".`);
+  if (!(load > 0 && load <= 16))
+    throw new Error(`?load must be a number in (0, 16], got "${raw}".`);
   return load;
 }
 const LAYERS = ["trees", "rocks", "houses", "props", "crowd", "bodies", "fires", "lights"] as const;
@@ -97,6 +112,8 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
   #sky: Texture | undefined;
   #loadStart = 0;
   #post: ReturnType<typeof setupPost> | undefined;
+  #disposeLighting: (() => void) | undefined;
+  #materialLighting: ReturnType<typeof createMaterialLighting> | undefined;
 
   static override readonly initialState: GameState = { ...Play.initialState, mode: "stress" };
 
@@ -104,19 +121,23 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     this.#loadStart = Date.now();
     const [mannequin, sky] = await Promise.all([
       ctx.assets.model<IPlayerModel>("mannequin.glb"),
-      ctx.assets.texture("sky.jpg"),
+      SKY_OPTIONS.sky === "photo" ? ctx.assets.texture("sky.jpg") : undefined,
     ]);
     this.#mannequin = mannequin;
     this.#sky = sky;
+    primeCloudTextures(await ctx.assets.memo("clouds", () => cloudTextures()));
   }
 
   override enter(ctx: GameCtx): SceneFrame<GameState, IPhysicsContext> {
-    if (this.#mannequin === undefined || this.#sky === undefined)
-      throw new Error("Stress scene did not finish loading.");
+    if (this.#mannequin === undefined) throw new Error("Stress scene did not finish loading.");
     const presetName = debugFlag("max") ? "max" : "real";
     const enabled = (layer: Layer) => !debugFlag(`no${layer[0]?.toUpperCase()}${layer.slice(1)}`);
     // `?load=N` scales the world's density for a break-point ramp; the vanilla lab reads the same knob.
     const load = loadFactor();
+    // `?play` is the same world as a shipped game draws it: textured surfaces from a material library,
+    // several meshes per layer, a camera that walks the streets, walkers that change gait and thrown
+    // objects that are born and die. It makes no `random()` call, so `real` places the same world.
+    const kit = debugFlag("play") ? playKit() : undefined;
     const base = PRESETS[presetName];
     const size: Record<keyof typeof base, number> = { ...base };
     for (const key of DENSITY) size[key] = Math.round(base[key] * load);
@@ -131,11 +152,20 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     };
 
     setupSky(ctx.scene, this.#sky, ctx.renderer.softwareAdapter !== undefined);
-    const { key } = setupLighting(
+    // The same setup the kit's own scene runs, so the lab pays what a kit game pays.
+    const { key, dispose: disposeLighting } = setupLighting(
       ctx.scene,
       ctx.renderer.raw as Parameters<typeof setupLighting>[1],
       isMobile(),
     );
+    this.#disposeLighting = disposeLighting;
+    const materialEnvironment = {
+      web: getPlatform().runtime === "web",
+      rendererKind: ctx.renderer.kind,
+      webglFallback: isWebGLFallbackRenderer(ctx.renderer.raw),
+      mobile: isMobile(),
+      software: ctx.renderer.softwareAdapter !== undefined,
+    };
     // A whole valley under one sun: camera-centred cached clip levels instead of one fitted map.
     // `?plainShadow` keeps the kit's single fitted map instead, to isolate the virtual shadow cost.
     if (!debugFlag("plainShadow"))
@@ -155,6 +185,9 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         mobile: isMobile(),
         software: ctx.renderer.softwareAdapter !== undefined,
         gpuClass: ctx.renderer.gpuClass?.class,
+        onTierChanged: (tier) =>
+          this.#materialLighting?.setEnabled(materialLightingEnabled(tier, materialEnvironment)),
+        targetFps: resolveTargetFps(config, getPlatform()).targetFps,
         // Pinned so every run draws the same work; `?adaptive` lets the kit's quality policy react.
         ...(debugFlag("adaptive") ? {} : { tier: "high" as const }),
         ready: () => ctx.startup.phase === "ready",
@@ -162,7 +195,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     );
     ctx.add(ctx.camera);
 
-    const ground = new Mesh(groundGeometry, groundMaterial);
+    const ground = new Mesh(groundGeometry, kit?.ground ?? groundMaterial);
     ground.scale.set(WORLD * 2, 1, WORLD * 2);
     ground.receiveShadow = true;
     ctx.add(ground);
@@ -177,12 +210,21 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     });
 
     if (enabled("trees")) {
-      const trunks = new InstancedBatch({ geometry: trunkGeometry, material: trunkMaterial });
-      const canopies = new InstancedBatch({ geometry: canopyGeometry, material: canopyMaterial });
+      const species = (kit?.trees ?? [undefined]).map((tree) => ({
+        trunks: new InstancedBatch({
+          geometry: tree?.trunk ?? trunkGeometry,
+          material: tree?.bark ?? trunkMaterial,
+        }),
+        canopies: new InstancedBatch({
+          geometry: tree?.canopy ?? canopyGeometry,
+          material: tree?.leaf ?? canopyMaterial,
+        }),
+      }));
       for (let i = 0; i < size.trees; i += 1) {
         const [x, z] = spot(true);
         const height = 5 + random() * 7;
         const spin = random() * Math.PI * 2;
+        const { trunks, canopies } = species[i % species.length] as (typeof species)[number];
         trunks.place({ position: [x, 0, z], rotation: [0, spin, 0], scale: [1, height * 0.45, 1] });
         canopies.place({
           position: [x, height * 0.3, z],
@@ -190,27 +232,43 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
           scale: [height * 0.28, height * 0.75, height * 0.28],
         });
       }
-      trunks.build({ castShadow: true, receiveShadow: true, name: "trunks", parent: ctx.scene });
-      canopies.build({
-        castShadow: true,
-        receiveShadow: true,
-        name: "canopies",
-        parent: ctx.scene,
+      species.forEach(({ trunks, canopies }, i) => {
+        trunks.build({
+          castShadow: true,
+          receiveShadow: true,
+          name: `trunks${i}`,
+          parent: ctx.scene,
+        });
+        canopies.build({
+          castShadow: true,
+          receiveShadow: true,
+          name: `canopies${i}`,
+          parent: ctx.scene,
+        });
       });
       counts.trees = size.trees;
     }
     if (enabled("rocks")) {
-      const rocks = new InstancedBatch({ geometry: rockGeometry, material: rockMaterial });
+      const kinds = (kit?.rocks ?? [{ geometry: rockGeometry, material: rockMaterial }]).map(
+        (kind) => new InstancedBatch(kind),
+      );
       for (let i = 0; i < size.rocks; i += 1) {
         const [x, z] = spot(false);
         const s = 0.3 + random() * 1.6;
-        rocks.place({
+        (kinds[i % kinds.length] as InstancedBatch).place({
           position: [x, s * 0.2, z],
           rotation: [random() * 3, random() * 3, 0],
           scale: [s, s * 0.7, s],
         });
       }
-      rocks.build({ castShadow: true, receiveShadow: true, name: "rocks", parent: ctx.scene });
+      kinds.forEach((rocks, i) =>
+        rocks.build({
+          castShadow: true,
+          receiveShadow: true,
+          name: `rocks${i}`,
+          parent: ctx.scene,
+        }),
+      );
       counts.rocks = size.rocks;
     }
     if (enabled("houses")) {
@@ -220,18 +278,28 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         const house = new Group();
         const w = 4 + random() * 4;
         const h = 3 + random() * 4;
-        const walls = new Mesh(houseGeometry, wallMaterial);
+        const style = kit?.houses[i % kit.houses.length];
+        const walls = new Mesh(houseGeometry, style?.wall ?? wallMaterial);
         walls.scale.set(w, h, w * 0.8);
-        const roof = new Mesh(roofGeometry, roofMaterial);
+        const roof = new Mesh(style?.roof ?? roofGeometry, style?.roofing ?? roofMaterial);
         roof.scale.set(w * 0.9, w * 0.5, w * 0.75);
         roof.position.y = h;
-        for (const part of [walls, roof]) {
+        const parts = [walls, roof];
+        if (kit !== undefined && style !== undefined) {
+          const chimney = new Mesh(kit.chimney, style.wall);
+          chimney.scale.set(w, w * 0.9, w);
+          chimney.position.y = h;
+          parts.push(chimney);
+        }
+        for (const part of parts) {
           part.castShadow = true;
           part.receiveShadow = true;
         }
-        house.add(walls, roof);
-        const cx = ((i % columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8;
-        const cz = (Math.floor(i / columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8;
+        house.add(...parts);
+        // `play` moves each house away from both axes, so two avenues cross the town.
+        const street = (at: number) => (kit === undefined ? at : at + Math.sign(at || 1) * AVENUE);
+        const cx = street(((i % columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8);
+        const cz = street((Math.floor(i / columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8);
         house.position.set(cx + (random() - 0.5) * 3, 0, cz + (random() - 0.5) * 3);
         house.rotation.y = Math.floor(random() * 4) * (Math.PI / 2);
         ctx.add(house);
@@ -241,7 +309,14 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     if (enabled("props")) {
       // Unique props, each with its own material: crates and barrels dressing the streets.
       for (let i = 0; i < size.props; i += 1) {
-        const prop = new Mesh(i % 2 === 0 ? crateGeometry : barrelGeometry, propMaterial(i));
+        // `real` gives each prop its own colour-only material; `play` shares a library, as a level does.
+        const prop =
+          kit === undefined
+            ? new Mesh(i % 2 === 0 ? crateGeometry : barrelGeometry, propMaterial(i))
+            : new Mesh(
+                kit.propGeometries[i % kit.propGeometries.length],
+                kit.propMaterials[(i * 7) % kit.propMaterials.length],
+              );
         const s = 0.5 + random() * 0.6;
         prop.scale.setScalar(s);
         prop.position.set((random() * 2 - 1) * TOWN, s / 2, (random() * 2 - 1) * TOWN);
@@ -259,6 +334,8 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       radius: number;
       speed: number;
       phase: number;
+      angle: number;
+      state: number;
     }[] = [];
     if (enabled("crowd")) {
       for (let i = 0; i < size.crowd; i += 1) {
@@ -266,7 +343,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         const character = new SkeletalMesh3D({
           source: this.#mannequin.scene,
           clips: this.#mannequin.animations,
-          requiredClips: ["Walk_Loop"],
+          requiredClips: kit === undefined ? ["Walk_Loop"] : WALKER_STATES.map(({ clip }) => clip),
           strideRoot: holder,
         });
         character.root.traverse((object) => {
@@ -275,13 +352,10 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         character.play("Walk_Loop");
         holder.add(character.root);
         ctx.add(holder);
-        walkers.push({
-          character,
-          holder,
-          radius: 6 + random() * (TOWN - 8),
-          speed: 1.2 + random() * 0.4,
-          phase: random() * Math.PI * 2,
-        });
+        const radius = 6 + random() * (TOWN - 8);
+        const speed = 1.2 + random() * 0.4;
+        const phase = random() * Math.PI * 2;
+        walkers.push({ character, holder, radius, speed, phase, angle: phase, state: 0 });
       }
       counts.crowd = size.crowd;
     }
@@ -289,7 +363,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     const bodies: RigidBody3D[] = [];
     if (enabled("bodies")) {
       for (let i = 0; i < size.bodies; i += 1) {
-        const box = new Mesh(crateGeometry, bodyMaterial);
+        const box = new Mesh(crateGeometry, kit?.body ?? bodyMaterial);
         box.scale.setScalar(BODY_SIZE);
         box.castShadow = true;
         box.receiveShadow = true;
@@ -336,20 +410,33 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       }
       counts.particles = size.fires * size.firePerEmitter;
     }
+    const torches: PointLight[] = [];
     if (enabled("lights")) {
       for (const [x, z] of fires.slice(0, size.lights)) {
         const torch = new PointLight(TORCH_COLOR, TORCH_INTENSITY, TORCH_RANGE, 2);
         torch.position.set(x, 2.5, z);
         ctx.add(torch);
+        torches.push(torch);
       }
       counts.lights = size.lights;
     }
 
+    shadeLikeSubstrate(ctx.scene);
+    this.#materialLighting = ctx.entities.add(
+      "material-lighting",
+      createMaterialLighting(ctx.scene, ctx.camera, key, {
+        ...materialEnvironment,
+        enabled: materialLightingEnabled(this.#post.tier, materialEnvironment),
+      }),
+    );
+    if (kit !== undefined) Object.assign(counts, kit.counts);
+    const thrown: { mesh: Mesh; born: number; vx: number; vz: number }[] = [];
+    let spawned = 0;
     const gpu = ctx.renderer.gpuClass?.fields;
     stressReport.begin(
       {
         commit: `core@${version}`,
-        preset: load === 1 ? presetName : `${presetName}x${load}`,
+        preset: `${presetName}${kit === undefined ? "" : "-play"}${load === 1 ? "" : `x${load}`}`,
         layers: LAYERS.filter(enabled),
         adapter: gpu === undefined ? "unknown" : `${gpu.vendor} / ${gpu.architecture}`,
         viewport: `${ctx.viewport.size.width}x${ctx.viewport.size.height}`,
@@ -382,8 +469,60 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         Math.sin(orbit) * ORBIT.radius,
       );
       camera.lookAt(0, 2, 0);
-      for (const walker of walkers) {
-        const angle = walker.phase + (clock * walker.speed) / walker.radius;
+      if (kit !== undefined) {
+        const pose = playCamera(clock);
+        camera.position.set(...pose.position);
+        camera.lookAt(...pose.target);
+        torches.forEach((torch, i) => {
+          torch.intensity = TORCH_INTENSITY * (0.85 + 0.15 * Math.sin(clock * 11 + i));
+        });
+        // Game churn: an object is born every `THROW.every` seconds, flies an arc and is removed.
+        while (!still && spawned < Math.floor(time / THROW.every)) {
+          const [x, z] = fires[spawned % fires.length] as [number, number];
+          const mesh = new Mesh(
+            kit.propGeometries[spawned % kit.propGeometries.length],
+            kit.propMaterials[(spawned * 5) % kit.propMaterials.length],
+          );
+          mesh.scale.setScalar(0.4);
+          mesh.position.set(x, 1, z);
+          mesh.castShadow = true;
+          ctx.add(mesh);
+          const aim = spawned * 2.399;
+          thrown.push({ mesh, born: time, vx: Math.cos(aim) * 4, vz: Math.sin(aim) * 4 });
+          spawned += 1;
+        }
+        for (let i = thrown.length - 1; i >= 0; i -= 1) {
+          const item = thrown[i] as (typeof thrown)[number];
+          const age = time - item.born;
+          if (age > THROW.life) {
+            item.mesh.removeFromParent();
+            thrown.splice(i, 1);
+            continue;
+          }
+          item.mesh.position.x += item.vx * dt;
+          item.mesh.position.z += item.vz * dt;
+          item.mesh.position.y = Math.max(
+            0.2,
+            1 + THROW.speed * age - 0.5 * THROW.gravity * age * age,
+          );
+          item.mesh.rotation.x = age * 3;
+        }
+      }
+      for (const [index, walker] of walkers.entries()) {
+        let angle = walker.phase + (clock * walker.speed) / walker.radius;
+        if (kit !== undefined) {
+          // Each walker changes gait on its own beat, with a short crossfade, and covers ground at that gait.
+          const state =
+            Math.floor((clock + index * 0.37) / WALKER_STATE_SECONDS + index) %
+            WALKER_STATES.length;
+          const gait = WALKER_STATES[state] as (typeof WALKER_STATES)[number];
+          if (state !== walker.state) {
+            walker.state = state;
+            walker.character.play(gait.clip, { fade: WALKER_FADE_SECONDS });
+          }
+          walker.angle += still ? 0 : (dt * gait.speed) / walker.radius;
+          angle = walker.angle;
+        }
         walker.holder.position.set(
           Math.cos(angle) * walker.radius,
           0,
@@ -407,8 +546,12 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
   }
 
   override exit(ctx: GameCtx): void {
+    this.#materialLighting?.dispose();
+    this.#materialLighting = undefined;
     this.#post?.dispose();
     this.#post = undefined;
+    this.#disposeLighting?.();
+    this.#disposeLighting = undefined;
     super.exit(ctx);
   }
 }

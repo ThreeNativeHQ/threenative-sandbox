@@ -20,31 +20,31 @@
     "format:check": "biome format src"
   },
   "dependencies": {
-    "@threenative/core": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-core-0.3.12.tgz",
-    "@threenative/physics": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-physics-0.3.12.tgz",
-    "@threenative/ui": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ui-0.3.12.tgz",
+    "@threenative/core": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-core-0.3.13-b4369385ce96.tgz",
+    "@threenative/physics": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-physics-0.3.13-85c40c4964b7.tgz",
+    "@threenative/ui": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ui-0.3.13-ea4a63f1b2e2.tgz",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-reconciler": "0.33.0",
-    "three": "0.185.1",
-    "threenative-blender-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-blender-mcp-0.1.7-29231e5994f4.tgz",
-    "threenative-animation-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-animation-mcp-0.1.9.tgz",
-    "@threenative/metahuman": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-metahuman-0.1.8.tgz",
-    "@threenative/procedural-animals": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-procedural-animals-0.1.8.tgz",
-    "@threenative/raw-unreal": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-raw-unreal-0.1.12.tgz",
-    "@threenative/three-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-three-native-0.3.12.tgz",
-    "@threenative/terrain": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-terrain-0.1.8.tgz",
-    "@threenative/ueformat": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ueformat-0.1.12.tgz"
+    "three": "0.187.0",
+    "@threenative/blender-bridge": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-blender-bridge-0.2.6-5263b1c9ff6e.tgz",
+    "threenative-animation-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-animation-mcp-0.1.10-ec605b49fa3a.tgz",
+    "@threenative/terrain": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-terrain-0.1.9-7dd774ffaa54.tgz",
+    "@threenative/metahuman": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-metahuman-0.1.9-a01e5332ff5a.tgz",
+    "@threenative/procedural-animals": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-procedural-animals-0.1.9-c7df0510a824.tgz",
+    "@threenative/raw-unreal": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-raw-unreal-0.1.13-936ead5a15a4.tgz",
+    "@threenative/three-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-three-native-0.3.13-2e4ab2c21f05.tgz",
+    "@threenative/ueformat": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ueformat-0.1.13-7f2cfe735a3a.tgz"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
-    "@threenative/assets": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-assets-0.3.13.tgz",
-    "@threenative/playtest": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-playtest-0.3.12.tgz",
+    "@threenative/assets": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-assets-0.3.14-23585643b6ca.tgz",
+    "@threenative/playtest": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-playtest-0.3.13-eacb9054f9c4.tgz",
     "@types/react": "19.2.0",
     "@types/react-dom": "19.2.0",
-    "@types/three": "0.185.3",
+    "@types/three": "0.187.0",
     "@vitejs/plugin-react": "6.0.5",
-    "create-threenative": "file:/home/joao/projects/threenative/sandbox/.packages/create-threenative-0.2.17.tgz",
+    "create-threenative": "file:/home/joao/projects/threenative/sandbox/.packages/create-threenative-0.2.18-b0ff63abd931.tgz",
     "esbuild": "0.27.0",
     "playwright": "1.62.1",
     "tailwindcss": "4.3.3",
@@ -53,10 +53,10 @@
     "@gltf-transform/cli": "4.4.2",
     "@biomejs/biome": "1.9.4",
     "eslint": "10.13.0",
-    "threenative-engine-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-engine-mcp-0.2.12.tgz"
+    "threenative-engine-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-engine-mcp-0.2.13-ffd115a19385.tgz"
   },
   "optionalDependencies": {
-    "@threenative/runtime-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-runtime-native-0.3.12.tgz"
+    "@threenative/runtime-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-runtime-native-0.3.13-ac3768817979.tgz"
   },
   "overrides": {
     "sharp": ">=0.35.4",
@@ -65,31 +65,32 @@
   "pnpm": {
     "overrides": {
       "sharp": ">=0.35.4",
-      "threenative-blender-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-blender-mcp-0.1.7-29231e5994f4.tgz",
-      "threenative-engine-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-engine-mcp-0.2.12.tgz",
-      "create-threenative": "file:/home/joao/projects/threenative/sandbox/.packages/create-threenative-0.2.17.tgz",
-      "@threenative/assets": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-assets-0.3.13.tgz",
-      "@threenative/playtest": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-playtest-0.3.12.tgz",
-      "threenative-animation-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-animation-mcp-0.1.9.tgz",
-      "@threenative/core": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-core-0.3.12.tgz",
-      "@threenative/metahuman": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-metahuman-0.1.8.tgz",
-      "@threenative/physics": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-physics-0.3.12.tgz",
-      "@threenative/procedural-animals": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-procedural-animals-0.1.8.tgz",
-      "@threenative/raw-unreal": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-raw-unreal-0.1.12.tgz",
-      "@threenative/three-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-three-native-0.3.12.tgz",
-      "@threenative/runtime-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-runtime-native-0.3.12.tgz",
-      "@threenative/terrain": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-terrain-0.1.8.tgz",
-      "@threenative/ueformat": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ueformat-0.1.12.tgz",
-      "@threenative/ui": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ui-0.3.12.tgz"
+      "threenative-engine-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-engine-mcp-0.2.13-ffd115a19385.tgz",
+      "create-threenative": "file:/home/joao/projects/threenative/sandbox/.packages/create-threenative-0.2.18-b0ff63abd931.tgz",
+      "@threenative/blender-bridge": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-blender-bridge-0.2.6-5263b1c9ff6e.tgz",
+      "@threenative/playtest": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-playtest-0.3.13-eacb9054f9c4.tgz",
+      "threenative-animation-mcp": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-animation-mcp-0.1.10-ec605b49fa3a.tgz",
+      "@threenative/core": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-core-0.3.13-b4369385ce96.tgz",
+      "@threenative/physics": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-physics-0.3.13-85c40c4964b7.tgz",
+      "@threenative/terrain": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-terrain-0.1.9-7dd774ffaa54.tgz",
+      "@threenative/assets": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-assets-0.3.14-23585643b6ca.tgz",
+      "@threenative/metahuman": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-metahuman-0.1.9-a01e5332ff5a.tgz",
+      "@threenative/procedural-animals": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-procedural-animals-0.1.9-c7df0510a824.tgz",
+      "@threenative/raw-unreal": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-raw-unreal-0.1.13-936ead5a15a4.tgz",
+      "@threenative/three-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-three-native-0.3.13-2e4ab2c21f05.tgz",
+      "@threenative/runtime-native": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-runtime-native-0.3.13-ac3768817979.tgz",
+      "@threenative/ueformat": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ueformat-0.1.13-7f2cfe735a3a.tgz",
+      "@threenative/ui": "file:/home/joao/projects/threenative/sandbox/.packages/threenative-ui-0.3.13-ea4a63f1b2e2.tgz"
     },
     "onlyBuiltDependencies": [
       "@threenative/core",
       "@threenative/runtime-native"
     ],
     "patchedDependencies": {
-      "three@0.185.1": "patches/three@0.185.1.patch",
+      "three@0.187.0": "patches/three@0.187.0.patch",
       "vite@8.2.0": "patches/vite@8.2.0.patch",
       "@tailwindcss/node@4.3.3": "patches/@tailwindcss__node@4.3.3.patch"
     }
-  }
+  },
+  "packageManager": "pnpm@10.25.0"
 }
