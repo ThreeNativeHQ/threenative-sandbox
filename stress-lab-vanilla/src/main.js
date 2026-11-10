@@ -40,6 +40,15 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { attribute, cos, float, fract, sin, uniform, vec3 } from "three/tsl";
 import { clone as cloneSkinned } from "three/addons/utils/SkeletonUtils.js";
 import { publish, StressReport } from "./report.js";
+import {
+  AVENUE,
+  THROW,
+  WALKER_FADE_SECONDS,
+  WALKER_STATES,
+  WALKER_STATE_SECONDS,
+  playCamera,
+  playKit,
+} from "./stressPlay.ts";
 
 const PRESETS = {
   real: {
@@ -137,6 +146,9 @@ function build(scene, { mannequin, sky, load }) {
   const size = { ...base };
   for (const key of DENSITY) size[key] = Math.round(base[key] * load);
   const counts = {};
+  // `?play`: the same gameplay preset `Stress.ts` draws (stressPlay.ts is a verbatim copy). It makes no
+  // `random()` call, so without the flag nothing below changes.
+  const kit = flag("play") ? playKit() : undefined;
   const random = createRandom(4242);
   const spot = (avoidTown) => {
     for (;;) {
@@ -173,7 +185,7 @@ function build(scene, { mannequin, sky, load }) {
 
   const ground = new Mesh(
     new PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
-    new MeshStandardMaterial({ color: 0x5d6b3a, roughness: 0.95 }),
+    kit?.ground ?? new MeshStandardMaterial({ color: 0x5d6b3a, roughness: 0.95 }),
   );
   ground.scale.set(WORLD * 2, 1, WORLD * 2);
   ground.receiveShadow = true;
@@ -190,7 +202,8 @@ function build(scene, { mannequin, sky, load }) {
 
   /** One instanced draw per geometry: what the Wasm arm's renderer merges into one draw too. */
   const instances = (geometry, tint, capacity, name) => {
-    const mesh = new InstancedMesh(geometry, material(tint, 0.85), capacity);
+    // `tint` is a colour for `real`, or a ready material from the `play` kit.
+    const mesh = new InstancedMesh(geometry, tint.isMaterial ? tint : material(tint, 0.85), capacity);
     mesh.name = name;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
@@ -219,12 +232,25 @@ function build(scene, { mannequin, sky, load }) {
   };
 
   if (enabled("trees")) {
-    const trunks = instances(trunk, 0x5a4030, size.trees, "trunks");
-    const canopies = instances(canopy, 0x2f5a2a, size.trees, "canopies");
+    // `play`: one trunk mesh and one canopy mesh per species, tree `i` uses species `i % n`.
+    const share = kit === undefined ? size.trees : Math.ceil(size.trees / kit.trees.length);
+    const species =
+      kit === undefined
+        ? [
+            {
+              trunks: instances(trunk, 0x5a4030, share, "trunks"),
+              canopies: instances(canopy, 0x2f5a2a, share, "canopies"),
+            },
+          ]
+        : kit.trees.map((tree, i) => ({
+            trunks: instances(tree.trunk, tree.bark, share, `trunks${i}`),
+            canopies: instances(tree.canopy, tree.leaf, share, `canopies${i}`),
+          }));
     for (let i = 0; i < size.trees; i += 1) {
       const [x, z] = spot(true);
       const height = 5 + random() * 7;
       const spin = random() * Math.PI * 2;
+      const { trunks, canopies } = species[i % species.length];
       trunks.place([x, 0, z], [0, spin, 0], [1, height * 0.45, 1]);
       canopies.place(
         [x, height * 0.3, z],
@@ -232,52 +258,105 @@ function build(scene, { mannequin, sky, load }) {
         [height * 0.28, height * 0.75, height * 0.28],
       );
     }
-    trunks.done();
-    canopies.done();
+    for (const { trunks, canopies } of species) {
+      trunks.done();
+      canopies.done();
+    }
     counts.trees = size.trees;
   }
   if (enabled("rocks")) {
-    const rocks = instances(rock, 0x7c7a74, size.rocks, "rocks");
+    const kinds =
+      kit === undefined
+        ? [instances(rock, 0x7c7a74, size.rocks, "rocks")]
+        : kit.rocks.map((kind, i) =>
+            instances(kind.geometry, kind.material, Math.ceil(size.rocks / kit.rocks.length), `rocks${i}`),
+          );
     for (let i = 0; i < size.rocks; i += 1) {
       const [x, z] = spot(false);
       const s = 0.3 + random() * 1.6;
-      rocks.place([x, s * 0.2, z], [random() * 3, random() * 3, 0], [s, s * 0.7, s]);
+      kinds[i % kinds.length].place([x, s * 0.2, z], [random() * 3, random() * 3, 0], [s, s * 0.7, s]);
     }
-    rocks.done();
+    for (const rocks of kinds) rocks.done();
     counts.rocks = size.rocks;
   }
   if (enabled("houses")) {
     const columns = Math.ceil(Math.sqrt(size.houses));
-    const walls = instances(house, 0xc9b99a, size.houses, "walls");
-    const roofs = instances(roof, 0x8a3b2c, size.houses, "roofs");
+    // `real` batches the houses; `play` builds each one as its own group of meshes, as `Stress.ts` does.
+    const batched =
+      kit === undefined
+        ? {
+            walls: instances(house, 0xc9b99a, size.houses, "walls"),
+            roofs: instances(roof, 0x8a3b2c, size.houses, "roofs"),
+          }
+        : undefined;
+    // `play` moves each house away from both axes, so two avenues cross the town.
+    const street = (at) => (kit === undefined ? at : at + Math.sign(at || 1) * AVENUE);
     for (let i = 0; i < size.houses; i += 1) {
       const w = 4 + random() * 4;
       const h = 3 + random() * 4;
-      const cx = ((i % columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8;
-      const cz = (Math.floor(i / columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8;
+      const cx = street(((i % columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8);
+      const cz = street((Math.floor(i / columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8);
       const atX = cx + (random() - 0.5) * 3;
       const atZ = cz + (random() - 0.5) * 3;
       const spin = Math.floor(random() * 4) * (Math.PI / 2);
-      walls.place([atX, 0, atZ], [0, spin, 0], [w, h, w * 0.8]);
-      roofs.place([atX, h, atZ], [0, spin, 0], [w * 0.9, w * 0.5, w * 0.75]);
+      if (batched !== undefined) {
+        batched.walls.place([atX, 0, atZ], [0, spin, 0], [w, h, w * 0.8]);
+        batched.roofs.place([atX, h, atZ], [0, spin, 0], [w * 0.9, w * 0.5, w * 0.75]);
+        continue;
+      }
+      const style = kit.houses[i % kit.houses.length];
+      const group = new Group();
+      const walls = new Mesh(house, style.wall);
+      walls.scale.set(w, h, w * 0.8);
+      const roofMesh = new Mesh(style.roof, style.roofing);
+      roofMesh.scale.set(w * 0.9, w * 0.5, w * 0.75);
+      roofMesh.position.y = h;
+      const chimney = new Mesh(kit.chimney, style.wall);
+      chimney.scale.set(w, w * 0.9, w);
+      chimney.position.y = h;
+      const parts = [walls, roofMesh, chimney];
+      for (const part of parts) {
+        part.castShadow = true;
+        part.receiveShadow = true;
+      }
+      group.add(...parts);
+      group.position.set(atX, 0, atZ);
+      group.rotation.y = spin;
+      scene.add(group);
     }
-    walls.done();
-    roofs.done();
+    if (batched !== undefined) {
+      batched.walls.done();
+      batched.roofs.done();
+    }
     counts.houses = size.houses;
   }
   if (enabled("props")) {
     // Unique props, each with its own colour: crates and barrels dressing the streets.
-    const crates = instances(crate, 0xffffff, size.props, "crates");
-    const barrels = instances(barrel, 0xffffff, size.props, "barrels");
+    // `play` shares a material library across single meshes, as a level does; `real` batches coloured instances.
+    const crates = kit === undefined ? instances(crate, 0xffffff, size.props, "crates") : undefined;
+    const barrels = kit === undefined ? instances(barrel, 0xffffff, size.props, "barrels") : undefined;
     const tint = new Color();
     for (let i = 0; i < size.props; i += 1) {
       const s = 0.5 + random() * 0.6;
       const at = [(random() * 2 - 1) * TOWN, s / 2, (random() * 2 - 1) * TOWN];
+      if (kit !== undefined) {
+        const prop = new Mesh(
+          kit.propGeometries[i % kit.propGeometries.length],
+          kit.propMaterials[(i * 7) % kit.propMaterials.length],
+        );
+        prop.scale.setScalar(s);
+        prop.position.set(at[0], at[1], at[2]);
+        prop.rotation.y = random() * Math.PI;
+        prop.castShadow = true;
+        prop.receiveShadow = true;
+        scene.add(prop);
+        continue;
+      }
       tint.setHSL((i * 0.137) % 1, 0.45, 0.45);
       (i % 2 === 0 ? crates : barrels).place([at[0], at[1], at[2]], [0, random() * Math.PI, 0], [s, s, s], tint);
     }
-    crates.done();
-    barrels.done();
+    crates?.done();
+    barrels?.done();
     counts.props = size.props;
   }
 
@@ -286,6 +365,15 @@ function build(scene, { mannequin, sky, load }) {
     const source = mannequin.scene;
     const clip = mannequin.animations.find((animation) => animation.name === "Walk_Loop");
     if (clip === undefined) throw new Error("mannequin.glb has no Walk_Loop clip");
+    // `play`: all four gaits must exist, as `requiredClips` demands in `Stress.ts`.
+    const gaitClips =
+      kit === undefined
+        ? undefined
+        : WALKER_STATES.map(({ clip: name }) => {
+            const found = mannequin.animations.find((animation) => animation.name === name);
+            if (found === undefined) throw new Error(`mannequin.glb has no ${name} clip`);
+            return found;
+          });
     // The mannequin's quantized attributes are interleaved, and three's WebGPU backend re-packs an
     // interleaved buffer as Uint32 — `unorm32x4` is not a WebGPU vertex format, so the pipeline fails.
     // De-interleaving keeps each attribute at its own width, which is what the device accepts.
@@ -300,23 +388,22 @@ function build(scene, { mannequin, sky, load }) {
       });
       // Plain three.js animates every rig in JS: 120 mixers, one per walker, exactly what P1 measures.
       const mixer = new AnimationMixer(character);
-      mixer.clipAction(clip).play();
+      // `play` keeps one action per gait and crossfades between them; Walk_Loop (state 0) starts playing.
+      const actions = gaitClips?.map((gait) => mixer.clipAction(gait));
+      (actions?.[0] ?? mixer.clipAction(clip)).play();
       holder.add(character);
       scene.add(holder);
-      walkers.push({
-        mixer,
-        holder,
-        radius: 6 + random() * (TOWN - 8),
-        speed: 1.2 + random() * 0.4,
-        phase: random() * Math.PI * 2,
-      });
+      const radius = 6 + random() * (TOWN - 8);
+      const speed = 1.2 + random() * 0.4;
+      const phase = random() * Math.PI * 2;
+      walkers.push({ mixer, holder, radius, speed, phase, actions, angle: phase, state: 0 });
     }
     counts.crowd = size.crowd;
   }
 
   const bodies = [];
   if (enabled("bodies")) {
-    const bodyMaterial = material(0xb07a3a, 0.7);
+    const bodyMaterial = kit?.body ?? material(0xb07a3a, 0.7);
     for (let i = 0; i < size.bodies; i += 1) {
       const box = new Mesh(crate, bodyMaterial);
       box.scale.setScalar(BODY_SIZE);
@@ -369,11 +456,13 @@ function build(scene, { mannequin, sky, load }) {
     }
     counts.particles = size.fires * size.firePerEmitter;
   }
+  const torches = kit === undefined ? undefined : [];
   if (enabled("lights")) {
     for (const [x, z] of fires.slice(0, size.lights)) {
       const torch = new PointLight(TORCH_COLOR, TORCH_INTENSITY, TORCH_RANGE, 2);
       torch.position.set(x, 2.5, z);
       scene.add(torch);
+      torches?.push(torch);
     }
     counts.lights = size.lights;
   }
@@ -390,29 +479,82 @@ function build(scene, { mannequin, sky, load }) {
     shadowTriangles += triangles * count;
   });
 
+  if (kit !== undefined) Object.assign(counts, kit.counts);
   const still = flag("still");
   const freezeAt = Number(params.get("freezeAt") ?? 0);
   let time = 0;
   let sinceDrop = 0;
+  // `play`: objects thrown from the campfires, born every `THROW.every` seconds and removed after `THROW.life`.
+  const thrown = [];
+  let spawned = 0;
   return {
     counts,
     shadowTriangles,
     layers: LAYERS.filter(enabled),
-    preset: load === 1 ? presetName : `${presetName}x${load}`,
+    preset: `${presetName}${kit === undefined ? "" : "-play"}${load === 1 ? "" : `x${load}`}`,
     update(dt, camera) {
       time += dt;
       for (const fire of campfires) fire.clock.value = time;
       // `?still` holds the first pose (camera and walkers), so a before/after pair frames the same image.
       const clock = still ? 0 : freezeAt > 0 ? Math.min(time, freezeAt) : time;
-      const orbit = (clock / ORBIT.seconds) * Math.PI * 2;
-      camera.position.set(
-        Math.cos(orbit) * ORBIT.radius,
-        ORBIT.height + Math.sin(orbit * 2) * 4,
-        Math.sin(orbit) * ORBIT.radius,
-      );
-      camera.lookAt(0, 2, 0);
-      for (const walker of walkers) {
-        const angle = walker.phase + (clock * walker.speed) / walker.radius;
+      if (kit === undefined) {
+        const orbit = (clock / ORBIT.seconds) * Math.PI * 2;
+        camera.position.set(
+          Math.cos(orbit) * ORBIT.radius,
+          ORBIT.height + Math.sin(orbit * 2) * 4,
+          Math.sin(orbit) * ORBIT.radius,
+        );
+        camera.lookAt(0, 2, 0);
+      } else {
+        const pose = playCamera(clock);
+        camera.position.set(...pose.position);
+        camera.lookAt(...pose.target);
+        torches.forEach((torch, i) => {
+          torch.intensity = TORCH_INTENSITY * (0.85 + 0.15 * Math.sin(clock * 11 + i));
+        });
+        while (!still && spawned < Math.floor(time / THROW.every)) {
+          const [x, z] = fires[spawned % fires.length];
+          const mesh = new Mesh(
+            kit.propGeometries[spawned % kit.propGeometries.length],
+            kit.propMaterials[(spawned * 5) % kit.propMaterials.length],
+          );
+          mesh.scale.setScalar(0.4);
+          mesh.position.set(x, 1, z);
+          mesh.castShadow = true;
+          scene.add(mesh);
+          const aim = spawned * 2.399;
+          thrown.push({ mesh, born: time, vx: Math.cos(aim) * 4, vz: Math.sin(aim) * 4 });
+          spawned += 1;
+        }
+        for (let i = thrown.length - 1; i >= 0; i -= 1) {
+          const item = thrown[i];
+          const age = time - item.born;
+          if (age > THROW.life) {
+            item.mesh.removeFromParent();
+            thrown.splice(i, 1);
+            continue;
+          }
+          item.mesh.position.x += item.vx * dt;
+          item.mesh.position.z += item.vz * dt;
+          item.mesh.position.y = Math.max(0.2, 1 + THROW.speed * age - 0.5 * THROW.gravity * age * age);
+          item.mesh.rotation.x = age * 3;
+        }
+      }
+      for (const [index, walker] of walkers.entries()) {
+        let angle = walker.phase + (clock * walker.speed) / walker.radius;
+        if (kit !== undefined) {
+          // Each walker changes gait on its own beat, with a short crossfade, and covers ground at that gait.
+          const state =
+            Math.floor((clock + index * 0.37) / WALKER_STATE_SECONDS + index) % WALKER_STATES.length;
+          const gait = WALKER_STATES[state];
+          if (state !== walker.state) {
+            walker.actions[walker.state].fadeOut(WALKER_FADE_SECONDS);
+            walker.actions[state].reset().fadeIn(WALKER_FADE_SECONDS).play();
+            walker.state = state;
+          }
+          walker.angle += still ? 0 : (dt * gait.speed) / walker.radius;
+          angle = walker.angle;
+        }
         walker.holder.position.set(
           Math.cos(angle) * walker.radius,
           0,
@@ -475,7 +617,7 @@ async function main() {
   const report = new StressReport();
   report.begin(
     {
-      commit: "three@0.185.1",
+      commit: "three@0.187.0",
       preset: world.preset,
       layers: world.layers,
       adapter: info ? [info.vendor, info.architecture].filter(Boolean).join(" / ") : "unknown",

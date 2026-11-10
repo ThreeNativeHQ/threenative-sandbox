@@ -13,7 +13,7 @@ const round = (value) => Math.round(value * 100) / 100;
 export function poolWindow(frames) {
   const of = (key) => {
     const sorted = frames.map((frame) => frame[key]).sort((a, b) => a - b);
-    return { p50: pct(sorted, 0.5), p95: pct(sorted, 0.95) };
+    return { p50: pct(sorted, 0.5), p95: pct(sorted, 0.95), p99: pct(sorted, 0.99) };
   };
   const span = (frames.at(-1).start - frames[0].start) / 1000;
   return {
@@ -127,6 +127,9 @@ export class StressReport {
         updateP50Ms: required("phases.update.p50", (w) => w.update.p50),
         frameP50Ms: required("frame.p50", (w) => w.frame.p50),
         frameP95Ms: required("frame.p95", (w) => w.frame.p95),
+        // The median window's p99, and the worst window's p95: the median alone hides one bad window.
+        frameP99Ms: required("frame.p99", (w) => w.frame.p99),
+        frameWorstP95Ms: round(Math.max(...windows.map((w) => w.frame.p95))),
         mainDraws: required("passes.main.draws.p50", (w) => w.draws.p50),
         // WebGPURenderer counts its shadow pass inside the frame's draw calls; no split is published.
         shadowDraws: null,
@@ -165,5 +168,6 @@ export function demo() {
   if (Math.abs(window.fps - 100) > 1e-6) throw new Error(`fps ${window.fps}`);
   if (window.draws.p50 !== 101) throw new Error(`draws ${window.draws.p50}`);
   if (window.frame.p95 !== 10) throw new Error("frame.p95");
+  if (window.frame.p99 !== 10) throw new Error("frame.p99");
   return "demo: ok";
 }
