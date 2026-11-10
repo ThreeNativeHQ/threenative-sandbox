@@ -18,6 +18,10 @@ export interface IStressReport {
     renderSkipPct: number;
     gpuP50Ms: number | null;
     gpuP95Ms: number | null;
+    /** Where the device spent the frame: the main scene pass, every shadow pass, and the rest (post chain). */
+    gpuMainMs: number | null;
+    gpuShadowMs: number | null;
+    gpuOtherMs: number | null;
     renderP50Ms: number;
     updateP50Ms: number;
     frameP50Ms: number;
@@ -79,6 +83,7 @@ export class StressReport {
     this.#loadMs = loadMs;
     this.#windows = [];
     this.#ready = 0;
+    (globalThis as { __tnGpuSegments?: number[][] }).__tnGpuSegments = [];
   }
 
   observe(window: IFrameBudgetWindow): IStressReport | undefined {
@@ -110,6 +115,14 @@ export class StressReport {
       const value = pick(read);
       if (value === null) throw new Error(`TN_STRESS_REPORT: no window measured ${name}`);
       return value;
+    };
+    // The owned engine's split of each resolved GPU sample: [frame, sun shadow, scene, other passes, output,
+    // gather, lamp shadow] in ms (three-native `__tnGpuSegments`). Absent on another renderer: the split stays null.
+    const samples = (globalThis as { __tnGpuSegments?: number[][] }).__tnGpuSegments ?? [];
+    if (samples.length > 4000) samples.splice(0, samples.length - 4000);
+    const segment = (read: (sample: number[]) => number | undefined): number | null => {
+      const values = samples.map(read).filter((v): v is number => v !== undefined && Number.isFinite(v));
+      return values.length === 0 ? null : round(median(values));
     };
     const seconds = windows.reduce((sum, w) => sum + w.frames * (w.presented.mean / 1000), 0);
     const hitches = windows.reduce((sum, w) => sum + w.hitches, 0);
@@ -147,6 +160,9 @@ export class StressReport {
         jsAllocKbP50: pick((w) => scaled(w.counters?.jsAllocBytes?.p50)),
         gpuP50Ms: pick((w) => w.gpu?.p50),
         gpuP95Ms: pick((w) => w.gpu?.p95),
+        gpuMainMs: segment((g) => g[2]),
+        gpuShadowMs: segment((g) => (g[1] ?? 0) + (g[6] ?? 0)),
+        gpuOtherMs: segment((g) => (g[3] ?? 0) + (g[4] ?? 0) + (g[5] ?? 0)),
         renderP50Ms: required("phases.render.p50", (w) => w.phases.render.p50),
         updateP50Ms: required("phases.update.p50", (w) => w.phases.update.p50),
         frameP50Ms: required("frame.p50", (w) => w.frame.p50),

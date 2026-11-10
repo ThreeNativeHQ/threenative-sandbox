@@ -433,10 +433,16 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     const thrown: { mesh: Mesh; born: number; vx: number; vz: number }[] = [];
     let spawned = 0;
     const gpu = ctx.renderer.gpuClass?.fields;
+    const post = this.#post;
     stressReport.begin(
       {
         commit: `core@${version}`,
-        preset: `${presetName}${kit === undefined ? "" : "-play"}${load === 1 ? "" : `x${load}`}`,
+        // Read at report time: with `?adaptive` the lane is named by the tier the quality policy landed on.
+        get preset() {
+          return `${presetName}${kit === undefined ? "" : "-play"}${load === 1 ? "" : `x${load}`}${
+            debugFlag("adaptive") ? `-adaptive-${post.tier}` : ""
+          }`;
+        },
         layers: LAYERS.filter(enabled),
         adapter: gpu === undefined ? "unknown" : `${gpu.vendor} / ${gpu.architecture}`,
         viewport: `${ctx.viewport.size.width}x${ctx.viewport.size.height}`,
