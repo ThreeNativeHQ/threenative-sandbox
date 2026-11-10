@@ -14,6 +14,8 @@ export interface IStressReport {
     presentedP50Ms: number;
     presentedP95Ms: number;
     fps: number;
+    /** Share of loop frames the renderer declined to draw, in percent. `fps` already leaves them out. */
+    renderSkipPct: number;
     gpuP50Ms: number | null;
     gpuP95Ms: number | null;
     renderP50Ms: number;
@@ -111,6 +113,8 @@ export class StressReport {
     };
     const seconds = windows.reduce((sum, w) => sum + w.frames * (w.presented.mean / 1000), 0);
     const hitches = windows.reduce((sum, w) => sum + w.hitches, 0);
+    const frames = windows.reduce((sum, w) => sum + w.frames, 0);
+    const skipped = windows.reduce((sum, w) => sum + (w.renderSkips ?? 0), 0);
     const longTasks = windows.every((w) => w.longTasks.available)
       ? windows.reduce((sum, w) => sum + (w.longTasks.available ? w.longTasks.count : 0), 0)
       : null;
@@ -133,7 +137,10 @@ export class StressReport {
       metrics: {
         presentedP50Ms: required("presented.p50", (w) => w.presented.p50),
         presentedP95Ms: required("presented.p95", (w) => w.presented.p95),
-        fps: required("fps", (w) => w.fps),
+        // Frames the renderer drew, not loop ticks: a frame the Wasm engine declines (its GPU queue is full)
+        // costs near zero and shows the previous image, so counting it reads a GPU-bound host as fast.
+        fps: required("fps", (w) => (w.fps * (w.frames - (w.renderSkips ?? 0))) / w.frames),
+        renderSkipPct: round((100 * skipped) / Math.max(1, frames)),
         bridgeCrossingsP50: pick((w) => w.counters?.bridgeCrossings?.p50),
         hostCallsP50: pick((w) => w.counters?.hostCalls?.p50),
         gpuUploadKbP50: pick((w) => scaled(w.counters?.gpuBytes?.p50)),
