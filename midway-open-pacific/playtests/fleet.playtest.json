@@ -1,0 +1,70 @@
+{
+  "name": "midway-reaches-the-fleet",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 30,
+  "network": {
+    "downloadKbps": 40000,
+    "latencyMs": 20
+  },
+  "artifacts": {
+    "console": true,
+    "network": true
+  },
+  "steps": [
+    {
+      "kind": "click",
+      "label": "airborne-start",
+      "at": {
+        "x": 378,
+        "y": 603
+      },
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "settle-in-the-air",
+      "waitTicks": 120,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "course-hold-to-the-search-sector",
+      "press": "KeyT",
+      "holdTicks": 1,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "transit-3x-until-combat-proximity",
+      "press": "ShiftLeft",
+      "holdTicks": 5000,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "close-on-the-carriers",
+      "waitTicks": 1500,
+      "release": true,
+      "screenshot": "fleet.png"
+    }
+  ],
+  "assert": {
+    "resources": [
+      {
+        "id": "state",
+        "path": "enemyFleetM",
+        "lte": 2000
+      }
+    ],
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "noNetworkErrors": true,
+      "runtimeReady": true
+    }
+  }
+}

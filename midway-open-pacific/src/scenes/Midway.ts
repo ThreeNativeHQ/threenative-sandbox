@@ -62,6 +62,7 @@ export type GameState = {
    * KeyL press from the game's own gate instead of guessing a duration.
    */
   recoveryReady: boolean;
+  enemyFleetM: number;
   /**
    * The UI layer has a peer and has rendered at least once.
    *
@@ -111,6 +112,7 @@ export class Midway extends Scene<GameState, undefined> {
     waterRejected: 0,
     ordnance: 0,
     recoveryReady: false,
+    enemyFleetM: 0,
     uiReady: false,
   };
 
@@ -697,6 +699,17 @@ export class Midway extends Scene<GameState, undefined> {
       waterRejected: this.world.ripples.effects.rejected,
       ordnance: p.bombs ?? 0,
       recoveryReady: this.battle.approach().ready,
+      // Metres to the nearest afloat Japanese carrier: the fleet playtest proves it reached them.
+      enemyFleetM: Math.round(
+        Math.min(
+          ...this.battle.ships
+            .filter(
+              (s: { team: string; kind: string; sunk?: boolean }) =>
+                s.team === "jp" && s.kind === "carrier" && !s.sunk,
+            )
+            .map((s: { x: number; z: number }) => Math.hypot(s.x - (p.x ?? 0), s.z - (p.z ?? 0))),
+        ),
+      ),
     });
     // `set` only stages the patch; the UI channel receives nothing until it is flushed. Without
     // this the native web view attaches, subscribes, and then waits forever for a first snapshot
