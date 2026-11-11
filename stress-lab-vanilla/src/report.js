@@ -12,7 +12,10 @@ const round = (value) => Math.round(value * 100) / 100;
 /** The frames of one window, pooled: p50/p95 of each metre, plus what the window cost in time. */
 export function poolWindow(frames) {
   const of = (key) => {
-    const sorted = frames.map((frame) => frame[key]).sort((a, b) => a - b);
+    const sorted = frames
+      .map((frame) => frame[key])
+      .filter(Number.isFinite)
+      .sort((a, b) => a - b);
     return { p50: pct(sorted, 0.5), p95: pct(sorted, 0.95), p99: pct(sorted, 0.99) };
   };
   const span = (frames.at(-1).start - frames[0].start) / 1000;
@@ -26,6 +29,7 @@ export function poolWindow(frames) {
     render: of("render"),
     draws: of("draws"),
     triangles: of("triangles"),
+    gpu: of("gpu"),
   };
 }
 
@@ -62,7 +66,7 @@ export class StressReport {
    * `FrameBudget` uses (its `frameStart`, with the host gap excluded). Measuring the cost from `start` would
    * bill the browser's pre-callback delay to the game and make the two arms' `frame` incomparable.
    */
-  frame(start, { entry, update, render, draws, triangles, shadowTriangles, hitched }) {
+  frame(start, { entry, update, render, gpu, draws, triangles, shadowTriangles, hitched }) {
     const presented = this.#lastStart === undefined ? 0 : start - this.#lastStart;
     this.#lastStart = start;
     if (hitched) this.#hitches += 1;
@@ -71,6 +75,7 @@ export class StressReport {
       frame: performance.now() - entry,
       update,
       render,
+      gpu,
       draws,
       triangles: triangles - shadowTriangles,
       presented,
@@ -121,8 +126,9 @@ export class StressReport {
         hostCallsP50: null,
         gpuUploadKbP50: null,
         jsAllocKbP50: null,
-        gpuP50Ms: null,
-        gpuP95Ms: null,
+        // three's timestamp queries over every pass of `render()`; null where the adapter has no `timestamp-query`.
+        gpuP50Ms: pick((w) => w.gpu.p50),
+        gpuP95Ms: pick((w) => w.gpu.p95),
         renderP50Ms: required("phases.render.p50", (w) => w.render.p50),
         updateP50Ms: required("phases.update.p50", (w) => w.update.p50),
         frameP50Ms: required("frame.p50", (w) => w.frame.p50),

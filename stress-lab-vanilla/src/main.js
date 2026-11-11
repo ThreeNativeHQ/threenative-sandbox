@@ -585,7 +585,11 @@ function build(scene, { mannequin, sky, load }) {
 
 async function main() {
   const loadStart = performance.now();
-  const renderer = new WebGPURenderer({ antialias: true, powerPreference: "high-performance" });
+  const renderer = new WebGPURenderer({
+    antialias: true,
+    powerPreference: "high-performance",
+    trackTimestamp: true,
+  });
   renderer.setPixelRatio(1);
   renderer.setSize(globalThis.innerWidth, globalThis.innerHeight);
   renderer.shadowMap.enabled = true;
@@ -628,6 +632,10 @@ async function main() {
   );
 
   let last = performance.now();
+  // GPU time per frame: one resolve in flight; it sums the passes of every frame since the last one, so divide.
+  let gpuMs;
+  let gpuFrames = 0;
+  let resolving = false;
   const frame = (start) => {
     // `entry` is the callback's start, which is where the frame's own cost begins (see report.js).
     const entry = performance.now();
@@ -639,11 +647,26 @@ async function main() {
     const renderStart = performance.now();
     renderer.render(scene, camera);
     const end = performance.now();
+    gpuFrames += 1;
+    if (!resolving) {
+      const frames = gpuFrames;
+      gpuFrames = 0;
+      resolving = true;
+      renderer
+        .resolveTimestampsAsync()
+        .then((ms) => {
+          gpuMs = ms > 0 ? ms / frames : undefined;
+        })
+        .finally(() => {
+          resolving = false;
+        });
+    }
     publish(
       report.frame(start, {
         entry,
         update: renderStart - updateStart,
         render: end - renderStart,
+        gpu: gpuMs,
         draws: renderer.info.render.drawCalls,
         triangles: renderer.info.render.triangles,
         shadowTriangles: world.shadowTriangles,
