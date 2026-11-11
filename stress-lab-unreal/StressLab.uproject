@@ -1,0 +1,12 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "5.8",
+	"Category": "",
+	"Description": "ThreeNative stress lab, Unreal 5.8.3 arm (PRD-770 Phase 3). Content-only: build_level.py builds the level, runtime.py drives it.",
+	"Plugins": [
+		{
+			"Name": "PythonScriptPlugin",
+			"Enabled": true
+		}
+	]
+}

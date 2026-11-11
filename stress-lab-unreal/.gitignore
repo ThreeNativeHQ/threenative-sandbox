@@ -1,0 +1,7 @@
+# Regenerable: the editor writes these, and build_level.py rebuilds Content/ and layout.json.
+Saved/
+Intermediate/
+DerivedDataCache/
+Content/
+layout.json
+rows/*.csv
