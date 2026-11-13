@@ -1,0 +1,20 @@
+{
+  "name": "platformer-jump",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": { "width": 1280, "height": 720 },
+  "warmupFrames": 10,
+  "subject": "player",
+  "steps": [
+    { "kind": "input", "press": "Space", "holdTicks": 4, "release": true },
+    { "kind": "wait", "waitTicks": 14, "release": true }
+  ],
+  "assert": {
+    "diagnostics": { "noConsoleErrors": true, "runtimeReady": true },
+    "movement": { "entity": "player", "minAxisDelta": { "axis": "+y", "min": 1.5 } },
+    "resources": [
+      { "id": "state", "path": "jumps", "gte": 1, "changed": true },
+      { "id": "state", "path": "peakRise", "gte": 1.5, "changed": true }
+    ]
+  }
+}

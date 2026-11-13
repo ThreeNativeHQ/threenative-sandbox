@@ -1,0 +1,33 @@
+{
+  "name": "platformer-touch-controls-native",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": { "width": 1280, "height": 720 },
+  "warmupFrames": 10,
+  "subject": "player",
+  "artifacts": { "screenshots": "after" },
+  "steps": [
+    {
+      "label": "movement-anchor",
+      "pointers": [{ "id": 7, "x": 0.18, "y": 0.75 }],
+      "holdTicks": 2,
+      "release": false
+    },
+    {
+      "label": "simultaneous-move-and-jump",
+      "pointers": [{ "id": 7, "x": 0.3, "y": 0.75 }, { "id": 3, "x": 0.922, "y": 0.861 }],
+      "holdTicks": 45,
+      "release": true
+    },
+    { "label": "released", "kind": "wait", "waitTicks": 10, "release": true }
+  ],
+  "assert": {
+    "diagnostics": { "noConsoleErrors": true, "runtimeReady": true },
+    "movement": { "entity": "player", "minDistance": 0.5 },
+    "resources": [
+      { "id": "state", "path": "jumps", "gte": 1, "changed": true },
+      { "id": "state", "path": "playerX", "gte": 0.05, "changed": true }
+    ],
+    "visibility": [{ "entity": "touch-controls", "present": true }]
+  }
+}

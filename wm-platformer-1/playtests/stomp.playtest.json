@@ -1,0 +1,79 @@
+{
+  "name": "platformer-stomp",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 10,
+  "subject": "player",
+  "setup": {
+    "place": [
+      {
+        "entity": "walker.0",
+        "at": {
+          "x": 18.8,
+          "y": 0,
+          "z": 0
+        },
+        "frozen": true
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "input",
+      "label": "build-speed",
+      "press": "ArrowRight",
+      "holdTicks": 113,
+      "release": false
+    },
+    {
+      "kind": "input",
+      "label": "jump",
+      "press": ["ArrowRight", "Space"],
+      "holdTicks": 42,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "stomp-settled",
+      "waitTicks": 45,
+      "release": true
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "resources": [
+      {
+        "id": "state",
+        "path": "defeated",
+        "gte": 1,
+        "changed": true
+      },
+      {
+        "id": "state",
+        "path": "jumps",
+        "gte": 1,
+        "changed": true
+      },
+      {
+        "allowTrivial": "A successful stomp should not damage the player; three hearts remains the intentional held invariant while defeat and jump prove the action.",
+        "id": "state",
+        "path": "hearts",
+        "equals": 3
+      }
+    ],
+    "signals": [
+      {
+        "entity": "player",
+        "minCount": 1,
+        "name": "stomped"
+      }
+    ]
+  }
+}

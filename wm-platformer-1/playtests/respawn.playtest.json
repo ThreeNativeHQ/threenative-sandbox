@@ -1,0 +1,66 @@
+{
+  "name": "platformer-respawn",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 10,
+  "subject": "player",
+  "steps": [
+    {
+      "kind": "input",
+      "label": "off-the-meadow",
+      "press": "ArrowRight",
+      "holdTicks": 230,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "fell",
+      "waitTicks": 200,
+      "release": true
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "movement": {
+      "entity": "player",
+      "reachesPositionWithin": {
+        "position": [11.5, 0.75, 0],
+        "maxDistance": 2
+      }
+    },
+    "resources": [
+      {
+        "id": "state",
+        "path": "checkpoint",
+        "equals": 2,
+        "changed": true
+      },
+      {
+        "id": "state",
+        "path": "respawns",
+        "gte": 1,
+        "changed": true
+      }
+    ]
+  },
+  "setup": {
+    "place": [
+      {
+        "entity": "walker.0",
+        "at": {
+          "x": -19,
+          "y": 0,
+          "z": 0
+        },
+        "frozen": true
+      }
+    ]
+  }
+}

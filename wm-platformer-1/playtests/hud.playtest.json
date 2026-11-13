@@ -1,0 +1,34 @@
+{
+  "name": "platformer-hud",
+  "target": "web",
+  "schemaVersion": 1,
+  "subject": "player",
+  "viewport": { "width": 1280, "height": 720 },
+  "artifacts": { "screenshots": "after" },
+  "warmupFrames": 40,
+  "steps": [
+    {
+      "kind": "input",
+      "label": "run-right",
+      "press": "ArrowRight",
+      "holdTicks": 90,
+      "release": true
+    },
+    { "kind": "wait", "label": "settle", "waitFrames": 60, "release": true }
+  ],
+  "assert": {
+    "diagnostics": { "noConsoleErrors": true, "noRuntimeDiagnostics": true, "runtimeReady": true },
+    "resources": [{ "id": "state", "path": "coins", "gte": 3, "changed": true }],
+    "visual": [
+      {
+        "region": {
+          "x": 24,
+          "y": 24,
+          "width": 420,
+          "height": 56,
+          "minNonblankPixelRatio": 0.02
+        }
+      }
+    ]
+  }
+}

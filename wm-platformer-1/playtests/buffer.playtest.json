@@ -1,0 +1,27 @@
+{
+  "name": "platformer-air-jump",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": { "width": 1280, "height": 720 },
+  "warmupFrames": 10,
+  "subject": "player",
+  "steps": [
+    { "kind": "input", "label": "ground-jump", "press": "Space", "holdTicks": 2, "release": true },
+    { "kind": "wait", "label": "rising", "waitTicks": 20, "release": true },
+    { "kind": "input", "label": "air-jump", "press": "Space", "holdTicks": 2, "release": true },
+    { "kind": "wait", "waitTicks": 30, "release": true }
+  ],
+  "assert": {
+    "diagnostics": { "noConsoleErrors": true, "runtimeReady": true },
+    "resources": [
+      { "id": "state", "path": "jumps", "gte": 2, "changed": true },
+      {
+        "allowTrivial": "Exactly one coyote jump is available from the ground, so two jumps with no second landing in between can only be the ground jump plus the air jump.",
+        "id": "state",
+        "path": "coyoteJumps",
+        "equals": 1,
+        "changed": true
+      }
+    ]
+  }
+}

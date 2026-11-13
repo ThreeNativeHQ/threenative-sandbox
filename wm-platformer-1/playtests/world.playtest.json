@@ -1,0 +1,26 @@
+{
+  "name": "platformer-world-has-a-floor-of-sky",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": { "width": 1280, "height": 720 },
+  "warmupFrames": 10,
+  "subject": "player",
+  "steps": [{ "kind": "wait", "label": "world-loaded", "waitTicks": 30, "release": true }],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "noNetworkErrors": true,
+      "runtimeReady": true
+    },
+    "scene": {
+      "cameraClearsScene": true,
+      "fogClearsScene": true
+    },
+    "sceneNodes": [{ "select": { "name": "sky-floor" }, "visible": true, "minCount": 1 }],
+    "visual": [
+      {
+        "region": { "x": 0, "y": 0, "width": 1280, "height": 720, "minNonblankPixelRatio": 0.5 }
+      }
+    ]
+  }
+}

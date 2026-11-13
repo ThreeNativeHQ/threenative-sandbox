@@ -1,0 +1,64 @@
+{
+  "name": "platformer-coyote",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 10,
+  "subject": "player",
+  "steps": [
+    {
+      "kind": "input",
+      "label": "off-the-ledge",
+      "press": "ArrowRight",
+      "holdTicks": 226,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "inside-the-window",
+      "waitTicks": 4,
+      "release": true
+    },
+    {
+      "kind": "input",
+      "label": "late-jump",
+      "press": "Space",
+      "holdTicks": 2,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "waitTicks": 40,
+      "release": true
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "resources": [
+      {
+        "id": "state",
+        "path": "jumps",
+        "gte": 1,
+        "changed": true
+      },
+      {
+        "id": "state",
+        "path": "coyoteJumps",
+        "gte": 1,
+        "changed": true
+      },
+      {
+        "allowTrivial": "The jump clears the four-metre gap at x=30, so the fox is still on the far side of it and was never respawned.",
+        "id": "state",
+        "path": "respawns",
+        "equals": 0
+      }
+    ]
+  }
+}

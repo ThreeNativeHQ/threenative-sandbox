@@ -1,0 +1,59 @@
+{
+  "name": "platformer-damage",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 10,
+  "subject": "player",
+  "setup": {
+    "place": [
+      {
+        "entity": "walker.0",
+        "at": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "frozen": true
+      }
+    ]
+  },
+  "steps": [
+    {
+      "kind": "input",
+      "label": "run-into-it",
+      "press": "ArrowRight",
+      "holdTicks": 45,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "damage-settled",
+      "waitTicks": 10,
+      "release": true
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "runtimeReady": true
+    },
+    "resources": [
+      {
+        "id": "state",
+        "path": "hearts",
+        "equals": 2,
+        "changed": true
+      },
+      {
+        "allowTrivial": "Contact damage rather than a stomp is the claim here: nothing was defeated, so the walker is still there and the heart is one lower.",
+        "id": "state",
+        "path": "defeated",
+        "equals": 0
+      }
+    ]
+  }
+}
