@@ -1,5 +1,6 @@
 import {
   GPUParticles3D,
+  GroundSnap,
   InstancedBatch,
   Scene,
   type SceneFrame,
@@ -9,6 +10,7 @@ import {
   debugFlag,
   getPlatform,
   isMobile,
+  markStatic,
   resolveTargetFps,
   version,
 } from "@threenative/core";
@@ -37,6 +39,7 @@ import {
   TORCH_RANGE,
   barrelGeometry,
   bodyMaterial,
+  canopyFarGeometry,
   canopyGeometry,
   canopyMaterial,
   crateGeometry,
@@ -47,10 +50,12 @@ import {
   groundMaterial,
   houseGeometry,
   propMaterial,
+  rockFarGeometry,
   rockGeometry,
   rockMaterial,
   roofGeometry,
   roofMaterial,
+  trunkFarGeometry,
   trunkGeometry,
   trunkMaterial,
   wallMaterial,
@@ -100,6 +105,16 @@ function loadFactor(): number {
 }
 const LAYERS = ["trees", "rocks", "houses", "props", "crowd", "bodies", "fires", "lights"] as const;
 type Layer = (typeof LAYERS)[number];
+/**
+ * PRD-898: `?stress&systems` loads the engine systems the plain scene never touches, one layer per
+ * engine-owned JavaScript row: frozen roots (`markStatic`), LOD chains (a cooked prop chain and
+ * authored instanced levels), grounded walkers (`GroundSnap`) and one ground ray per walker per tick.
+ * Each layer is switched off with `?no<Layer>`, as the world layers are. Plain `?stress` is unchanged.
+ */
+const SYSTEMS = ["frozen", "lods", "grounded", "rays"] as const;
+type System = (typeof SYSTEMS)[number];
+/** Authored instanced LOD switch distances, metres. */
+const FAR_LOD = 60;
 
 const WORLD = 180; // half-size, metres
 const TOWN = 45; // half-size of the cleared town square
@@ -109,6 +124,7 @@ const DROP_EVERY = 8;
 
 export class Stress extends Scene<GameState, IPhysicsContext> {
   #mannequin: IPlayerModel | undefined;
+  #lodProp: Object3D | undefined;
   #sky: Texture | undefined;
   #loadStart = 0;
   #post: ReturnType<typeof setupPost> | undefined;
@@ -119,12 +135,16 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
 
   override async load(ctx: GameCtx): Promise<void> {
     this.#loadStart = Date.now();
-    const [mannequin, sky] = await Promise.all([
+    const [mannequin, sky, lodProp] = await Promise.all([
       ctx.assets.model<IPlayerModel>("mannequin.glb"),
       SKY_OPTIONS.sky === "photo" ? ctx.assets.texture("sky.jpg") : undefined,
+      debugFlag("systems") && !debugFlag("noLods")
+        ? ctx.assets.model<{ scene: Object3D }>("lod-prop.glb")
+        : undefined,
     ]);
     this.#mannequin = mannequin;
     this.#sky = sky;
+    this.#lodProp = lodProp?.scene;
     primeCloudTextures(await ctx.assets.memo("clouds", () => cloudTextures()));
   }
 
@@ -132,6 +152,8 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     if (this.#mannequin === undefined) throw new Error("Stress scene did not finish loading.");
     const presetName = debugFlag("max") ? "max" : "real";
     const enabled = (layer: Layer) => !debugFlag(`no${layer[0]?.toUpperCase()}${layer.slice(1)}`);
+    const system = (layer: System) =>
+      debugFlag("systems") && !debugFlag(`no${layer[0]?.toUpperCase()}${layer.slice(1)}`);
     // `?load=N` scales the world's density for a break-point ramp; the vanilla lab reads the same knob.
     const load = loadFactor();
     // `?play` is the same world as a shipped game draws it: textured surfaces from a material library,
@@ -210,14 +232,18 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     });
 
     if (enabled("trees")) {
+      const far = (geometry: typeof trunkGeometry) =>
+        system("lods") ? { lods: [{ distance: FAR_LOD, geometry }] } : {};
       const species = (kit?.trees ?? [undefined]).map((tree) => ({
         trunks: new InstancedBatch({
           geometry: tree?.trunk ?? trunkGeometry,
           material: tree?.bark ?? trunkMaterial,
+          ...far(trunkFarGeometry),
         }),
         canopies: new InstancedBatch({
           geometry: tree?.canopy ?? canopyGeometry,
           material: tree?.leaf ?? canopyMaterial,
+          ...far(canopyFarGeometry),
         }),
       }));
       for (let i = 0; i < size.trees; i += 1) {
@@ -250,7 +276,12 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     }
     if (enabled("rocks")) {
       const kinds = (kit?.rocks ?? [{ geometry: rockGeometry, material: rockMaterial }]).map(
-        (kind) => new InstancedBatch(kind),
+        (kind) =>
+          new InstancedBatch(
+            system("lods")
+              ? { ...kind, lods: [{ distance: FAR_LOD, geometry: rockFarGeometry }] }
+              : kind,
+          ),
       );
       for (let i = 0; i < size.rocks; i += 1) {
         const [x, z] = spot(false);
@@ -303,6 +334,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         house.position.set(cx + (random() - 0.5) * 3, 0, cz + (random() - 0.5) * 3);
         house.rotation.y = Math.floor(random() * 4) * (Math.PI / 2);
         ctx.add(house);
+        if (system("frozen")) markStatic(house);
       }
       counts.houses = size.houses;
     }
@@ -310,22 +342,30 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       // Unique props, each with its own material: crates and barrels dressing the streets.
       for (let i = 0; i < size.props; i += 1) {
         // `real` gives each prop its own colour-only material; `play` shares a library, as a level does.
+        // `systems&lods` draws every prop from the cooked chain, so each one is a LOD-managed mesh.
         const prop =
-          kit === undefined
-            ? new Mesh(i % 2 === 0 ? crateGeometry : barrelGeometry, propMaterial(i))
-            : new Mesh(
-                kit.propGeometries[i % kit.propGeometries.length],
-                kit.propMaterials[(i * 7) % kit.propMaterials.length],
-              );
+          this.#lodProp !== undefined
+            ? this.#lodProp.clone()
+            : kit === undefined
+              ? new Mesh(i % 2 === 0 ? crateGeometry : barrelGeometry, propMaterial(i))
+              : new Mesh(
+                  kit.propGeometries[i % kit.propGeometries.length],
+                  kit.propMaterials[(i * 7) % kit.propMaterials.length],
+                );
         const s = 0.5 + random() * 0.6;
         prop.scale.setScalar(s);
         prop.position.set((random() * 2 - 1) * TOWN, s / 2, (random() * 2 - 1) * TOWN);
         prop.rotation.y = random() * Math.PI;
-        prop.castShadow = true;
-        prop.receiveShadow = true;
+        prop.traverse((object) => {
+          object.castShadow = true;
+          object.receiveShadow = true;
+        });
         ctx.add(prop);
+        if (system("frozen")) markStatic(prop);
       }
       counts.props = size.props;
+      if (system("frozen")) counts.frozen = (enabled("houses") ? size.houses : 0) + size.props;
+      if (this.#lodProp !== undefined) counts.lodProps = size.props;
     }
 
     const walkers: {
@@ -336,6 +376,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       phase: number;
       angle: number;
       state: number;
+      snap: GroundSnap | undefined;
     }[] = [];
     if (enabled("crowd")) {
       for (let i = 0; i < size.crowd; i += 1) {
@@ -355,9 +396,12 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         const radius = 6 + random() * (TOWN - 8);
         const speed = 1.2 + random() * 0.4;
         const phase = random() * Math.PI * 2;
-        walkers.push({ character, holder, radius, speed, phase, angle: phase, state: 0 });
+        const snap = system("grounded") ? new GroundSnap(character.root) : undefined;
+        walkers.push({ character, holder, radius, speed, phase, angle: phase, state: 0, snap });
       }
       counts.crowd = size.crowd;
+      if (system("grounded")) counts.grounded = size.crowd;
+      if (system("rays")) counts.rays = size.crowd;
     }
 
     const bodies: RigidBody3D[] = [];
@@ -443,7 +487,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
             debugFlag("adaptive") ? `-adaptive-${post.tier}` : ""
           }`;
         },
-        layers: LAYERS.filter(enabled),
+        layers: [...LAYERS.filter(enabled), ...SYSTEMS.filter(system)],
         adapter: gpu === undefined ? "unknown" : `${gpu.vendor} / ${gpu.architecture}`,
         viewport: `${ctx.viewport.size.width}x${ctx.viewport.size.height}`,
         counts,
@@ -455,6 +499,8 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     camera.far = 600;
     camera.updateProjectionMatrix();
     const still = debugFlag("still");
+    const rays = system("rays") && walkers.length > 0;
+    const space = ctx.physics.directSpaceState;
     const closeup = debugFlag("closeup");
     // `?freezeAt=<s>` orbits until that time, then holds: a paired capture after a real pan path.
     const freezeAt = Number(
@@ -536,6 +582,17 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         );
         walker.holder.rotation.y = -angle;
         walker.character.update(still ? 0 : dt);
+        // PRD-898 `rays`: one ground ray per walker per tick, as a character controller casts one.
+        let ground = 0;
+        if (rays) {
+          const at = walker.holder.position;
+          const hit = space.intersectRay({
+            from: { x: at.x, y: at.y + 2, z: at.z },
+            to: { x: at.x, y: at.y - 4, z: at.z },
+          });
+          if (hit !== undefined) ground = hit.position.y;
+        }
+        walker.snap?.apply(walker.character.root, ground, dt);
       }
       const subject = closeup ? walkers.reduce((a, b) => (b.radius < a.radius ? b : a)) : undefined;
       if (subject) {

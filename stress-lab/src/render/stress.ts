@@ -7,6 +7,7 @@ import {
   DodecahedronGeometry,
   MeshStandardMaterial,
   PlaneGeometry,
+  TetrahedronGeometry,
 } from "three";
 import {
   Fn,
@@ -39,6 +40,10 @@ export const trunkMaterial = new MeshStandardMaterial({ color: 0x5a4030, roughne
 export const canopyMaterial = new MeshStandardMaterial({ color: 0x2f5a2a, roughness: 0.8 });
 
 export const rockGeometry = new DodecahedronGeometry(0.5, 0);
+/** PRD-898 `systems&lods`: authored far levels for the tree and rock batches (`InstancedBatch.lods`). */
+export const trunkFarGeometry = new CylinderGeometry(0.12, 0.2, 1, 4).translate(0, 0.5, 0);
+export const canopyFarGeometry = new ConeGeometry(1, 1, 5).translate(0, 0.5, 0);
+export const rockFarGeometry = new TetrahedronGeometry(0.5, 0);
 export const rockMaterial = new MeshStandardMaterial({ color: 0x7c7a74, roughness: 0.85 });
 
 export const houseGeometry = new BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
