@@ -413,9 +413,9 @@ function crossCardFoliageGeometry(): PlaneGeometry {
   for (let i = 0; i < bIdx.count; i += 1) indices[aIdx.count + i] = bIdx.getX(i) + aPos.count;
 
   const merged = new PlaneGeometry(1, 1);
-  merged.setAttribute("position", aPos.clone().copyArray(posArr));
-  merged.setAttribute("normal", aNorm.clone().copyArray(normArr));
-  merged.setAttribute("uv", aUv.clone().copyArray(uvArr));
+  merged.setAttribute("position", new BufferAttribute(posArr, 3));
+  merged.setAttribute("normal", new BufferAttribute(normArr, 3));
+  merged.setAttribute("uv", new BufferAttribute(uvArr, 2));
   merged.setAttribute("sway", new BufferAttribute(swayArr, 1));
   merged.setIndex(Array.from(indices));
   merged.computeBoundingSphere();
