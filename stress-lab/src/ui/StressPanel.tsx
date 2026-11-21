@@ -7,12 +7,13 @@ import type { GameState } from "../state.js";
  * The same report is on `window.__TN_STRESS__` for DevTools and capture scripts.
  */
 export function StressPanel() {
-  const state = useUiState<GameState>();
-  const report = state?.stress ?? null;
+  const mode = useUiState((s: GameState) => s.mode);
+  const report = useUiState((s: GameState) => s.stress) ?? null;
+  const stressTick = useUiState((s: GameState) => s.stressTick) ?? 0;
   useEffect(() => {
     (globalThis as { __TN_STRESS__?: unknown }).__TN_STRESS__ = report;
   }, [report]);
-  if (state === undefined || state.mode !== "stress") return null;
+  if (mode !== "stress") return null;
   if (report === null)
     return (
       <div className="pointer-events-none absolute left-4 top-4 rounded bg-panel p-3 text-xs text-dim">
@@ -49,6 +50,7 @@ export function StressPanel() {
       ))}
       <div className="mt-1 text-dim">
         {report.windows} windows · {report.seconds}s pooled
+        {stressTick > 0 ? ` · tick ${stressTick}` : ""}
       </div>
     </div>
   );

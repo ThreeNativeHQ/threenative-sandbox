@@ -1,4 +1,5 @@
 import {
+  Billboard3D,
   GPUParticles3D,
   GroundSnap,
   InstancedBatch,
@@ -14,8 +15,29 @@ import {
   resolveTargetFps,
   version,
 } from "@threenative/core";
-import { CollisionShape3D, type IPhysicsContext, RigidBody3D } from "@threenative/physics";
-import { Group, Mesh, Object3D, type PerspectiveCamera, PointLight, type Texture } from "three";
+import {
+  Area3D,
+  CharacterBody3D,
+  CollisionShape3D,
+  type IPhysicsContext,
+  RigidBody3D,
+} from "@threenative/physics";
+import {
+  AudioListener,
+  Group,
+  type InstancedMesh,
+  Matrix4,
+  Mesh,
+  Object3D,
+  type PerspectiveCamera,
+  PointLight,
+  PositionalAudio,
+  Quaternion,
+  Raycaster,
+  SpotLight,
+  type Texture,
+  Vector3,
+} from "three";
 import config from "../../threenative.config.js";
 import { type IPlayerModel } from "../entities/Player.js";
 import { cloudTextures, primeCloudTextures } from "../render/clouds.js";
@@ -60,6 +82,22 @@ import {
   trunkMaterial,
   wallMaterial,
 } from "../render/stress.js";
+import {
+  SPOTLIGHT_ANGLE,
+  SPOTLIGHT_COLOR,
+  SPOTLIGHT_DISTANCE,
+  SPOTLIGHT_INTENSITY,
+  billboardGeometry,
+  billboardMaterial,
+  glassGeometry,
+  glassMaterial,
+  leafCutoutMaterial,
+  leafGeometry,
+  markerGeometry,
+  markerMaterial,
+  npcGeometry,
+  npcMaterial,
+} from "../render/stressExtended.js";
 import type { GameState } from "../state.js";
 import { stressReport } from "../stressReport.js";
 import { type GameCtx, Play } from "./Play.js";
@@ -113,8 +151,36 @@ type Layer = (typeof LAYERS)[number];
  */
 const SYSTEMS = ["frozen", "lods", "grounded", "rays"] as const;
 type System = (typeof SYSTEMS)[number];
+/**
+ * `?stress&extended` adds uncovered subsystem layers: billboards, CharacterBody3D patrols, Area3D
+ * sensors, alpha-cutout + transparent geometry, shadowed SpotLights, scattered dynamic instance
+ * matrix updates, PositionalAudio emitters, Raycaster scene picking, and live HUD ticks.
+ */
+const EXTENDED = [
+  "billboards",
+  "characters",
+  "areas",
+  "transparent",
+  "spotlights",
+  "dynamicBatch",
+  "audio",
+  "picking",
+  "hud",
+] as const;
+type Extended = (typeof EXTENDED)[number];
 /** Authored instanced LOD switch distances, metres. */
 const FAR_LOD = 60;
+
+const EXTENDED_SIZES = {
+  characters: 24,
+  areas: 16,
+  cutoutLeaves: 400,
+  glassPanels: 120,
+  spotlights: 4,
+  markers: 2_000,
+  audio: 24,
+  raysPerFrame: 8,
+} as const;
 
 const WORLD = 180; // half-size, metres
 const TOWN = 45; // half-size of the cleared town square
@@ -130,6 +196,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
   #post: ReturnType<typeof setupPost> | undefined;
   #disposeLighting: (() => void) | undefined;
   #materialLighting: ReturnType<typeof createMaterialLighting> | undefined;
+  #disposeExtended: (() => void) | undefined;
 
   static override readonly initialState: GameState = { ...Play.initialState, mode: "stress" };
 
@@ -154,6 +221,8 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     const enabled = (layer: Layer) => !debugFlag(`no${layer[0]?.toUpperCase()}${layer.slice(1)}`);
     const system = (layer: System) =>
       debugFlag("systems") && !debugFlag(`no${layer[0]?.toUpperCase()}${layer.slice(1)}`);
+    const extended = (layer: Extended) =>
+      debugFlag("extended") && !debugFlag(`no${layer[0]?.toUpperCase()}${layer.slice(1)}`);
     // `?load=N` scales the world's density for a break-point ramp; the vanilla lab reads the same knob.
     const load = loadFactor();
     // `?play` is the same world as a shipped game draws it: textured surfaces from a material library,
@@ -302,6 +371,8 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       );
       counts.rocks = size.rocks;
     }
+    const pickRoot = extended("picking") ? new Group() : undefined;
+    if (pickRoot !== undefined) ctx.add(pickRoot);
     if (enabled("houses")) {
       // Hand-placed buildings, one mesh each, as a level editor exports them.
       const columns = Math.ceil(Math.sqrt(size.houses));
@@ -333,7 +404,8 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         const cz = street((Math.floor(i / columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8);
         house.position.set(cx + (random() - 0.5) * 3, 0, cz + (random() - 0.5) * 3);
         house.rotation.y = Math.floor(random() * 4) * (Math.PI / 2);
-        ctx.add(house);
+        if (pickRoot !== undefined) pickRoot.add(house);
+        else ctx.add(house);
         if (system("frozen")) markStatic(house);
       }
       counts.houses = size.houses;
@@ -474,6 +546,16 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       }),
     );
     if (kit !== undefined) Object.assign(counts, kit.counts);
+    const ext = setupExtendedLayers({
+      ctx,
+      extended,
+      load,
+      walkers,
+      fires,
+      pickRoot,
+      counts,
+    });
+    this.#disposeExtended = ext.dispose;
     const thrown: { mesh: Mesh; born: number; vx: number; vz: number }[] = [];
     let spawned = 0;
     const gpu = ctx.renderer.gpuClass?.fields;
@@ -487,7 +569,11 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
             debugFlag("adaptive") ? `-adaptive-${post.tier}` : ""
           }`;
         },
-        layers: [...LAYERS.filter(enabled), ...SYSTEMS.filter(system)],
+        layers: [
+          ...LAYERS.filter(enabled),
+          ...SYSTEMS.filter(system),
+          ...EXTENDED.filter(extended),
+        ],
         adapter: gpu === undefined ? "unknown" : `${gpu.vendor} / ${gpu.architecture}`,
         viewport: `${ctx.viewport.size.width}x${ctx.viewport.size.height}`,
         counts,
@@ -605,10 +691,13 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         sinceDrop = 0;
         dropBodies();
       }
+      ext.tick(clock, dt, still);
     };
   }
 
   override exit(ctx: GameCtx): void {
+    this.#disposeExtended?.();
+    this.#disposeExtended = undefined;
     this.#materialLighting?.dispose();
     this.#materialLighting = undefined;
     this.#post?.dispose();
@@ -618,3 +707,276 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     super.exit(ctx);
   }
 }
+
+interface IExtendedSetup {
+  readonly ctx: GameCtx;
+  readonly extended: (layer: Extended) => boolean;
+  readonly load: number;
+  readonly walkers: readonly { readonly holder: Group }[];
+  readonly fires: readonly [number, number][];
+  readonly pickRoot: Group | undefined;
+  readonly counts: Record<string, number>;
+}
+
+function setupExtendedLayers({
+  ctx,
+  extended,
+  load,
+  walkers,
+  fires,
+  pickRoot,
+  counts,
+}: IExtendedSetup): {
+  tick: (clock: number, dt: number, still: boolean) => void;
+  dispose: () => void;
+} {
+  const random = createRandom(9191);
+  const billboards: Billboard3D[] = [];
+  if (extended("billboards")) {
+    const count = walkers.length > 0 ? walkers.length : Math.round(120 * load);
+    for (let i = 0; i < count; i += 1) {
+      const bar = new Mesh(billboardGeometry, billboardMaterial);
+      const holder = walkers[i]?.holder;
+      if (holder !== undefined) {
+        bar.position.set(0, 2.2, 0);
+        holder.add(bar);
+      } else {
+        bar.position.set((random() * 2 - 1) * TOWN, 2.2, (random() * 2 - 1) * TOWN);
+        ctx.add(bar);
+      }
+      billboards.push(
+        new Billboard3D(bar, {
+          camera: ctx.camera,
+          lockAxis: i % 2 === 0 ? "y" : undefined,
+        }),
+      );
+    }
+    counts.billboards = billboards.length;
+  }
+
+  const npcs: { body: CharacterBody3D; cx: number; cz: number; phase: number }[] = [];
+  if (extended("characters")) {
+    const npcCount = Math.round(EXTENDED_SIZES.characters * load);
+    for (let i = 0; i < npcCount; i += 1) {
+      const cx = (random() * 2 - 1) * (TOWN * 0.75);
+      const cz = (random() * 2 - 1) * (TOWN * 0.75);
+      const mesh = new Mesh(npcGeometry, npcMaterial);
+      mesh.position.set(cx, 1, cz);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      ctx.add(mesh);
+      const body = new CharacterBody3D({
+        object: mesh,
+        physics: ctx.physics,
+        shape: CollisionShape3D.capsule(0.32, 0.45),
+        offset: 0.02,
+      });
+      npcs.push({ body, cx, cz, phase: (i / npcCount) * Math.PI * 2 });
+    }
+    counts.characters = npcs.length;
+  }
+
+  const areas: Area3D[] = [];
+  let areaEnteredCount = 0;
+  if (extended("areas")) {
+    for (let i = 0; i < EXTENDED_SIZES.areas; i += 1) {
+      const angle = (i / EXTENDED_SIZES.areas) * Math.PI * 2;
+      const area = new Area3D({
+        physics: ctx.physics,
+        position: { x: Math.cos(angle) * TOWN * 0.55, y: 1, z: Math.sin(angle) * TOWN * 0.55 },
+        shape: CollisionShape3D.sphere(3),
+      });
+      area.on("bodyEntered", () => {
+        areaEnteredCount += 1;
+      });
+      areas.push(area);
+    }
+    counts.areas = areas.length;
+  }
+
+  if (extended("transparent")) {
+    const cutoutMat = leafCutoutMaterial();
+    const cutoutCount = Math.round(EXTENDED_SIZES.cutoutLeaves * load);
+    for (let i = 0; i < cutoutCount; i += 1) {
+      const leaf = new Mesh(leafGeometry, cutoutMat);
+      leaf.position.set((random() * 2 - 1) * TOWN * 1.4, 0.7, (random() * 2 - 1) * TOWN * 1.4);
+      leaf.rotation.y = random() * Math.PI * 2;
+      leaf.castShadow = true;
+      leaf.receiveShadow = true;
+      ctx.add(leaf);
+    }
+    const glassCount = Math.round(EXTENDED_SIZES.glassPanels * load);
+    for (let i = 0; i < glassCount; i += 1) {
+      const glass = new Mesh(glassGeometry, glassMaterial);
+      glass.position.set((random() * 2 - 1) * TOWN * 0.9, 1.2, (random() * 2 - 1) * TOWN * 0.9);
+      glass.rotation.y = random() * Math.PI;
+      ctx.add(glass);
+    }
+    counts.transparent = cutoutCount + glassCount;
+  }
+
+  const spotlights: { light: SpotLight; baseAngle: number }[] = [];
+  if (extended("spotlights")) {
+    for (let i = 0; i < EXTENDED_SIZES.spotlights; i += 1) {
+      const baseAngle = (i / EXTENDED_SIZES.spotlights) * Math.PI * 2 + Math.PI / 4;
+      const spot = new SpotLight(
+        SPOTLIGHT_COLOR,
+        SPOTLIGHT_INTENSITY,
+        SPOTLIGHT_DISTANCE,
+        SPOTLIGHT_ANGLE,
+        0.35,
+        2,
+      );
+      spot.position.set(Math.cos(baseAngle) * 32, 12, Math.sin(baseAngle) * 32);
+      spot.target.position.set(Math.cos(baseAngle) * 8, 0, Math.sin(baseAngle) * 8);
+      spot.castShadow = true;
+      spot.shadow.camera.near = 1;
+      spot.shadow.camera.far = SPOTLIGHT_DISTANCE;
+      spot.shadow.radius = 1.5;
+      ctx.add(spot);
+      ctx.add(spot.target);
+      spotlights.push({ light: spot, baseAngle });
+    }
+    counts.spotlights = spotlights.length;
+  }
+
+  let dynamicMesh: InstancedMesh | undefined;
+  let dynamicIndices: Uint32Array | undefined;
+  let dynamicBase: Float32Array | undefined;
+  const markerPos = new Vector3();
+  const markerQuat = new Quaternion();
+  const markerScale = new Vector3(1, 1, 1);
+  const markerMat = new Matrix4();
+  if (extended("dynamicBatch")) {
+    const total = Math.round(EXTENDED_SIZES.markers * load);
+    const batch = new InstancedBatch({ geometry: markerGeometry, material: markerMaterial });
+    const animated: number[] = [];
+    const baseCoords: number[] = [];
+    for (let i = 0; i < total; i += 1) {
+      const x = (random() * 2 - 1) * TOWN * 2.2;
+      const y = 1.8 + random() * 2.5;
+      const z = (random() * 2 - 1) * TOWN * 2.2;
+      batch.place({ position: [x, y, z], rotation: [0, random() * Math.PI * 2, 0] });
+      if (i % 20 === 0) {
+        animated.push(i);
+        baseCoords.push(x, y, z);
+      }
+    }
+    dynamicMesh = batch.build({ name: "extendedMarkers", parent: ctx.scene });
+    dynamicIndices = new Uint32Array(animated);
+    dynamicBase = new Float32Array(baseCoords);
+    counts.dynamicBatch = total;
+  }
+
+  let audioListener: AudioListener | undefined;
+  const audioVoices: PositionalAudio[] = [];
+  if (extended("audio") && typeof globalThis.AudioContext === "function") {
+    audioListener = new AudioListener();
+    ctx.camera.add(audioListener);
+    for (let i = 0; i < EXTENDED_SIZES.audio; i += 1) {
+      const voice = new PositionalAudio(audioListener);
+      // Silent AudioNode source marks hasPlaybackControl = false cleanly so sync(true) runs every frame without audible playback.
+      voice.setNodeSource(audioListener.context.createGain());
+      voice.setRefDistance(4);
+      voice.setRolloffFactor(1);
+      const walker = walkers[i];
+      if (i >= EXTENDED_SIZES.audio / 2 && walker !== undefined) {
+        walker.holder.add(voice);
+      } else {
+        const [fx, fz] = fires[i % Math.max(1, fires.length)] ?? [0, 0];
+        voice.position.set(fx, 1.5, fz);
+        ctx.add(voice);
+      }
+      audioVoices.push(voice);
+    }
+    counts.audio = audioVoices.length;
+  }
+
+  const raycaster = extended("picking") ? new Raycaster() : undefined;
+  const rayOrigin = new Vector3();
+  const rayDir = new Vector3();
+  let pickSink = 0;
+  if (raycaster !== undefined && pickRoot !== undefined) {
+    if (pickRoot.children.length === 0) {
+      for (let i = 0; i < 16; i += 1) {
+        const box = new Mesh(glassGeometry, billboardMaterial);
+        box.position.set((random() * 2 - 1) * TOWN, 1, (random() * 2 - 1) * TOWN);
+        pickRoot.add(box);
+      }
+    }
+    raycaster.far = 200;
+    counts.picking = EXTENDED_SIZES.raysPerFrame;
+  }
+
+  const hudActive = extended("hud");
+  let hudTick = 0;
+  if (hudActive) counts.hud = 1;
+
+  return {
+    tick: (clock, dt, still) => {
+      for (const billboard of billboards) billboard.update(ctx.camera);
+      for (const npc of npcs) {
+        if (!still) {
+          const a = clock * 1.1 + npc.phase;
+          npc.body.velocity.set(Math.cos(a) * 3.5, npc.body.velocity.y, Math.sin(a) * 3.5);
+        } else {
+          npc.body.velocity.set(0, 0, 0);
+        }
+        npc.body.moveAndSlide(still ? 0 : dt);
+      }
+      if (!still) {
+        for (const { light, baseAngle } of spotlights) {
+          const sweep = baseAngle + Math.sin(clock * 0.7) * 0.45;
+          light.target.position.set(Math.cos(sweep) * 10, 0, Math.sin(sweep) * 10);
+        }
+      }
+      if (
+        !still &&
+        dynamicMesh !== undefined &&
+        dynamicIndices !== undefined &&
+        dynamicBase !== undefined
+      ) {
+        for (let i = 0; i < dynamicIndices.length; i += 1) {
+          const idx = dynamicIndices[i] as number;
+          const bx = dynamicBase[i * 3] as number;
+          const by = dynamicBase[i * 3 + 1] as number;
+          const bz = dynamicBase[i * 3 + 2] as number;
+          markerPos.set(bx, by + Math.sin(clock * 3 + idx) * 0.5, bz);
+          markerQuat.setFromAxisAngle(UP_AXIS, clock * 1.5 + idx);
+          markerMat.compose(markerPos, markerQuat, markerScale);
+          dynamicMesh.setMatrixAt(idx, markerMat);
+        }
+        dynamicMesh.instanceMatrix.needsUpdate = true;
+      }
+      if (raycaster !== undefined && pickRoot !== undefined) {
+        for (let i = 0; i < EXTENDED_SIZES.raysPerFrame; i += 1) {
+          const angle = clock * 0.6 + (i / EXTENDED_SIZES.raysPerFrame) * Math.PI * 2;
+          rayOrigin.set(Math.cos(angle) * 40, 2.2, Math.sin(angle) * 40);
+          rayDir.set(-Math.cos(angle), -0.05, -Math.sin(angle)).normalize();
+          raycaster.set(rayOrigin, rayDir);
+          pickSink += raycaster.intersectObject(pickRoot, true).length;
+        }
+      }
+      if (hudActive) {
+        hudTick += 1;
+        ctx.state.set({ stressTick: hudTick + (areaEnteredCount & 0) + (pickSink & 0) });
+      }
+    },
+    dispose: () => {
+      for (const area of areas) area.dispose();
+      for (const { body } of npcs) body.dispose();
+      for (const voice of audioVoices) {
+        voice.disconnect();
+        voice.removeFromParent();
+      }
+      audioListener?.removeFromParent();
+      for (const { light } of spotlights) {
+        light.target.removeFromParent();
+        light.removeFromParent();
+        light.dispose();
+      }
+    },
+  };
+}
+
+const UP_AXIS = new Vector3(0, 1, 0);

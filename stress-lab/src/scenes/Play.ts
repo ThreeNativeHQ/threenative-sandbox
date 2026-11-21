@@ -58,6 +58,7 @@ export class Play extends Scene<GameState, IPhysicsContext> {
   static override readonly initialState: GameState = {
     mode: "play",
     stress: null,
+    stressTick: 0,
     coyoteJumps: 0,
     entityCount: 0,
     flagDisplacement: 0,

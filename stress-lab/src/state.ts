@@ -5,6 +5,8 @@ export type GameState = {
   mode: "play" | "stress";
   /** The pooled perf-loop report, published once per frame-budget window after warm-up. */
   stress: IStressReport | null;
+  /** Frame counter published in `?stress&extended` to exercise live HUD state updates. */
+  stressTick: number;
   coyoteJumps: number;
   entityCount: number;
   flagDisplacement: number;
