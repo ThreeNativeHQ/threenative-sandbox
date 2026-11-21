@@ -45,7 +45,16 @@ import { setupLighting, shadeLikeSubstrate } from "../render/lighting.js";
 import { createMaterialLighting } from "../render/materialLighting.js";
 import { setupPost } from "../render/postprocessing.js";
 import { isWebGLFallbackRenderer, materialLightingEnabled } from "../render/quality.js";
-import { SKY_OPTIONS, setupSky } from "../render/sky.js";
+import { setupSky, SKY_OPTIONS } from "../render/sky.js";
+import {
+  type IStrataPreparedWorld,
+  STRATA,
+  type Strata,
+  prepareStrataWorldCells,
+  setupStrataLayers,
+  strataEnabled,
+  strataHeightAt,
+} from "../render/stressStrata.js";
 import {
   AVENUE,
   THROW,
@@ -197,21 +206,27 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
   #disposeLighting: (() => void) | undefined;
   #materialLighting: ReturnType<typeof createMaterialLighting> | undefined;
   #disposeExtended: (() => void) | undefined;
+  #strataWorld: IStrataPreparedWorld | undefined;
+  #disposeStrata: (() => void) | undefined;
 
   static override readonly initialState: GameState = { ...Play.initialState, mode: "stress" };
 
   override async load(ctx: GameCtx): Promise<void> {
     this.#loadStart = Date.now();
-    const [mannequin, sky, lodProp] = await Promise.all([
+    const [mannequin, sky, lodProp, strataWorld] = await Promise.all([
       ctx.assets.model<IPlayerModel>("mannequin.glb"),
       SKY_OPTIONS.sky === "photo" ? ctx.assets.texture("sky.jpg") : undefined,
       debugFlag("systems") && !debugFlag("noLods")
         ? ctx.assets.model<{ scene: Object3D }>("lod-prop.glb")
         : undefined,
+      strataEnabled("worldCells")
+        ? prepareStrataWorldCells(loadFactor(), strataEnabled("splatGround"))
+        : undefined,
     ]);
     this.#mannequin = mannequin;
     this.#sky = sky;
     this.#lodProp = lodProp?.scene;
+    this.#strataWorld = strataWorld;
     primeCloudTextures(await ctx.assets.memo("clouds", () => cloudTextures()));
   }
 
@@ -223,6 +238,8 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       debugFlag("systems") && !debugFlag(`no${layer[0]?.toUpperCase()}${layer.slice(1)}`);
     const extended = (layer: Extended) =>
       debugFlag("extended") && !debugFlag(`no${layer[0]?.toUpperCase()}${layer.slice(1)}`);
+    const strata = (layer: Strata) => strataEnabled(layer);
+    const surfaceY = (x: number, z: number) => (strata("splatGround") ? strataHeightAt(x, z) : 0);
     // `?load=N` scales the world's density for a break-point ramp; the vanilla lab reads the same knob.
     const load = loadFactor();
     // `?play` is the same world as a shipped game draws it: textured surfaces from a material library,
@@ -242,7 +259,9 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       }
     };
 
-    setupSky(ctx.scene, this.#sky, ctx.renderer.softwareAdapter !== undefined);
+    if (!strata("strataPost")) {
+      setupSky(ctx.scene, this.#sky, ctx.renderer.softwareAdapter !== undefined);
+    }
     // The same setup the kit's own scene runs, so the lab pays what a kit game pays.
     const { key, dispose: disposeLighting } = setupLighting(
       ctx.scene,
@@ -259,46 +278,52 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
     };
     // A whole valley under one sun: camera-centred cached clip levels instead of one fitted map.
     // `?plainShadow` keeps the kit's single fitted map instead, to isolate the virtual shadow cost.
-    if (!debugFlag("plainShadow"))
-      key.shadow.shadowNode = new VirtualShadowNode(key, {
-        clipExtents: [16, 48, 160],
-        // Finding: unset, the kit's 4096² sun map sizes every level and the atlas passes the device
-        // texture limit, which loses the Wasm renderer (TN_VIRTUAL_SHADOW_UNSUPPORTED).
-        mapSize: 2048,
-      });
+    const shadowNode = debugFlag("plainShadow")
+      ? undefined
+      : new VirtualShadowNode(key, {
+          clipExtents: [16, 48, 160],
+          // Finding: unset, the kit's 4096² sun map sizes every level and the atlas passes the device
+          // texture limit, which loses the Wasm renderer (TN_VIRTUAL_SHADOW_UNSUPPORTED).
+          mapSize: 2048,
+        });
+    if (shadowNode !== undefined) key.shadow.shadowNode = shadowNode;
     // Finding: the kit's radius 2 exceeds the Wasm engine's 2-texel page guard, and the renderer is
     // lost (TN_VIRTUAL_SHADOW_UNSUPPORTED). 1.5 is the widest PCF radius the guard accepts.
     key.shadow.radius = 1.5;
-    this.#post = ctx.entities.add(
-      "quality",
-      setupPost(ctx.renderer, ctx.scene, ctx.camera, {
-        godraysLight: key,
-        mobile: isMobile(),
-        software: ctx.renderer.softwareAdapter !== undefined,
-        gpuClass: ctx.renderer.gpuClass?.class,
-        onTierChanged: (tier) =>
-          this.#materialLighting?.setEnabled(materialLightingEnabled(tier, materialEnvironment)),
-        targetFps: resolveTargetFps(config, getPlatform()).targetFps,
-        // Pinned so every run draws the same work; `?adaptive` lets the kit's quality policy react.
-        ...(debugFlag("adaptive") ? {} : { tier: "high" as const }),
-        ready: () => ctx.startup.phase === "ready",
-      }),
-    );
+    if (!strata("strataPost")) {
+      this.#post = ctx.entities.add(
+        "quality",
+        setupPost(ctx.renderer, ctx.scene, ctx.camera, {
+          godraysLight: key,
+          mobile: isMobile(),
+          software: ctx.renderer.softwareAdapter !== undefined,
+          gpuClass: ctx.renderer.gpuClass?.class,
+          onTierChanged: (tier) =>
+            this.#materialLighting?.setEnabled(materialLightingEnabled(tier, materialEnvironment)),
+          targetFps: resolveTargetFps(config, getPlatform()).targetFps,
+          // Pinned so every run draws the same work; `?adaptive` lets the kit's quality policy react.
+          ...(debugFlag("adaptive") ? {} : { tier: "high" as const }),
+          ready: () => ctx.startup.phase === "ready",
+        }),
+      );
+    }
     ctx.add(ctx.camera);
 
-    const ground = new Mesh(groundGeometry, kit?.ground ?? groundMaterial);
-    ground.scale.set(WORLD * 2, 1, WORLD * 2);
-    ground.receiveShadow = true;
-    ctx.add(ground);
-    const groundBody = new Object3D();
-    groundBody.position.y = -0.5;
-    ctx.add(groundBody);
-    new RigidBody3D({
-      object: groundBody,
-      physics: ctx.physics,
-      shape: CollisionShape3D.box(WORLD * 2, 1, WORLD * 2),
-      type: "fixed",
-    });
+    if (!strata("splatGround")) {
+      const ground = new Mesh(groundGeometry, kit?.ground ?? groundMaterial);
+      ground.scale.set(WORLD * 2, 1, WORLD * 2);
+      ground.receiveShadow = true;
+      ctx.add(ground);
+      const groundBody = new Object3D();
+      groundBody.position.y = -0.5;
+      ctx.add(groundBody);
+      new RigidBody3D({
+        object: groundBody,
+        physics: ctx.physics,
+        shape: CollisionShape3D.box(WORLD * 2, 1, WORLD * 2),
+        type: "fixed",
+      });
+    }
 
     if (enabled("trees")) {
       const far = (geometry: typeof trunkGeometry) =>
@@ -317,12 +342,13 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       }));
       for (let i = 0; i < size.trees; i += 1) {
         const [x, z] = spot(true);
+        const y = surfaceY(x, z);
         const height = 5 + random() * 7;
         const spin = random() * Math.PI * 2;
         const { trunks, canopies } = species[i % species.length] as (typeof species)[number];
-        trunks.place({ position: [x, 0, z], rotation: [0, spin, 0], scale: [1, height * 0.45, 1] });
+        trunks.place({ position: [x, y, z], rotation: [0, spin, 0], scale: [1, height * 0.45, 1] });
         canopies.place({
-          position: [x, height * 0.3, z],
+          position: [x, y + height * 0.3, z],
           rotation: [0, spin, 0],
           scale: [height * 0.28, height * 0.75, height * 0.28],
         });
@@ -356,7 +382,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         const [x, z] = spot(false);
         const s = 0.3 + random() * 1.6;
         (kinds[i % kinds.length] as InstancedBatch).place({
-          position: [x, s * 0.2, z],
+          position: [x, surfaceY(x, z) + s * 0.2, z],
           rotation: [random() * 3, random() * 3, 0],
           scale: [s, s * 0.7, s],
         });
@@ -402,7 +428,9 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         const street = (at: number) => (kit === undefined ? at : at + Math.sign(at || 1) * AVENUE);
         const cx = street(((i % columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8);
         const cz = street((Math.floor(i / columns) / (columns - 1 || 1) - 0.5) * TOWN * 1.8);
-        house.position.set(cx + (random() - 0.5) * 3, 0, cz + (random() - 0.5) * 3);
+        const hx = cx + (random() - 0.5) * 3;
+        const hz = cz + (random() - 0.5) * 3;
+        house.position.set(hx, surfaceY(hx, hz), hz);
         house.rotation.y = Math.floor(random() * 4) * (Math.PI / 2);
         if (pickRoot !== undefined) pickRoot.add(house);
         else ctx.add(house);
@@ -542,7 +570,7 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       "material-lighting",
       createMaterialLighting(ctx.scene, ctx.camera, key, {
         ...materialEnvironment,
-        enabled: materialLightingEnabled(this.#post.tier, materialEnvironment),
+        enabled: materialLightingEnabled(this.#post?.tier ?? "high", materialEnvironment),
       }),
     );
     if (kit !== undefined) Object.assign(counts, kit.counts);
@@ -556,6 +584,15 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
       counts,
     });
     this.#disposeExtended = ext.dispose;
+    const strataSetup = setupStrataLayers({
+      ctx,
+      strata,
+      load,
+      preparedWorld: this.#strataWorld,
+      shadowNode,
+      counts,
+    });
+    this.#disposeStrata = strataSetup.dispose;
     const thrown: { mesh: Mesh; born: number; vx: number; vz: number }[] = [];
     let spawned = 0;
     const gpu = ctx.renderer.gpuClass?.fields;
@@ -566,13 +603,14 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         // Read at report time: with `?adaptive` the lane is named by the tier the quality policy landed on.
         get preset() {
           return `${presetName}${kit === undefined ? "" : "-play"}${load === 1 ? "" : `x${load}`}${
-            debugFlag("adaptive") ? `-adaptive-${post.tier}` : ""
+            debugFlag("adaptive") ? `-adaptive-${post?.tier ?? "high"}` : ""
           }`;
         },
         layers: [
           ...LAYERS.filter(enabled),
           ...SYSTEMS.filter(system),
           ...EXTENDED.filter(extended),
+          ...STRATA.filter(strata),
         ],
         adapter: gpu === undefined ? "unknown" : `${gpu.vendor} / ${gpu.architecture}`,
         viewport: `${ctx.viewport.size.width}x${ctx.viewport.size.height}`,
@@ -692,10 +730,14 @@ export class Stress extends Scene<GameState, IPhysicsContext> {
         dropBodies();
       }
       ext.tick(clock, dt, still);
+      strataSetup.tick(clock, dt, still);
     };
   }
 
   override exit(ctx: GameCtx): void {
+    this.#disposeStrata?.();
+    this.#disposeStrata = undefined;
+    this.#strataWorld = undefined;
     this.#disposeExtended?.();
     this.#disposeExtended = undefined;
     this.#materialLighting?.dispose();
