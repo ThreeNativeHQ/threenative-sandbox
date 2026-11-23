@@ -1,5 +1,5 @@
 import { CollisionShape3D, RigidBody3D } from "@threenative/physics";
-import { BufferGeometry, Float32BufferAttribute, Mesh, Quaternion, Vector3 } from "three";
+import { BufferGeometry, Mesh, Quaternion, Vector3 } from "three";
 import { type IChunk, brokenTriangles, stump, stumpTop, towerChunks } from "../render/towerChunks.js";
 import type { ITower } from "../render/rockScatter.js";
 import type { IStage } from "../render/stage.js";
@@ -37,10 +37,19 @@ interface IDebris {
 }
 
 const _v = new Vector3();
-const hullShape = (points: Float32Array): CollisionShape3D => {
-  const g = new BufferGeometry();
-  g.setAttribute("position", new Float32BufferAttribute(points, 3));
-  return CollisionShape3D.fromMesh(new Mesh(g), "convexHull");
+// A box around the outline points, not a convex hull: the web runtime's native physics has no
+// convex hull (TN_NATIVE_PHYSICS_SHAPE_UNSUPPORTED since engine 0.3.21), and that throw left a
+// broken tower with no chunks. `mid` is the box's centre in the points' frame.
+const boxAround = (points: Float32Array): { shape: CollisionShape3D; mid: Vector3 } => {
+  const lo = new Vector3(Infinity, Infinity, Infinity);
+  const hi = new Vector3(-Infinity, -Infinity, -Infinity);
+  for (let i = 0; i < points.length; i += 3) {
+    _v.set(points[i] as number, points[i + 1] as number, points[i + 2] as number);
+    lo.min(_v);
+    hi.max(_v);
+  }
+  const size = hi.clone().sub(lo).max(new Vector3(0.1, 0.1, 0.1));
+  return { shape: CollisionShape3D.box(size.x, size.y, size.z), mid: lo.add(hi).multiplyScalar(0.5) };
 };
 
 export class Towers {
@@ -172,10 +181,11 @@ export class Towers {
     stumpMesh.position.copy(base);
     stumpMesh.quaternion.copy(yaw);
     ctx.add(stumpMesh);
+    const stumpBox = boxAround(s.hull);
     const stumpBody = new RigidBody3D({
-      object: stumpMesh,
       physics: ctx.physics,
-      shape: hullShape(s.hull),
+      position: stumpBox.mid.applyQuaternion(yaw).add(base),
+      shape: stumpBox.shape,
       type: "fixed",
     });
 
@@ -197,7 +207,7 @@ export class Towers {
         mass: size.x * size.y * size.z * DENSITY,
         object: mesh,
         physics: ctx.physics,
-        shape: hullShape(c.hull),
+        shape: boxAround(c.hull).shape,
         type: "dynamic",
       });
       const shove = SHOVE[i] as number;

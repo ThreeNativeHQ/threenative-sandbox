@@ -149,12 +149,20 @@ class Soup {
     const n = this.pos.length / 3;
     const c = centre ?? new Vector3();
     if (!centre) {
-      for (let i = 0; i < this.pos.length; i += 3) {
-        c.x += this.pos[i] as number;
-        c.y += this.pos[i + 1] as number;
-        c.z += this.pos[i + 2] as number;
+      // The bounds' middle, not the vertex mean: a box collider must sit centred on the body.
+      const lo = [Infinity, Infinity, Infinity];
+      const hi = [-Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < this.pos.length; i += 1) {
+        const v = this.pos[i] as number;
+        const a = i % 3;
+        lo[a] = Math.min(lo[a] as number, v);
+        hi[a] = Math.max(hi[a] as number, v);
       }
-      c.divideScalar(n);
+      c.set(
+        ((lo[0] as number) + (hi[0] as number)) / 2,
+        ((lo[1] as number) + (hi[1] as number)) / 2,
+        ((lo[2] as number) + (hi[2] as number)) / 2,
+      );
     }
     const stride = Math.max(1, Math.floor(n / HULL_POINTS));
     const hull: number[] = [];
