@@ -43,10 +43,11 @@ const _v = new Vector3();
 const boxAround = (points: Float32Array): { shape: CollisionShape3D; mid: Vector3 } => {
   const lo = new Vector3(Infinity, Infinity, Infinity);
   const hi = new Vector3(-Infinity, -Infinity, -Infinity);
+  const p = new Vector3();
   for (let i = 0; i < points.length; i += 3) {
-    _v.set(points[i] as number, points[i + 1] as number, points[i + 2] as number);
-    lo.min(_v);
-    hi.max(_v);
+    p.set(points[i] as number, points[i + 1] as number, points[i + 2] as number);
+    lo.min(p);
+    hi.max(p);
   }
   const size = hi.clone().sub(lo).max(new Vector3(0.1, 0.1, 0.1));
   return { shape: CollisionShape3D.box(size.x, size.y, size.z), mid: lo.add(hi).multiplyScalar(0.5) };
@@ -130,6 +131,8 @@ export class Towers {
 
   #break(w: World, tower: ITower, at: Vector3, push: Vector3): void {
     const t0 = performance.now();
+    // Copy the push first: `blast` hands in the shared `_v`, which the lines below reuse.
+    const dir = new Vector3(push.x, 0, push.z);
     /*TEMP*/ const ph: number[] = [];
     /*TEMP*/ const lap = (): void => void ph.push(Math.round(performance.now() - t0));
     const { kit, place } = tower;
@@ -181,17 +184,22 @@ export class Towers {
     stumpMesh.position.copy(base);
     stumpMesh.quaternion.copy(yaw);
     ctx.add(stumpMesh);
-    const stumpBox = boxAround(s.hull);
+    // A `position` body has no rotation, so yaw the outline first: the box then holds the real stump.
+    const yawed = new Float32Array(s.hull.length);
+    for (let i = 0; i < yawed.length; i += 3) {
+      _v.set(s.hull[i] as number, s.hull[i + 1] as number, s.hull[i + 2] as number).applyQuaternion(yaw);
+      yawed.set([_v.x, _v.y, _v.z], i);
+    }
+    const stumpBox = boxAround(yawed);
     const stumpBody = new RigidBody3D({
       physics: ctx.physics,
-      position: stumpBox.mid.applyQuaternion(yaw).add(base),
+      position: stumpBox.mid.add(base),
       shape: stumpBox.shape,
       type: "fixed",
     });
 
     /*TEMP*/ lap();
     // Chunks, shoved away from the hit (a blast pushes from its centre, a bolt along its heading).
-    const dir = new Vector3(push.x, 0, push.z);
     if (dir.lengthSq() < 1e-6) dir.set(0, 0, -1);
     dir.normalize();
     const pieces = towerChunks(kit, place).map((c: IChunk, i): IPiece => {
