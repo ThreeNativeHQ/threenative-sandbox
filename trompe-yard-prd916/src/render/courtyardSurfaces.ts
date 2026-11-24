@@ -20,10 +20,13 @@
 // trompe next to the GLB (`*.swatches.json` names one file and its metres per class). Close to the
 // camera that swatch replaces the magnified atlas, multiplied by the atlas at macro mip bias divided
 // by the swatch's own mean, so it carries the paint's stains and per-panel tone instead of repeating
-// a clean patch. Phase 2p also measures the atlas's own local detail there and lets the swatch cover
-// flat fill at every distance — an unpainted fill has nothing to show up close or far — while painted
-// brick still hands back to the atlas by SWATCH_END metres. A class the cook did not write borrows the
-// other class's swatch, so an unpainted step tread is paved in stone rather than left a fill.
+// a clean patch. Phase 2p also lets the swatch cover unpainted fill at every distance — a fill has
+// nothing to show up close or far — while painted brick still hands back to the atlas by SWATCH_END
+// metres. Phase 2s replaces phase 2p's guess at that (the atlas's local detail, which read a painted
+// slab in shadow as fill) with the bake's own answer: the atlas alpha is a painted-coverage mask, 255 on
+// a texel an accepted view painted and 0 on one the fill made up, so the swatch covers exactly what no
+// view saw. A class the cook did not write borrows the other class's swatch, so an unpainted step tread
+// is paved in stone rather than left a fill.
 import {
   BufferAttribute,
   BufferGeometry,
@@ -93,15 +96,6 @@ const SWATCH_START = 2;
 const SWATCH_END = 5;
 /** Mip bias for a swatch's mean colour: far past its top mip, which is the whole image as one texel. */
 const SWATCH_MEAN_BIAS = 16;
-/**
- * Atlas detail (full mip minus macro mip, as linear luminance) under which a region is a plain fill
- * rather than paint. Measured over this atlas: the unpainted fill is exactly 0, painted stone starts at
- * 0.0001 and 90% of it sits above 0.0005 — an AI paint is soft, so the whole scale is orders of
- * magnitude below a photographed texture's.
- */
-const FLAT_DETAIL_LOW = 0.0001;
-/** Above it the atlas carries its own painted detail, and the swatch waits for arm's length. */
-const FLAT_DETAIL_HIGH = 0.0005;
 
 export interface ICourtyardTextures {
   readonly asphalt: { readonly map: Texture; readonly normal: Texture; readonly rough: Texture };
@@ -260,17 +254,22 @@ export function courtyardSurfaces(
   // PRD-916 phase 2o: the paint at macro mip bias is tone alone (stains, moss, a lighter panel), and
   // the swatch keeps its own colour by dividing its mean out and multiplying that tone back in.
   const atlasLow = texture(paint, uv()).bias(float(MACRO_MIPS)).rgb;
-  // PRD-916 phase 2p: where no view painted the atlas it holds one plain fill — no joint, no grain —
-  // so the atlas has no detail to show at any distance and the swatch is all there is. The full-mip
-  // paint against its own macro mip measures exactly that: a fill cancels out, painted brick does not.
-  const detail = dot(abs(paintRgb.sub(atlasLow)), vec3(0.2126, 0.7152, 0.0722));
-  /** 1 on flat fill whatever the range; 0 where the paint carries detail and keeps its far look. */
-  const flat = smoothstep(FLAT_DETAIL_LOW, FLAT_DETAIL_HIGH, detail).oneMinus();
+  // PRD-916 phase 2s: the atlas alpha is the bake's painted-coverage mask — 255 where an accepted view
+  // painted the texel, 0 where the fill made the colour up. Phase 2p guessed this from the atlas's local
+  // detail, which is noisy: a painted slab in shadow read as flat fill and came back a patchy mix of
+  // swatch and atlas. The bake knows, so the mask is exact per texel.
+  const paintedTexel = texture(paint, uv()).a;
   const swatchNear = smoothstep(
     SWATCH_START,
     SWATCH_END,
     distance(positionWorld, cameraPosition),
   ).oneMinus();
+  // The paint's macro tone, and neutral where the bake made the colour up. The engine decodes this
+  // atlas premultiplied (createImageBitmap without premultiplyAlpha: "none"), so a texel whose alpha
+  // is 0 — exactly the ones the mask marks as fill — samples as black and its tone cannot be
+  // recovered; the swatch keeps its own colour there instead of being tinted by a colour that was
+  // destroyed. Fix that decode and the fill can take atlasLow like every painted texel.
+  const tone = mix(vec3(1), atlasLow, paintedTexel);
   /** A swatch at true scale, times the paint's macro tone: the near colour of its own class. */
   const swatchTone = (swatch: ICourtyardSwatch) => {
     const swatchUV = vec2(worldU.div(swatch.metresX), worldV.div(swatch.metresY));
@@ -278,7 +277,7 @@ export function courtyardSurfaces(
     // the same sample biased past its top mip: a 1024 swatch is one texel from level 10 up, and no
     // wall is magnified enough to pull this back below it.
     const mean = texture(swatch.map, swatchUV).bias(float(SWATCH_MEAN_BIAS)).rgb;
-    return texture(swatch.map, swatchUV).rgb.div(mean).mul(atlasLow);
+    return texture(swatch.map, swatchUV).rgb.div(mean).mul(tone);
   };
   // A class with no swatch borrows the other class's texture rather than losing the term: a step
   // tread paved in the wall's stone reads as stone, where the cook's plain fill reads as nothing.
@@ -292,10 +291,10 @@ export function courtyardSurfaces(
       : {
           wall: wallTone,
           ground: groundTone,
-          // Up close the atlas is magnified and the swatch is what it was a blur of; on flat fill
-          // the atlas has nothing to magnify at any range, so the swatch stands in for it there too.
-          // Painted brick keeps today's far look, because its detail stays above the threshold.
-          weight: max(swatchNear, flat),
+          // Up close the atlas is magnified and the swatch is what it was a blur of; where the bake
+          // painted nothing it stands in for the atlas at every range. Painted brick keeps today's far
+          // look: the bake's own mask says a view painted it.
+          weight: max(swatchNear, paintedTexel.oneMinus()),
         };
   const floorPaint = paintRgb.mul(mix(1, variation, FLOOR_DETAIL));
   const floorMaterial = new MeshStandardNodeMaterial();
