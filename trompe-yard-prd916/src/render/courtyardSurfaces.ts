@@ -16,6 +16,12 @@
 // Everything that depends on range keys off the camera-to-fragment distance: at arm's length a wall's
 // paint is magnified past its own resolution, so it takes an unsharp mask and a stronger grain, both
 // faded out by NEAR_END metres — a far wall renders exactly as it did before.
+// PRD-916 phase 2o adds the paint's own swatches: a true-scale tileable crop of the AI paint, cut by
+// trompe next to the GLB (`*.swatches.json` names one file and its metres per class). Close to the
+// camera that swatch replaces the magnified atlas, multiplied by the atlas at macro mip bias divided
+// by the swatch's own mean, so it carries the paint's stains and per-panel tone instead of repeating
+// a clean patch; the atlas is back in charge by SWATCH_END metres. A class the cook did not write
+// leaves its faces on the baked paint alone.
 import {
   BufferAttribute,
   BufferGeometry,
@@ -77,10 +83,31 @@ const SHARPEN = 0.8;
 const SHARPEN_MIPS = 2;
 /** How much of the concrete's variation reaches a prop's colour: the walls' mix, PROP_DETAIL of it. */
 const PROP_DETAIL = 0.6;
+/** Mip levels of the paint the near colour keeps: stains, moss and a panel's own tone, not mortar. */
+const MACRO_MIPS = 3;
+/** Camera distance in metres where a true-scale swatch starts to take over from the baked paint. */
+const SWATCH_START = 2;
+/** Camera distance in metres where the swatch has gone and the paint is all there is again. */
+const SWATCH_END = 5;
+/** Mip bias for a swatch's mean colour: far past its top mip, which is the whole image as one texel. */
+const SWATCH_MEAN_BIAS = 16;
 
 export interface ICourtyardTextures {
   readonly asphalt: { readonly map: Texture; readonly normal: Texture; readonly rough: Texture };
   readonly concrete: { readonly map: Texture; readonly normal: Texture; readonly rough: Texture };
+}
+
+/** A true-scale tileable crop of the AI paint, and the metres one tile of it covers. */
+export interface ICourtyardSwatch {
+  readonly map: Texture;
+  readonly metresX: number;
+  readonly metresY: number;
+}
+
+/** One swatch per surface class trompe cut one for; a class it did not write is absent. */
+export interface ICourtyardSwatches {
+  readonly wall?: ICourtyardSwatch;
+  readonly floor?: ICourtyardSwatch;
 }
 
 /** Texture paths and the metres one tile covers, for `ctx.assets.texture`. */
@@ -182,7 +209,11 @@ const tiled = (texture: Texture, metres: number): Texture => {
 };
 
 /** Split the painted courtyard mesh and give each part its material. Returns the three meshes. */
-export function courtyardSurfaces(painted: Mesh, textures: ICourtyardTextures): Mesh[] {
+export function courtyardSurfaces(
+  painted: Mesh,
+  textures: ICourtyardTextures,
+  swatches?: ICourtyardSwatches,
+): Mesh[] {
   const parts = classify(painted.geometry);
   const { asphalt, concrete } = textures;
   // The owned engine's TSL has one UV set, which the AI paint uses. The floor is flat, so its
@@ -205,18 +236,58 @@ export function courtyardSurfaces(painted: Mesh, textures: ICourtyardTextures): 
   const variation = dot(texture(asphalt.map, metres).rgb, vec3(0.2126, 0.7152, 0.0722)).div(
     ASPHALT_MEAN,
   );
-  const floorMaterial = new MeshStandardNodeMaterial();
-  floorMaterial.colorNode = texture(paint, uv()).rgb.mul(mix(1, variation, FLOOR_DETAIL));
-  floorMaterial.roughnessNode = texture(asphalt.rough, metres).r;
   // The walls take the floor's treatment, projected on each face's own plane: a wall facing x runs u
   // along z, one facing z runs u along x, and a horizontal face is a floor. v is height everywhere.
   const up = step(max(abs(normalWorld.x), abs(normalWorld.z)), abs(normalWorld.y));
   const across = step(abs(normalWorld.z), abs(normalWorld.x));
-  const plane = mix(
-    vec2(mix(positionWorld.x, positionWorld.z, across), positionWorld.y),
-    vec2(positionWorld.x, positionWorld.z),
-    up,
-  ).div(WALL_TILE);
+  // The projection in world metres before any tile — u along the wall, v its height, or x and z on
+  // an upward face. The swatch divides it by its own metres, so its courses land at painted size.
+  const worldU = mix(mix(positionWorld.x, positionWorld.z, across), positionWorld.x, up);
+  const worldV = mix(positionWorld.y, positionWorld.z, up);
+  const plane = vec2(worldU.div(WALL_TILE), worldV.div(WALL_TILE));
+  const paintRgb = texture(paint, uv()).rgb;
+  // PRD-916 phase 2o: the paint at macro mip bias is tone alone (stains, moss, a lighter panel), and
+  // the swatch keeps its own colour by dividing its mean out and multiplying that tone back in.
+  const atlasLow = texture(paint, uv()).bias(float(MACRO_MIPS)).rgb;
+  const swatchNear = smoothstep(
+    SWATCH_START,
+    SWATCH_END,
+    distance(positionWorld, cameraPosition),
+  ).oneMinus();
+  /** A swatch at true scale, times the paint's macro tone: the near colour of its own class. */
+  const swatchTone = (swatch: ICourtyardSwatch) => {
+    const swatchUV = vec2(worldU.div(swatch.metresX), worldV.div(swatch.metresY));
+    // The engine's TSL takes a texture and its uv and nothing else, so the swatch's mean colour is
+    // the same sample biased past its top mip: a 1024 swatch is one texel from level 10 up, and no
+    // wall is magnified enough to pull this back below it.
+    const mean = texture(swatch.map, swatchUV).bias(float(SWATCH_MEAN_BIAS)).rgb;
+    return texture(swatch.map, swatchUV).rgb.div(mean).mul(atlasLow);
+  };
+  // A class with no swatch borrows the other class's texture and carries weight 0, so the faces it
+  // owns keep the baked paint exactly as they rendered before this phase.
+  const wallSwatch = swatches?.wall ?? swatches?.floor;
+  const groundSwatch = swatches?.floor ?? swatches?.wall;
+  const wallTone = wallSwatch === undefined ? undefined : swatchTone(wallSwatch);
+  const groundTone = groundSwatch === undefined ? undefined : swatchTone(groundSwatch);
+  const swatch =
+    wallTone === undefined || groundTone === undefined
+      ? undefined
+      : {
+          wall: wallTone,
+          ground: groundTone,
+          weight: swatchNear.mul(
+            mix(
+              float(swatches?.wall === undefined ? 0 : 1),
+              float(swatches?.floor === undefined ? 0 : 1),
+              up,
+            ),
+          ),
+        };
+  const floorPaint = paintRgb.mul(mix(1, variation, FLOOR_DETAIL));
+  const floorMaterial = new MeshStandardNodeMaterial();
+  floorMaterial.colorNode =
+    swatch === undefined ? floorPaint : mix(floorPaint, swatch.ground, swatch.weight);
+  floorMaterial.roughnessNode = texture(asphalt.rough, metres).r;
   const grain = dot(texture(concrete.map, plane).rgb, vec3(0.2126, 0.7152, 0.0722)).div(
     CONCRETE_MEAN,
   );
@@ -234,7 +305,6 @@ export function courtyardSurfaces(painted: Mesh, textures: ICourtyardTextures): 
   // 1 at arm's length and 0 by NEAR_END metres: the paint is only magnified where the player stands
   // close to a wall, so what magnification smears is only restored there.
   const near = smoothstep(NEAR_START, NEAR_END, distance(positionWorld, cameraPosition)).oneMinus();
-  const paintRgb = texture(paint, uv()).rgb;
   // Unsharp mask: the paint minus the same paint two mips up, added back. Magnification makes the
   // mortar joints a mip-0 blur no filter can undo, but the contrast across them is what reads as
   // stone blocks, and it is exactly what subtracting the blurred copy restores. Clamped, so the
@@ -247,7 +317,13 @@ export function courtyardSurfaces(painted: Mesh, textures: ICourtyardTextures): 
     ),
   );
   const wallMaterial = new MeshStandardNodeMaterial();
-  wallMaterial.colorNode = sharpened.mul(mix(1, grain, mix(WALL_DETAIL, WALL_DETAIL_NEAR, near)));
+  // The swatch replaces the magnified paint up close, and the grain and relief stay on top of it at
+  // every range: the swatch is what the paint was a blur of, not a different surface.
+  const wallRgb =
+    swatch === undefined
+      ? sharpened
+      : mix(sharpened, mix(swatch.wall, swatch.ground, up), swatch.weight);
+  wallMaterial.colorNode = wallRgb.mul(mix(1, grain, mix(WALL_DETAIL, WALL_DETAIL_NEAR, near)));
   wallMaterial.roughnessNode = texture(concrete.rough, plane).r;
   wallMaterial.normalNode = reliefNormal(relief.mul(mix(WALL_RELIEF, WALL_RELIEF_NEAR, near)));
   // A prop is painted like the wall it stands against: the paint's colour times the scan's grain,
