@@ -1,0 +1,42 @@
+{
+  "name": "minimal-touch-controls",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": { "width": 1280, "height": 720 },
+  "warmupFrames": 10,
+  "subject": "player",
+  "steps": [
+    {
+      "kind": "input",
+      "label": "movement-anchor",
+      "pointers": [{ "id": 7, "x": 0.18, "y": 0.75 }],
+      "holdTicks": 2,
+      "release": false
+    },
+    {
+      "kind": "input",
+      "label": "move-right",
+      "pointers": [{ "id": 7, "x": 0.38, "y": 0.75 }],
+      "holdTicks": 45,
+      "release": true
+    },
+    { "kind": "wait", "label": "settled", "waitTicks": 10, "release": true }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "noNetworkErrors": true,
+      "noRuntimeDiagnostics": true,
+      "runtimeReady": true
+    },
+    "movement": { "entity": "player", "minDistance": 0.1 },
+    "resources": [{ "id": "state", "path": "playerX", "changed": true }],
+    "visibility": [
+      {
+        "entity": "touch-controls",
+        "present": true,
+        "allowTrivial": "Touch-primary lanes keep the authored controls visible while state assertions prove they are live."
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "trompe-courtyard",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": { "width": 1280, "height": 720 },
+  "warmupFrames": 30,
+  "subject": "player",
+  "steps": [
+    { "kind": "input", "label": "walk-in", "press": "ArrowUp", "holdTicks": 90, "release": true },
+    { "kind": "wait", "label": "settle", "waitTicks": 60, "release": true, "screenshot": "courtyard" }
+  ],
+  "assert": {
+    "diagnostics": { "noConsoleErrors": true, "noNetworkErrors": true, "runtimeReady": true },
+    "movement": { "entity": "player", "minDistance": 1 },
+    "components": [{ "entity": "courtyard", "component": "texturedMaps", "gte": 1, "allowTrivial": "A load-time fact: the baked trompe texture is bound before the first frame, so it holds at spawn too." }]
+  }
+}

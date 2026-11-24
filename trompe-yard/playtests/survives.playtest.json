@@ -1,0 +1,76 @@
+{
+  "name": "survives",
+  "target": "web",
+  "schemaVersion": 1,
+  "viewport": {
+    "width": 1280,
+    "height": 720
+  },
+  "warmupFrames": 10,
+  "subject": "player",
+  "steps": [
+    {
+      "kind": "input",
+      "label": "move",
+      "press": "ArrowUp",
+      "holdTicks": 60,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "settle",
+      "waitTicks": 10,
+      "release": true
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "noNetworkErrors": true,
+      "noRuntimeDiagnostics": true,
+      "runtimeReady": true
+    },
+    "components": [
+      {
+        "entity": "player",
+        "component": "groundCorrectionEnabled",
+        "equals": false,
+        "allowTrivial": "The disabled correction is intentional while its measurement remains live."
+      },
+      {
+        "entity": "player",
+        "component": "groundClearance",
+        "lte": 0,
+        "allowTrivial": "The authored pose is intentionally below the floor so clearance stays observable."
+      },
+      {
+        "entity": "player",
+        "component": "normaliseFactor",
+        "allowTrivial": "The figure is authored taller than the template's 1.1 m convention and normalised down, so the retained factor is below one; either side of one proves normaliseToMetres ran in generated source.",
+        "lte": 0.99
+      }
+    ],
+    "movement": {
+      "entity": "player",
+      "minDistance": 0.5
+    },
+    "visibility": [
+      {
+        "entity": "touch-controls",
+        "present": false,
+        "allowTrivial": "Desktop keyboard lanes intentionally omit touch controls while movement proves the scene is active."
+      }
+    ],
+    "visual": [
+      {
+        "region": {
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720,
+          "minNonblankPixelRatio": 0.01
+        }
+      }
+    ]
+  }
+}
