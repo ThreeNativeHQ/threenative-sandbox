@@ -5,12 +5,17 @@
 //   floor — upward faces at ground height: the AI paint's colour (so it matches the scene) times
 //           the fine variation of Poly Haven "Asphalt 02", plus its normal and roughness: sharp at
 //           the player's feet without a generic scan's colour
-//   props — connected parts under PROP_SIZE (boxes, bollards, the round base): "Concrete Floor Worn 001"
+//   props — connected parts under PROP_SIZE (boxes, bollards, the round base): the AI paint's colour
+//           times "Concrete Floor Worn 001" exactly as on the walls, plus its normal and roughness:
+//           a prop is painted like the wall it stands against, not left the scan's own clay grey
 //   walls — everything else: the AI paint's colour times the fine variation of "Concrete Floor Worn
 //           001", plus its normal and roughness, so a wall at first-person distance is grain and not
 //           a magnified blur. The paint keeps the colour and the brick layout; the scan only adds.
 // The owned engine's TSL has one UV set, which the paint uses, so the details project world metres
 // from positionWorld instead: along xz for the floor, along each face's own plane for the walls.
+// Everything that depends on range keys off the camera-to-fragment distance: at arm's length a wall's
+// paint is magnified past its own resolution, so it takes an unsharp mask and a stronger grain, both
+// faded out by NEAR_END metres — a far wall renders exactly as it did before.
 import {
   BufferAttribute,
   BufferGeometry,
@@ -22,13 +27,18 @@ import {
 } from "three";
 import {
   abs,
+  cameraPosition,
   cameraViewMatrix,
+  clamp,
   cross,
+  distance,
   dot,
+  float,
   max,
   mix,
   normalWorld,
   positionWorld,
+  smoothstep,
   step,
   texture,
   uv,
@@ -36,7 +46,6 @@ import {
   vec3,
 } from "three/tsl";
 import { MeshStandardNodeMaterial } from "three/webgpu";
-import { worldGridUVs } from "./materials.js";
 
 /** A connected part whose bounding box is smaller than this on every axis is a prop, in metres. */
 const PROP_SIZE = 3;
@@ -54,6 +63,20 @@ const WALL_TILE = 1.5;
 const WALL_DETAIL = 0.5;
 /** Strength of the concrete's normal on the walls: the grain of a wall, not new shapes on it. */
 const WALL_RELIEF = 0.6;
+/** Camera distance in metres where the close-range terms start: arm's length from a wall. */
+const NEAR_START = 1.5;
+/** Camera distance in metres where they have faded out again and the far wall is untouched. */
+const NEAR_END = 4;
+/** Wall detail at arm's length: the paint is magnified there, so the grain must carry more of it. */
+const WALL_DETAIL_NEAR = 0.75;
+/** Wall relief at arm's length, for the same reason. */
+const WALL_RELIEF_NEAR = 0.9;
+/** Unsharp-mask strength on the paint at arm's length: 0 is the plain sample, 1 doubles the edge. */
+const SHARPEN = 0.8;
+/** Mip levels of blur the unsharp mask subtracts: what magnification smeared out of the joints. */
+const SHARPEN_MIPS = 2;
+/** How much of the concrete's variation reaches a prop's colour: the walls' mix, PROP_DETAIL of it. */
+const PROP_DETAIL = 0.6;
 
 export interface ICourtyardTextures {
   readonly asphalt: { readonly map: Texture; readonly normal: Texture; readonly rough: Texture };
@@ -162,12 +185,16 @@ const tiled = (texture: Texture, metres: number): Texture => {
 export function courtyardSurfaces(painted: Mesh, textures: ICourtyardTextures): Mesh[] {
   const parts = classify(painted.geometry);
   const { asphalt, concrete } = textures;
-  const props = worldGridUVs(pick(painted.geometry, parts.props));
   // The owned engine's TSL has one UV set, which the AI paint uses. The floor is flat, so its
   // detail coordinates are world metres from positionWorld.xz.
   const floor = pick(painted.geometry, parts.floor);
   const walls = pick(painted.geometry, parts.walls);
   const T = COURTYARD_TEXTURES;
+  // The scans' sampler state lives on the textures, not the materials: repeating tiles, and enough
+  // anisotropy that a wall seen at a grazing angle keeps its grain instead of smearing it along one
+  // axis. Set before any part samples them, or the grain is one clamped edge texel and the wall goes
+  // soft again.
+  for (const scan of [concrete.map, concrete.normal, concrete.rough]) tiled(scan, T.concrete.tile);
   const paint = (painted.material as MeshStandardMaterial).map;
   // PRD-916 BEFORE arm: the gray blockout has no painted map, so it renders as authored.
   if (paint === null) {
@@ -196,26 +223,46 @@ export function courtyardSurfaces(painted: Mesh, textures: ICourtyardTextures): 
   // The relief's tangent frame is the projection's own: along u, and that crossed with the face
   // normal. The paint's atlas UVs are not the detail's, so a tangent frame from them would tilt it.
   const along = mix(vec3(1, 0, 0), vec3(0, 0, 1), across);
-  const relief = texture(concrete.normal, plane).xyz.mul(2).sub(1).mul(WALL_RELIEF);
+  const relief = texture(concrete.normal, plane).xyz.mul(2).sub(1);
+  /** A scan relief of the given strength as a normalNode wants it: a normalNode speaks view space. */
+  const reliefNormal = (strength: typeof relief) =>
+    normalWorld
+      .add(along.mul(strength.x))
+      .add(cross(normalWorld, along).mul(strength.y))
+      .normalize()
+      .transformNormalByViewMatrix(cameraViewMatrix);
+  // 1 at arm's length and 0 by NEAR_END metres: the paint is only magnified where the player stands
+  // close to a wall, so what magnification smears is only restored there.
+  const near = smoothstep(NEAR_START, NEAR_END, distance(positionWorld, cameraPosition)).oneMinus();
+  const paintRgb = texture(paint, uv()).rgb;
+  // Unsharp mask: the paint minus the same paint two mips up, added back. Magnification makes the
+  // mortar joints a mip-0 blur no filter can undo, but the contrast across them is what reads as
+  // stone blocks, and it is exactly what subtracting the blurred copy restores. Clamped, so the
+  // overshoot cannot leave the paint's range and darken a bright joint or clip a dark one.
+  const sharpened = clamp(
+    paintRgb.add(
+      paintRgb
+        .sub(texture(paint, uv()).bias(float(SHARPEN_MIPS)).rgb)
+        .mul(near.mul(float(SHARPEN))),
+    ),
+  );
   const wallMaterial = new MeshStandardNodeMaterial();
-  wallMaterial.colorNode = texture(paint, uv()).rgb.mul(mix(1, grain, WALL_DETAIL));
+  wallMaterial.colorNode = sharpened.mul(mix(1, grain, mix(WALL_DETAIL, WALL_DETAIL_NEAR, near)));
   wallMaterial.roughnessNode = texture(concrete.rough, plane).r;
-  wallMaterial.normalNode = normalWorld
-    .add(along.mul(relief.x))
-    .add(cross(normalWorld, along).mul(relief.y))
-    .normalize()
-    // A normalNode speaks view space; the mesh's world-baked geometry is no part of the maths here.
-    .transformNormalByViewMatrix(cameraViewMatrix);
+  wallMaterial.normalNode = reliefNormal(relief.mul(mix(WALL_RELIEF, WALL_RELIEF_NEAR, near)));
+  // A prop is painted like the wall it stands against: the paint's colour times the scan's grain,
+  // with the scan's own normal at full strength and its roughness — its atlas UVs still sample the
+  // paint, and the detail is projected from positionWorld because the one UV set is the paint's.
+  const propsMaterial = new MeshStandardNodeMaterial();
+  // A node material paints from colorNode, but the game's playtest counts `map` to prove the painted
+  // atlas is bound before the first frame (Play.ts); both point at that same texture.
+  propsMaterial.map = paint;
+  propsMaterial.colorNode = texture(paint, uv()).rgb.mul(mix(1, grain, PROP_DETAIL));
+  propsMaterial.roughnessNode = texture(concrete.rough, plane).r;
+  propsMaterial.normalNode = reliefNormal(relief);
   return [
     new Mesh(floor, floorMaterial),
-    new Mesh(
-      props,
-      new MeshStandardMaterial({
-        map: tiled(concrete.map, T.concrete.tile),
-        normalMap: tiled(concrete.normal, T.concrete.tile),
-        roughnessMap: tiled(concrete.rough, T.concrete.tile),
-      }),
-    ),
+    new Mesh(pick(painted.geometry, parts.props), propsMaterial),
     new Mesh(walls, wallMaterial),
   ].map((mesh, i) => {
     mesh.name = ["courtyard-floor", "courtyard-props", "courtyard-walls"][i] ?? "courtyard";
