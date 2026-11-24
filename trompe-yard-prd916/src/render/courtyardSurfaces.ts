@@ -23,10 +23,13 @@
 // a clean patch. Phase 2p also lets the swatch cover unpainted fill at every distance — a fill has
 // nothing to show up close or far — while painted brick still hands back to the atlas by SWATCH_END
 // metres. Phase 2s replaces phase 2p's guess at that (the atlas's local detail, which read a painted
-// slab in shadow as fill) with the bake's own answer: the atlas alpha is a painted-coverage mask, 255 on
-// a texel an accepted view painted and 0 on one the fill made up, so the swatch covers exactly what no
-// view saw. A class the cook did not write borrows the other class's swatch, so an unpainted step tread
-// is paved in stone rather than left a fill.
+// slab in shadow as fill) with the bake's own answer: a painted-coverage mask, 255 on a texel an
+// accepted view painted and 0 on one the fill made up, so the swatch covers exactly what no view saw.
+// Phase 2t moves that mask out of the atlas alpha into `courtyard-klein.painted.png` beside the GLB: the
+// cook dropped a lossy alpha on an OPAQUE material off UASTC, and a canvas premultiplies, so every
+// filled texel exported black. The atlas stays opaque RGB, so the fill takes its colour back. A class
+// the cook did not write borrows the other class's swatch, so an unpainted step tread is paved in
+// stone rather than left a fill.
 import {
   BufferAttribute,
   BufferGeometry,
@@ -218,6 +221,7 @@ export function courtyardSurfaces(
   painted: Mesh,
   textures: ICourtyardTextures,
   swatches?: ICourtyardSwatches,
+  paintedMask?: Texture,
 ): Mesh[] {
   const parts = classify(painted.geometry);
   const { asphalt, concrete } = textures;
@@ -254,22 +258,29 @@ export function courtyardSurfaces(
   // PRD-916 phase 2o: the paint at macro mip bias is tone alone (stains, moss, a lighter panel), and
   // the swatch keeps its own colour by dividing its mean out and multiplying that tone back in.
   const atlasLow = texture(paint, uv()).bias(float(MACRO_MIPS)).rgb;
-  // PRD-916 phase 2s: the atlas alpha is the bake's painted-coverage mask — 255 where an accepted view
-  // painted the texel, 0 where the fill made the colour up. Phase 2p guessed this from the atlas's local
-  // detail, which is noisy: a painted slab in shadow read as flat fill and came back a patchy mix of
-  // swatch and atlas. The bake knows, so the mask is exact per texel.
-  const paintedTexel = texture(paint, uv()).a;
+  // PRD-916 phases 2s and 2t: the bake's painted-coverage mask, read at the atlas' own uv — 255 where an
+  // accepted view painted the texel, 0 where the fill made the colour up. It is its own linear data
+  // texture (`courtyard-klein.painted.png`, a quarter of the atlas' side, so one mask texel covers the
+  // same surface as a 4x4 atlas block), not the atlas' alpha: the cook keeps the atlas on UASTC only
+  // while that alpha is opaque. Phase 2p guessed this from the atlas's local detail, which is noisy: a
+  // painted slab in shadow read as flat fill and came back a patchy mix of swatch and atlas. A level
+  // with no mask bakes 1, which is "a view painted all of it": no fill to cover.
+  //
+  // v is inverted for the mask alone: the atlas comes out of the GLB, and glTF images are not flipped
+  // on upload (v 0 is the image's first row), while an asset texture is flipped on load (v 0 is its
+  // last row) so an ordinary JPEG reads upright. Both files store the atlas' row order, so the mask is
+  // sampled the right way up only with 1 - v.
+  const maskUV = vec2(uv().x, uv().y.oneMinus());
+  const paintedTexel = paintedMask === undefined ? float(1) : texture(paintedMask, maskUV).r;
   const swatchNear = smoothstep(
     SWATCH_START,
     SWATCH_END,
     distance(positionWorld, cameraPosition),
   ).oneMinus();
-  // The paint's macro tone, and neutral where the bake made the colour up. The engine decodes this
-  // atlas premultiplied (createImageBitmap without premultiplyAlpha: "none"), so a texel whose alpha
-  // is 0 — exactly the ones the mask marks as fill — samples as black and its tone cannot be
-  // recovered; the swatch keeps its own colour there instead of being tinted by a colour that was
-  // destroyed. Fix that decode and the fill can take atlasLow like every painted texel.
-  const tone = mix(vec3(1), atlasLow, paintedTexel);
+  // The paint's macro tone, taken from the atlas' colour at every texel: the atlas is opaque RGB, filled
+  // texels included, so a fill has a tone to give again (phase 2s could not, because a canvas had
+  // premultiplied its colour into black).
+  const tone = atlasLow;
   /** A swatch at true scale, times the paint's macro tone: the near colour of its own class. */
   const swatchTone = (swatch: ICourtyardSwatch) => {
     const swatchUV = vec2(worldU.div(swatch.metresX), worldV.div(swatch.metresY));
@@ -292,8 +303,9 @@ export function courtyardSurfaces(
           wall: wallTone,
           ground: groundTone,
           // Up close the atlas is magnified and the swatch is what it was a blur of; where the bake
-          // painted nothing it stands in for the atlas at every range. Painted brick keeps today's far
-          // look: the bake's own mask says a view painted it.
+          // painted nothing it stands in for the atlas at every range, and its own colour carries there
+          // because `tone` is the fill's real colour again. Painted brick keeps today's far look: the
+          // bake's own mask says a view painted it.
           weight: max(swatchNear, paintedTexel.oneMinus()),
         };
   const floorPaint = paintRgb.mul(mix(1, variation, FLOOR_DETAIL));

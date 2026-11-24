@@ -35,9 +35,12 @@ const config: IThreeNativeConfig = {
     // them at once instead of encoding and measuring each 2k map. Costs GPU memory, not looks.
     // Swatches are close-range detail, ETC1S blocks show. First match wins, so the paint's own crops
     // take UASTC before the scan rule below.
+    // The painted-coverage mask is data, not colour: a block codec would smear its 255/0 edge into
+    // values the shader then blends as coverage, so it stays a plain PNG (r8, 1 MB with mips).
     textures: {
       overrides: [
         { glob: "**/*.swatch_*.png", codec: "uastc" },
+        { glob: "**/*.painted.png", codec: "none" },
         { glob: "polyhaven/**", codec: "none" },
       ],
     },
