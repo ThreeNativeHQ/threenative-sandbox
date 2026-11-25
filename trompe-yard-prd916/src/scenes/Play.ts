@@ -12,8 +12,6 @@ import { type IEnvironmentSample, sampleEnvironment } from "@threenative/core/re
 import { type IPhysicsContext, buildStaticColliders } from "@threenative/physics";
 import {
   Group,
-  LinearFilter,
-  LinearMipmapLinearFilter,
   Mesh,
   type PerspectiveCamera,
   PlaneGeometry,
@@ -58,35 +56,6 @@ interface ISwatchSpec {
   readonly metres?: number;
   readonly metresX?: number;
   readonly metresY?: number;
-}
-
-/**
- * The bake's painted-coverage mask, if trompe wrote it next to the level (PRD-916 phase 2t): an 8-bit
- * grayscale PNG at a quarter of the atlas' side, 255 where an accepted view painted the atlas and 0
- * where the fill made the colour up. It ships beside the GLB rather than in its alpha, because the
- * engine cook drops a lossy alpha on an OPAQUE material off UASTC and a canvas premultiplies, so a
- * filled texel exported black. A level without one (the gray blockout, a cook from before the mask)
- * returns undefined, and the shader treats every texel as painted: the swatch then only takes over
- * up close, exactly as it did before phase 2p.
- */
-async function loadPaintedMask(
-  assets: GameCtx["assets"],
-  level: string,
-): Promise<Texture | undefined> {
-  const file = level.replace(/\.glb$/iu, ".painted.png");
-  try {
-    // `data: true` keeps it linear: this is coverage, not colour, and an sRGB decode would curve the
-    // feather. The loader's own texture is linear-filtered with mipmaps, so the mask fades at range
-    // like the atlas it matches.
-    const mask = await assets.texture(file, { data: true });
-    mask.generateMipmaps = true;
-    mask.minFilter = LinearMipmapLinearFilter;
-    mask.magFilter = LinearFilter;
-    return mask;
-  } catch {
-    // Not written by this cook: the paint's alpha said nothing about coverage either.
-    return undefined;
-  }
 }
 
 /**
@@ -136,7 +105,6 @@ export class Play extends Scene<GameState, IPhysicsContext> {
   #level!: { scene: Group };
   #textures!: ICourtyardTextures;
   #swatches: ICourtyardSwatches | undefined;
-  #painted: Texture | undefined;
   #sky: Texture | undefined;
   #environmentSample: IEnvironmentSample | undefined;
   #materialLighting: ReturnType<typeof createMaterialLighting> | undefined;
@@ -161,11 +129,8 @@ export class Play extends Scene<GameState, IPhysicsContext> {
       concrete: { map: cMap, normal: cNormal, rough: cRough },
       stone: { map: sMap, normal: sNormal },
     };
-    [this.#swatches, this.#painted] = await Promise.all([
+    [this.#swatches, this.#level, this.#sky] = await Promise.all([
       loadSwatches(ctx.assets, LEVEL),
-      loadPaintedMask(ctx.assets, LEVEL),
-    ]);
-    [this.#level, this.#sky] = await Promise.all([
       ctx.assets.model<{ scene: Group }>(LEVEL),
       // Only the photo-sky override reads the photograph; the atmosphere sky is computed.
       SKY_OPTIONS.sky === "photo" ? ctx.assets.texture("sky.jpg") : undefined,
@@ -225,7 +190,7 @@ export class Play extends Scene<GameState, IPhysicsContext> {
       painted.material,
     );
     const courtyard = new Group();
-    for (const mesh of courtyardSurfaces(placed, this.#textures, this.#swatches, this.#painted)) {
+    for (const mesh of courtyardSurfaces(placed, this.#textures, this.#swatches)) {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       courtyard.add(mesh);
