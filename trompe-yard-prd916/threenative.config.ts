@@ -41,6 +41,10 @@ const config: IThreeNativeConfig = {
       overrides: [
         { glob: "**/*.swatch_*.png", codec: "uastc" },
         { glob: "**/*.painted.png", codec: "none" },
+        // PRD-916 phase 2v: the fine stone scan is what a player 0.35 m from a wall resolves (0.24 mm a
+        // texel), so it takes UASTC instead of the authored JPEG the other scans keep — at 4k that is a
+        // quarter of the GPU memory, and its measured SSIM is what the cook prints.
+        { glob: "**/worn_rock_natural_01_*.jpg", codec: "uastc" },
         { glob: "polyhaven/**", codec: "none" },
       ],
     },

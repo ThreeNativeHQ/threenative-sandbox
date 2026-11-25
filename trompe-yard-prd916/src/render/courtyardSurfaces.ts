@@ -34,9 +34,13 @@
 // swatch at every range (the paint kept only its macro tone, because it had painted small setts around
 // the bollard and nothing else, so up close the floor showed two unrelated cobbles), and a prop takes
 // the wall swatch on its vertical faces and the ground swatch on its upward ones, at full weight, times
-// the walls' grain and relief. A second, finer octave of the concrete scan (MICRO_TILE) fades in over
-// the last half metre before a wall or a prop: at 0.35 m a screen pixel sees 0.37 mm of the wall, which
-// the swatch (2.5 mm per pixel) and the 1.5 m grain (0.73 mm) both magnify past their source.
+// the walls' grain and relief. Phase 2u adds a second, finer octave over the last half metre before a
+// wall or a prop: at 0.35 m a screen pixel sees 0.37 mm of the wall, which the swatch (2.5 mm per pixel)
+// and the 1.5 m grain (0.73 mm) both magnify past their source.
+// Phase 2v replaces that octave with a real scan: Poly Haven "Worn Rock Natural 01" (CC0), a fine pitted
+// sandstone at a 1 m tile, 4096 px over a metre = 0.24 mm per texel, about what a screen pixel sees at
+// 0.35 m. The concrete it replaced was 1.46 mm texels magnified ten times, so no strength could give it
+// detail it never had.
 import {
   BufferAttribute,
   BufferGeometry,
@@ -96,17 +100,17 @@ const WALL_RELIEF_NEAR = 0.9;
 const SHARPEN = 0.8;
 /** Mip levels of blur the unsharp mask subtracts: what magnification smeared out of the joints. */
 const SHARPEN_MIPS = 2;
-/** Metres one tile of the fine octave covers: the wall swatch's own source is 2.5 mm per pixel, which a
- * player standing 0.35 m from the wall magnifies about 7x, so a second octave of the scan comes in there. */
-const MICRO_TILE = 0.3;
-/** Mip levels of the fine octave's own blur the grain divides by, so the octave carries its variation
- * rather than the scan's local tone: an 8x8 texel mean at MICRO_TILE, about 1.2 mm of wall. */
-const MICRO_MEAN_MIPS = 3;
-/** How much of that fine octave reaches the colour, at touching distance. */
-const MICRO_DETAIL = 1.5;
-/** Strength of the fine octave's normal, added to the relief, at touching distance. */
-const MICRO_RELIEF = 0.5;
-/** Camera distance in metres where the fine octave starts: closer than the arm's-length terms, which are
+/** Metres one tile of the fine stone scan covers: 4096 px over a metre is 0.24 mm per texel, about what
+ * a screen pixel sees 0.35 m from a wall, so this octave has detail a leaning-in player can resolve. */
+const STONE_TILE = 1;
+/** Mean linear luminance of worn_rock_natural_01_diff_4k.jpg, measured offline the same way as
+ * CONCRETE_MEAN: dividing by it keeps the paint's average. */
+const STONE_MEAN = 0.292;
+/** How much of the scan's variation reaches the colour, at touching distance. */
+const STONE_DETAIL = 0.8;
+/** Strength of the scan's normal, added to the relief, at touching distance. */
+const STONE_RELIEF = 0.8;
+/** Camera distance in metres where the fine scan starts: closer than the arm's-length terms, which are
  * already full strength there, so the grain a screen pixel magnifies past its source is the fine one. */
 const TOUCH_START = 0.6;
 /** Camera distance in metres where it is gone again: past this the wall's own grain is fine enough. */
@@ -123,6 +127,7 @@ const SWATCH_MEAN_BIAS = 16;
 export interface ICourtyardTextures {
   readonly asphalt: { readonly map: Texture; readonly normal: Texture; readonly rough: Texture };
   readonly concrete: { readonly map: Texture; readonly normal: Texture; readonly rough: Texture };
+  readonly stone: { readonly map: Texture; readonly normal: Texture };
 }
 
 /** A true-scale tileable crop of the AI paint, and the metres one tile of it covers. */
@@ -151,6 +156,13 @@ export const COURTYARD_TEXTURES = {
     map: "polyhaven/concrete_floor_worn_001_diff_2k.jpg",
     normal: "polyhaven/concrete_floor_worn_001_nor_gl_2k.jpg",
     rough: "polyhaven/concrete_floor_worn_001_rough_2k.jpg",
+  },
+  // Poly Haven "Worn Rock Natural 01" (CC0, polyhaven.com/a/worn_rock_natural_01): fine pitted
+  // sandstone, no block layout and no moss, at 4096 px so a 1 m tile is 0.24 mm per texel.
+  stone: {
+    tile: 1,
+    map: "polyhaven/worn_rock_natural_01_diff_4k.jpg",
+    normal: "polyhaven/worn_rock_natural_01_nor_gl_4k.jpg",
   },
 } as const;
 
@@ -244,7 +256,7 @@ export function courtyardSurfaces(
   paintedMask?: Texture,
 ): Mesh[] {
   const parts = classify(painted.geometry);
-  const { asphalt, concrete } = textures;
+  const { asphalt, concrete, stone } = textures;
   // The owned engine's TSL has one UV set, which the AI paint uses. The floor is flat, so its
   // detail coordinates are world metres from positionWorld.xz.
   const floor = pick(painted.geometry, parts.floor);
@@ -255,6 +267,7 @@ export function courtyardSurfaces(
   // axis. Set before any part samples them, or the grain is one clamped edge texel and the wall goes
   // soft again.
   for (const scan of [concrete.map, concrete.normal, concrete.rough]) tiled(scan, T.concrete.tile);
+  for (const scan of [stone.map, stone.normal]) tiled(scan, T.stone.tile);
   const paint = (painted.material as MeshStandardMaterial).map;
   // PRD-916 BEFORE arm: the gray blockout has no painted map, so it renders as authored.
   if (paint === null) {
@@ -339,15 +352,16 @@ export function courtyardSurfaces(
   const grain = dot(texture(concrete.map, plane).rgb, vec3(0.2126, 0.7152, 0.0722)).div(
     CONCRETE_MEAN,
   );
-  // PRD-916 phase 2u: the same scan a fifth of a tile across, for the last half metre before a wall. The
-  // wall swatch's source is 2.5 mm per pixel and the grain above 0.73 mm, and a screen pixel at touching
-  // distance is 0.37 mm: neither is fine enough there, so a second octave of the scan carries the grain a
-  // player can see when they lean in. Derived from `plane`, so it lands in the same projection.
-  const micro = plane.mul(float(WALL_TILE / MICRO_TILE));
-  const microLuma = (mips: number) =>
-    dot(texture(concrete.map, micro).bias(float(mips)).rgb, vec3(0.2126, 0.7152, 0.0722));
-  const microGrain = microLuma(0).div(microLuma(MICRO_MEAN_MIPS));
-  const microRelief = texture(concrete.normal, micro).xyz.mul(2).sub(1);
+  // PRD-916 phase 2v: the fine stone scan at a 1 m tile, for the last half metre before a wall. The wall
+  // swatch's texel is 1.46 mm of wall (its atlas source 2.5 mm), the grain above 0.73 mm, and a screen
+  // pixel at touching distance 0.37 mm: none is fine enough there, so a real scan at 0.24 mm per texel
+  // carries the pores and grain a player can see when they lean in. Derived from `plane`, so it lands in
+  // the same projection.
+  const stonePlane = plane.mul(float(WALL_TILE / STONE_TILE));
+  const stoneGrain = dot(texture(stone.map, stonePlane).rgb, vec3(0.2126, 0.7152, 0.0722)).div(
+    STONE_MEAN,
+  );
+  const stoneRelief = texture(stone.normal, stonePlane).xyz.mul(2).sub(1);
   const touch = smoothstep(
     TOUCH_START,
     TOUCH_END,
@@ -385,11 +399,11 @@ export function courtyardSurfaces(
     swatch === undefined
       ? sharpened
       : mix(sharpened, mix(swatch.wall, swatch.ground, up), swatch.weight);
-  // The grain and relief the walls wear, with the fine octave added over the last half metre (phase 2u).
+  // The grain and relief the walls wear, with the fine stone scan added over the last half metre (phase 2v).
   const wallGrain = mix(1, grain, mix(WALL_DETAIL, WALL_DETAIL_NEAR, near));
   const wallRelief = relief.mul(mix(WALL_RELIEF, WALL_RELIEF_NEAR, near));
-  const touchedGrain = wallGrain.mul(mix(1, microGrain, touch.mul(float(MICRO_DETAIL))));
-  const touchedRelief = wallRelief.add(microRelief.mul(touch.mul(float(MICRO_RELIEF))));
+  const touchedGrain = wallGrain.mul(mix(1, stoneGrain, touch.mul(float(STONE_DETAIL))));
+  const touchedRelief = wallRelief.add(stoneRelief.mul(touch.mul(float(STONE_RELIEF))));
   wallMaterial.colorNode = wallRgb.mul(touchedGrain);
   wallMaterial.roughnessNode = texture(concrete.rough, plane).r;
   wallMaterial.normalNode = reliefNormal(touchedRelief);

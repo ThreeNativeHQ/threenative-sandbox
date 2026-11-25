@@ -146,17 +146,20 @@ export class Play extends Scene<GameState, IPhysicsContext> {
     const T = COURTYARD_TEXTURES;
     const colour = (path: string) => ctx.assets.texture(path);
     const data = (path: string) => ctx.assets.texture(path, { data: true });
-    const [aMap, aNormal, aRough, cMap, cNormal, cRough] = await Promise.all([
+    const [aMap, aNormal, aRough, cMap, cNormal, cRough, sMap, sNormal] = await Promise.all([
       colour(T.asphalt.map),
       data(T.asphalt.normal),
       data(T.asphalt.rough),
       colour(T.concrete.map),
       data(T.concrete.normal),
       data(T.concrete.rough),
+      colour(T.stone.map),
+      data(T.stone.normal),
     ]);
     this.#textures = {
       asphalt: { map: aMap, normal: aNormal, rough: aRough },
       concrete: { map: cMap, normal: cNormal, rough: cRough },
+      stone: { map: sMap, normal: sNormal },
     };
     [this.#swatches, this.#painted] = await Promise.all([
       loadSwatches(ctx.assets, LEVEL),
