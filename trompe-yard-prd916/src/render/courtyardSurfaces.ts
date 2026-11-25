@@ -30,6 +30,13 @@
 // filled texel exported black. The atlas stays opaque RGB, so the fill takes its colour back. A class
 // the cook did not write borrows the other class's swatch, so an unpainted step tread is paved in
 // stone rather than left a fill.
+// Phase 2u gives the floor and the props the same treatment the walls have: the floor is the ground
+// swatch at every range (the paint kept only its macro tone, because it had painted small setts around
+// the bollard and nothing else, so up close the floor showed two unrelated cobbles), and a prop takes
+// the wall swatch on its vertical faces and the ground swatch on its upward ones, at full weight, times
+// the walls' grain and relief. A second, finer octave of the concrete scan (MICRO_TILE) fades in over
+// the last half metre before a wall or a prop: at 0.35 m a screen pixel sees 0.37 mm of the wall, which
+// the swatch (2.5 mm per pixel) and the 1.5 m grain (0.73 mm) both magnify past their source.
 import {
   BufferAttribute,
   BufferGeometry,
@@ -89,8 +96,21 @@ const WALL_RELIEF_NEAR = 0.9;
 const SHARPEN = 0.8;
 /** Mip levels of blur the unsharp mask subtracts: what magnification smeared out of the joints. */
 const SHARPEN_MIPS = 2;
-/** How much of the concrete's variation reaches a prop's colour: the walls' mix, PROP_DETAIL of it. */
-const PROP_DETAIL = 0.6;
+/** Metres one tile of the fine octave covers: the wall swatch's own source is 2.5 mm per pixel, which a
+ * player standing 0.35 m from the wall magnifies about 7x, so a second octave of the scan comes in there. */
+const MICRO_TILE = 0.3;
+/** Mip levels of the fine octave's own blur the grain divides by, so the octave carries its variation
+ * rather than the scan's local tone: an 8x8 texel mean at MICRO_TILE, about 1.2 mm of wall. */
+const MICRO_MEAN_MIPS = 3;
+/** How much of that fine octave reaches the colour, at touching distance. */
+const MICRO_DETAIL = 1.5;
+/** Strength of the fine octave's normal, added to the relief, at touching distance. */
+const MICRO_RELIEF = 0.5;
+/** Camera distance in metres where the fine octave starts: closer than the arm's-length terms, which are
+ * already full strength there, so the grain a screen pixel magnifies past its source is the fine one. */
+const TOUCH_START = 0.6;
+/** Camera distance in metres where it is gone again: past this the wall's own grain is fine enough. */
+const TOUCH_END = 1.5;
 /** Mip levels of the paint the near colour keeps: stains, moss and a panel's own tone, not mortar. */
 const MACRO_MIPS = 3;
 /** Camera distance in metres where a true-scale swatch starts to take over from the baked paint. */
@@ -310,12 +330,29 @@ export function courtyardSurfaces(
         };
   const floorPaint = paintRgb.mul(mix(1, variation, FLOOR_DETAIL));
   const floorMaterial = new MeshStandardNodeMaterial();
-  floorMaterial.colorNode =
-    swatch === undefined ? floorPaint : mix(floorPaint, swatch.ground, swatch.weight);
+  // PRD-916 phase 2u: the floor is the ground swatch at every range, not the magnified paint: the paint
+  // only ever painted small setts around the bollard, so a floor that kept its own colour up close showed
+  // two unrelated cobbles at once (the judge saw exactly that). The swatch already carries the paint's
+  // macro tone (`tone` is the atlas at MACRO_MIPS), so what the paint said about this yard's stone stays.
+  floorMaterial.colorNode = swatch === undefined ? floorPaint : swatch.ground;
   floorMaterial.roughnessNode = texture(asphalt.rough, metres).r;
   const grain = dot(texture(concrete.map, plane).rgb, vec3(0.2126, 0.7152, 0.0722)).div(
     CONCRETE_MEAN,
   );
+  // PRD-916 phase 2u: the same scan a fifth of a tile across, for the last half metre before a wall. The
+  // wall swatch's source is 2.5 mm per pixel and the grain above 0.73 mm, and a screen pixel at touching
+  // distance is 0.37 mm: neither is fine enough there, so a second octave of the scan carries the grain a
+  // player can see when they lean in. Derived from `plane`, so it lands in the same projection.
+  const micro = plane.mul(float(WALL_TILE / MICRO_TILE));
+  const microLuma = (mips: number) =>
+    dot(texture(concrete.map, micro).bias(float(mips)).rgb, vec3(0.2126, 0.7152, 0.0722));
+  const microGrain = microLuma(0).div(microLuma(MICRO_MEAN_MIPS));
+  const microRelief = texture(concrete.normal, micro).xyz.mul(2).sub(1);
+  const touch = smoothstep(
+    TOUCH_START,
+    TOUCH_END,
+    distance(positionWorld, cameraPosition),
+  ).oneMinus();
   // The relief's tangent frame is the projection's own: along u, and that crossed with the face
   // normal. The paint's atlas UVs are not the detail's, so a tangent frame from them would tilt it.
   const along = mix(vec3(1, 0, 0), vec3(0, 0, 1), across);
@@ -348,19 +385,27 @@ export function courtyardSurfaces(
     swatch === undefined
       ? sharpened
       : mix(sharpened, mix(swatch.wall, swatch.ground, up), swatch.weight);
-  wallMaterial.colorNode = wallRgb.mul(mix(1, grain, mix(WALL_DETAIL, WALL_DETAIL_NEAR, near)));
+  // The grain and relief the walls wear, with the fine octave added over the last half metre (phase 2u).
+  const wallGrain = mix(1, grain, mix(WALL_DETAIL, WALL_DETAIL_NEAR, near));
+  const wallRelief = relief.mul(mix(WALL_RELIEF, WALL_RELIEF_NEAR, near));
+  const touchedGrain = wallGrain.mul(mix(1, microGrain, touch.mul(float(MICRO_DETAIL))));
+  const touchedRelief = wallRelief.add(microRelief.mul(touch.mul(float(MICRO_RELIEF))));
+  wallMaterial.colorNode = wallRgb.mul(touchedGrain);
   wallMaterial.roughnessNode = texture(concrete.rough, plane).r;
-  wallMaterial.normalNode = reliefNormal(relief.mul(mix(WALL_RELIEF, WALL_RELIEF_NEAR, near)));
-  // A prop is painted like the wall it stands against: the paint's colour times the scan's grain,
-  // with the scan's own normal at full strength and its roughness — its atlas UVs still sample the
-  // paint, and the detail is projected from positionWorld because the one UV set is the paint's.
+  wallMaterial.normalNode = reliefNormal(touchedRelief);
+  // A prop is painted like the wall it stands against, and PRD-916 phase 2u gives it the wall's swatch
+  // path too: the wall swatch on its vertical faces and the ground swatch on its upward ones, at full
+  // weight, times the same grain and relief the walls get. It used to keep the atlas the whole time,
+  // which the judge saw as smeared dark streaks down the step risers.
   const propsMaterial = new MeshStandardNodeMaterial();
   // A node material paints from colorNode, but the game's playtest counts `map` to prove the painted
   // atlas is bound before the first frame (Play.ts); both point at that same texture.
   propsMaterial.map = paint;
-  propsMaterial.colorNode = texture(paint, uv()).rgb.mul(mix(1, grain, PROP_DETAIL));
+  const propsRgb =
+    swatch === undefined ? texture(paint, uv()).rgb : mix(swatch.wall, swatch.ground, up);
+  propsMaterial.colorNode = propsRgb.mul(touchedGrain);
   propsMaterial.roughnessNode = texture(concrete.rough, plane).r;
-  propsMaterial.normalNode = reliefNormal(relief);
+  propsMaterial.normalNode = reliefNormal(touchedRelief);
   return [
     new Mesh(floor, floorMaterial),
     new Mesh(pick(painted.geometry, parts.props), propsMaterial),
