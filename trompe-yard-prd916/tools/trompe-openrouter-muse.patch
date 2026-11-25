@@ -1,0 +1,91 @@
+diff --git a/scripts/texture.mjs b/scripts/texture.mjs
+index 68a6037..60f6cf0 100644
+--- a/scripts/texture.mjs
++++ b/scripts/texture.mjs
+@@ -26,7 +26,7 @@ const { values: a } = parseArgs({
+     resume: { type: 'string' },
+   },
+ });
+-if (!process.env.FAL_KEY && !a['plan-only']) {
++if (!process.env.FAL_KEY && !process.env.OPENROUTER_API_KEY && !a['plan-only']) {
+   console.error('FAL_KEY is not set (export FAL_KEY=your-fal-key)');
+   process.exit(1);
+ }
+diff --git a/src/core/pipeline.ts b/src/core/pipeline.ts
+index bfbce3c..ed4f5ee 100644
+--- a/src/core/pipeline.ts
++++ b/src/core/pipeline.ts
+@@ -145,7 +145,7 @@ export function prepareView(engine: Engine, spec: ViewSpec, o: PipelineOptions,
+ }
+ 
+ export const promptText = (p: Pick<PreparedView, 'model' | 'prompt'>) =>
+-  p.model.key === 'flux3-klein' ? prompts.caption(p.prompt) : prompts.instruction(p.prompt);
++  ['flux3-klein', 'muse-image'].includes(p.model.key) ? prompts.caption(p.prompt) : prompts.instruction(p.prompt);
+ 
+ /** Ask the model for one prepared view and composite its answer next to the known texture. */
+ export async function generateView(p: PreparedView, size: number, seed: number, feather: number, signal?: AbortSignal) {
+diff --git a/src/providers/fal.ts b/src/providers/fal.ts
+index 04e457b..e13455d 100644
+--- a/src/providers/fal.ts
++++ b/src/providers/fal.ts
+@@ -27,6 +27,15 @@ export interface EditResult {
+ 
+ export async function runEdit(model: EditModel, input: EditInput, signal?: AbortSignal): Promise<EditResult> {
+   const t0 = performance.now();
++  if (model.endpoint.startsWith('openrouter:')) {
++    const res = await fetch('/api/openrouter/images', { method: 'POST', signal,
++      headers: { 'content-type': 'application/json' }, body: JSON.stringify(model.input(input)) });
++    const data = await res.json() as { data?: { b64_json: string; media_type?: string }[]; error?: unknown; id?: string };
++    const b64 = data.data?.[0]?.b64_json;
++    if (!res.ok || !b64) throw new Error(`${model.label} failed: ${res.status} ${JSON.stringify(data.error ?? data).slice(0, 300)}`);
++    const blob = await (await fetch(`data:${data.data![0].media_type ?? 'image/png'};base64,${b64}`)).blob();
++    return { image: await createImageBitmap(blob), seconds: (performance.now() - t0) / 1000, requestId: data.id ?? '' };
++  }
+   const r = await fal.subscribe(model.endpoint, { input: model.input(input), logs: false, abortSignal: signal });
+   const data = r.data as { images?: { url: string }[]; image?: { url: string }; vgl?: unknown };
+   const url = data.images?.[0]?.url ?? data.image?.url;
+diff --git a/src/providers/models.ts b/src/providers/models.ts
+index 7c807b4..dc6fdbf 100644
+--- a/src/providers/models.ts
++++ b/src/providers/models.ts
+@@ -113,6 +113,14 @@ export const MODELS: Record<string, EditModel> = {
+     input: (i) => ({ prompt: prompts.instruction(i.prompt), image_urls: [i.imageUrl],
+       resolution: '1K', aspect_ratio: '1:1', seed: i.seed, output_format: 'png', num_images: 1 }),
+   },
++  // OpenRouter (key from OPENROUTER_API_KEY via the dev server's /api/openrouter proxy). No mask input: the
++  // composite keeps known pixels anyway. Size is fixed by the model; bitmapToRGBA resamples to the view size.
++  'muse-image': {
++    key: 'muse-image', label: 'Meta Muse Image', endpoint: 'openrouter:meta/muse-image', mask: null, price: 0.01,
++    input: (i) => ({ model: 'meta/muse-image', prompt: prompts.caption(i.prompt), aspect_ratio: '1:1', seed: i.seed,
++      // OpenRouter drops unknown fields silently: `images` is ignored, `input_references` is the image input.
++      input_references: [{ type: 'image_url', image_url: { url: i.imageUrl } }] }),
++  },
+   'flux3': {
+     key: 'flux3', label: 'FLUX 3', endpoint: 'blackforestlabs/flux-3/edit-image', mask: null, price: 0.048,
+     input: (i) => ({ prompt: prompts.instruction(i.prompt), image_urls: [i.imageUrl],
+diff --git a/vite.config.ts b/vite.config.ts
+index aebcc06..8ba1dcd 100644
+--- a/vite.config.ts
++++ b/vite.config.ts
+@@ -46,6 +46,21 @@ function falProxy(): Plugin {
+           fail(res, 502, `proxy error: ${(e as Error).message}`);
+         }
+       });
++      // OpenRouter image proxy: the key comes from OPENROUTER_API_KEY, the browser never sees it.
++      server.middlewares.use('/api/openrouter/images', async (req, res) => {
++        const key = process.env.OPENROUTER_API_KEY;
++        if (!key) return fail(res, 500, 'OPENROUTER_API_KEY is not set where the dev server runs');
++        if (req.method !== 'POST') return fail(res, 405, 'POST only');
++        try {
++          const r = await fetch('https://openrouter.ai/api/v1/images', { method: 'POST',
++            headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' }, body: new Uint8Array(await body(req)) });
++          res.statusCode = r.status;
++          res.setHeader('content-type', r.headers.get('content-type') ?? 'application/json');
++          res.end(Buffer.from(await r.arrayBuffer()));
++        } catch (e) {
++          fail(res, 502, `openrouter error: ${(e as Error).message}`);
++        }
++      });
+       // Saves run artefacts under ./runs/<id>/<file> (dev server only; names are restricted to [\w.-]).
+       server.middlewares.use('/api/runs', async (req, res) => {
+         if (req.method !== 'POST') return fail(res, 405, 'POST only');

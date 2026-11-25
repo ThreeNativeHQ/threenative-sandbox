@@ -1,0 +1,81 @@
+{
+  "name": "texture-projection",
+  "schemaVersion": 1,
+  "target": "web",
+  "viewport": {
+    "width": 1920,
+    "height": 1080
+  },
+  "warmupFrames": 60,
+  "subject": "player",
+  "steps": [
+    {
+      "kind": "wait",
+      "label": "spawn",
+      "waitTicks": 30,
+      "release": true,
+      "screenshot": "spawn"
+    },
+    {
+      "kind": "input",
+      "label": "walk-in",
+      "press": "ArrowUp",
+      "holdTicks": 90,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "walk-in-settle",
+      "waitTicks": 45,
+      "release": true,
+      "screenshot": "walk-in"
+    },
+    {
+      "kind": "input",
+      "label": "close",
+      "press": "ArrowUp",
+      "holdTicks": 150,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "close-settle",
+      "waitTicks": 45,
+      "release": true,
+      "screenshot": "close-wall"
+    },
+    {
+      "kind": "input",
+      "label": "turn",
+      "press": "ArrowRight",
+      "holdTicks": 40,
+      "release": true
+    },
+    {
+      "kind": "wait",
+      "label": "turn-settle",
+      "waitTicks": 45,
+      "release": true,
+      "screenshot": "turn"
+    }
+  ],
+  "assert": {
+    "diagnostics": {
+      "noConsoleErrors": true,
+      "noNetworkErrors": true,
+      "runtimeReady": true
+    },
+    "movement": {
+      "entity": "player",
+      "minDistance": 1
+    },
+    "components": [
+      {
+        "entity": "courtyard",
+        "component": "texturedMaps",
+        "gte": 1,
+        "allowTrivial": "A load-time fact: the painted atlas is bound before the first frame."
+      }
+    ]
+  }
+}
