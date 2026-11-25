@@ -5,9 +5,11 @@
 //   floor — upward faces at ground height: the AI paint's colour (so it matches the scene) times
 //           the fine variation of Poly Haven "Asphalt 02", plus its normal and roughness: sharp at
 //           the player's feet without a generic scan's colour
-//   props — connected parts under PROP_SIZE (boxes, bollards, the round base): the AI paint's colour
-//           times "Concrete Floor Worn 001" exactly as on the walls, plus its normal and roughness:
-//           a prop is painted like the wall it stands against, not left the scan's own clay grey
+//   props — a connected part whose thinnest bounding-box axis is at most PROP_THIN_MAX and whose longest
+//           is under PROP_LONG_MAX (boxes, bollards, the steps, the tall slab in the yard): the wall
+//           swatch at full weight on its vertical faces and the ground swatch on its upward ones, times
+//           the walls' grain and roughness: a prop is painted like the wall it stands against, not left
+//           the scan's own clay grey, and it keeps the paint's own crisp courses at every range
 //   walls — everything else: the AI paint's colour times the fine variation of "Concrete Floor Worn
 //           001", plus its normal and roughness, so a wall at first-person distance is grain and not
 //           a magnified blur. The paint keeps the colour and the brick layout; the scan only adds.
@@ -41,13 +43,14 @@
 // sandstone at a 1 m tile, 4096 px over a metre = 0.24 mm per texel, about what a screen pixel sees at
 // 0.35 m. The concrete it replaced was 1.46 mm texels magnified ten times, so no strength could give it
 // detail it never had.
-// Phase 2w gives the walls what the floor and props took in 2u: the swatch at full weight at every range,
-// wall swatch on a vertical face and ground swatch on an upward one. The atlas gives only the macro tone
-// now, for every class — at level 3 the paint still read at range, and the judge named what it drew: weed
-// silhouettes on the slab's base, a moss strip on the back wall, the photograph's own shadow shifted past
-// the slab's top. It also crisps the swatch where a player leans in, with the swatch's own unsharp mask,
-// and turns the stone scan into a local high-pass, since phase 2v's global mean divided the scan's tonal
-// blotches back into the wall as mottling instead of leaving only its cracks and pores.
+// Phase 2x puts the walls back on the paint at range (phase 2w gave them the swatch at every range, and a
+// 1.5 m tile grid read at spawn): the atlas is the wall's colour away from the camera, the swatch takes
+// over inside SWATCH_END metres and wherever the bake's mask says no view painted the texel. Phase 2w's
+// two survivors stay: the stone scan divided by its own local mean (a high-pass, at full strength under
+// `touch`) and the 8 cm tone the swatch multiplies in. The swatch's mortar joints are sharpened once where
+// trompe cuts it (swatch.ts), so the shader needs no unsharp of its own. And a part is a prop by its
+// proportions, not by fitting in a 3 m box: the yard's tall slab, its steps and its bollard were drawn
+// like a wall, which is what put weeds and a plaster face on the slab.
 import {
   BufferAttribute,
   BufferGeometry,
@@ -79,8 +82,10 @@ import {
 } from "three/tsl";
 import { MeshStandardNodeMaterial } from "three/webgpu";
 
-/** A connected part whose bounding box is smaller than this on every axis is a prop, in metres. */
-const PROP_SIZE = 3;
+/** A connected part is a prop when its thinnest bounding-box axis is at most this, in metres. */
+const PROP_THIN_MAX = 1;
+/** ...and its longest axis is under this, in metres. Longer than that is a wall of the yard. */
+const PROP_LONG_MAX = 6;
 /** An upward face lower than this is floor, in metres. */
 const FLOOR_HEIGHT = 0.3;
 /** Mean linear luminance of asphalt_02_diff_2k.jpg, measured offline: dividing by it keeps the paint's average. */
@@ -103,18 +108,18 @@ const NEAR_END = 4;
 const WALL_DETAIL_NEAR = 0.75;
 /** Wall relief at arm's length, for the same reason. */
 const WALL_RELIEF_NEAR = 0.9;
-/** Unsharp-mask strength on the swatch at touching distance: 0 is the plain sample, 1 doubles the edge. */
-const SWATCH_SHARPEN = 1;
-/** Mip levels of blur the swatch's unsharp mask subtracts: what magnification smeared out of the joints. */
-const SWATCH_SHARPEN_MIPS = 2;
+/** Unsharp-mask strength on the paint at arm's length: 0 is the plain sample, 1 doubles the edge. */
+const SHARPEN = 0.8;
+/** Mip levels of blur the unsharp mask subtracts: what magnification smeared out of the joints. */
+const SHARPEN_MIPS = 2;
 /** Metres one tile of the fine stone scan covers: 4096 px over a metre is 0.24 mm per texel, about what
  * a screen pixel sees 0.35 m from a wall, so this octave has detail a leaning-in player can resolve. */
 const STONE_TILE = 1;
-/** Mip levels of the scan that are its own local mean: the divisor of the high-pass, so the band it
- * shares with the swatch cancels and only its cracks and pores are left. 5 of 4096 is 32 texels, 8 mm
- * of wall — wider than a pore, far narrower than the blotches a global mean leaves behind. */
+/** Mip levels of the stone scan that are its own local mean (1 m over 4096 px, so level 5 is 32 texels
+ * of 2.4 cm): dividing by it turns the scan into a high-pass, and the tonal blotches it carries stop
+ * reading as mottling on the wall (phase 2w). */
 const STONE_LOCAL_MIPS = 5;
-/** How much of the scan's high-pass reaches the colour, at touching distance. */
+/** How much of the scan's variation reaches the colour, at touching distance. */
 const STONE_DETAIL = 1;
 /** Strength of the scan's normal, added to the relief, at touching distance. */
 const STONE_RELIEF = 1;
@@ -123,10 +128,14 @@ const STONE_RELIEF = 1;
 const TOUCH_START = 0.6;
 /** Camera distance in metres where it is gone again: past this the wall's own grain is fine enough. */
 const TOUCH_END = 1.5;
-/** Mip levels of the paint the tone keeps: stains and a panel's own brightness, not weeds, moss or a
- * drawn shadow. The atlas is 2.5 mm per texel, so level 5 is 8 cm — under every painted shape the judge
- * named, and still coarse enough to vary each repeat of a 1.5 m swatch. */
+/** Mip levels of the paint the swatch path multiplies in as tone: stains and a panel's own brightness,
+ * not weeds, moss or a drawn shadow. The atlas is 2.5 mm per texel, so level 5 is 8 cm — under every
+ * painted shape the judge named (phase 2w, kept in 2x). */
 const TONE_MIPS = 5;
+/** Camera distance in metres where a true-scale swatch starts to take over from the baked paint. */
+const SWATCH_START = 2;
+/** Camera distance in metres where the swatch has gone and the paint is all there is again. */
+const SWATCH_END = 5;
 /** Mip bias for a swatch's mean colour: far past its top mip, which is the whole image as one texel. */
 const SWATCH_MEAN_BIAS = 16;
 
@@ -215,7 +224,13 @@ function classify(geometry: BufferGeometry): { floor: number[]; walls: number[];
   for (let t = 0; t < triangles; t += 1) {
     const r = find(vertex(t, 0));
     const size = (max.get(r) ?? _a).clone().sub(min.get(r) ?? _a);
-    if (size.x < PROP_SIZE && size.y < PROP_SIZE && size.z < PROP_SIZE) {
+    // PRD-916 phase 2x: the rule is a shape's proportions, not a box that fits in 3 m. The courtyard's
+    // own numbers (every part printed once): the tall slab in the yard is 4 x 4 x 1 m, the steps
+    // 5 x 0.6 x 1.8, the bollard 0.8 x 1 x 0.8, the plinth 3 x 0.6 x 3; the outer walls are 24 x 10 x 6,
+    // 24 x 9 x 6, 6 x 8 x 20, 6 x 7 x 16 and 1 x 6 x 20. So a prop is a thin thing (thinnest axis at most
+    // 1 m) that is not long (longest under 6 m), and the walls stay walls however thin one of them is.
+    const axes = [size.x, size.y, size.z].sort((a, b) => a - b);
+    if ((axes[0] ?? 0) <= PROP_THIN_MAX && (axes[2] ?? 0) < PROP_LONG_MAX) {
       out.props.push(t);
       continue;
     }
@@ -259,6 +274,7 @@ export function courtyardSurfaces(
   painted: Mesh,
   textures: ICourtyardTextures,
   swatches?: ICourtyardSwatches,
+  paintedMask?: Texture,
 ): Mesh[] {
   const parts = classify(painted.geometry);
   const { asphalt, concrete, stone } = textures;
@@ -293,38 +309,41 @@ export function courtyardSurfaces(
   const worldV = mix(positionWorld.y, positionWorld.z, up);
   const plane = vec2(worldU.div(WALL_TILE), worldV.div(WALL_TILE));
   const paintRgb = texture(paint, uv()).rgb;
-  // PRD-916 phase 2w: the atlas is tone alone, at every range and for every class. Phase 2o's reading —
-  // that the paint kept its stains and per-panel tone while the swatch only took over near — was still
-  // paint at range, and the judge named exactly what it drew: weed silhouettes at the slab's base, a moss
-  // strip on the back wall, the photograph's own shadow shifted past the slab's top. The tone is the atlas
-  // at TONE_MIPS, divided into every swatch's mean so the swatch keeps its own colour.
-  const tone = texture(paint, uv()).bias(float(TONE_MIPS)).rgb;
-  // 1 at touching distance and 0 by TOUCH_END metres: the swatch is magnified there, so its joints are
-  // restored as edges and the stone scan carries the grain a screen pixel can resolve.
-  const touch = smoothstep(
-    TOUCH_START,
-    TOUCH_END,
+  // PRD-916 phase 2o: the paint at mip level 5 is tone alone (stains, a lighter panel), and the swatch
+  // keeps its own colour by dividing its mean out and multiplying that tone back in. Phase 2x keeps the
+  // level 2w chose: at 8 cm a weed or a drawn shadow is gone, a metre-scale panel survives.
+  const atlasLow = texture(paint, uv()).bias(float(TONE_MIPS)).rgb;
+  // PRD-916 phases 2s and 2t: the bake's painted-coverage mask, read at the atlas' own uv — 255 where an
+  // accepted view painted the texel, 0 where the fill made the colour up. It is its own linear data
+  // texture (`courtyard-klein.painted.png`, a quarter of the atlas' side, so one mask texel covers the
+  // same surface as a 4x4 atlas block), not the atlas' alpha: the cook keeps the atlas on UASTC only
+  // while that alpha is opaque. Phase 2p guessed this from the atlas's local detail, which is noisy: a
+  // painted slab in shadow read as flat fill and came back a patchy mix of swatch and atlas. A level
+  // with no mask bakes 1, which is "a view painted all of it": no fill to cover.
+  //
+  // v is inverted for the mask alone: the atlas comes out of the GLB, and glTF images are not flipped
+  // on upload (v 0 is the image's first row), while an asset texture is flipped on load (v 0 is its
+  // last row) so an ordinary JPEG reads upright. Both files store the atlas' row order, so the mask is
+  // sampled the right way up only with 1 - v.
+  const maskUV = vec2(uv().x, uv().y.oneMinus());
+  const paintedTexel = paintedMask === undefined ? float(1) : texture(paintedMask, maskUV).r;
+  const swatchNear = smoothstep(
+    SWATCH_START,
+    SWATCH_END,
     distance(positionWorld, cameraPosition),
   ).oneMinus();
-  /** A swatch at true scale, times the paint's macro tone: the colour of its own class at every range. */
+  // The paint's macro tone, taken from the atlas' colour at every texel: the atlas is opaque RGB, filled
+  // texels included, so a fill has a tone to give again (phase 2s could not, because a canvas had
+  // premultiplied its colour into black).
+  const tone = atlasLow;
+  /** A swatch at true scale, times the paint's macro tone: the near colour of its own class. */
   const swatchTone = (swatch: ICourtyardSwatch) => {
     const swatchUV = vec2(worldU.div(swatch.metresX), worldV.div(swatch.metresY));
     // The engine's TSL takes a texture and its uv and nothing else, so the swatch's mean colour is
     // the same sample biased past its top mip: a 1024 swatch is one texel from level 10 up, and no
     // wall is magnified enough to pull this back below it.
     const mean = texture(swatch.map, swatchUV).bias(float(SWATCH_MEAN_BIAS)).rgb;
-    const sample = texture(swatch.map, swatchUV).rgb;
-    // PRD-916 phase 2w: the swatch's own unsharp mask at touching distance. The same sample two mips up
-    // is the blur magnification makes of a mortar joint, and subtracting it is what restores the edge a
-    // player leaning in expects. Clamped, so the overshoot cannot leave the swatch's range.
-    const crisp = clamp(
-      sample.add(
-        sample
-          .sub(texture(swatch.map, swatchUV).bias(float(SWATCH_SHARPEN_MIPS)).rgb)
-          .mul(touch.mul(float(SWATCH_SHARPEN))),
-      ),
-    );
-    return crisp.div(mean).mul(tone);
+    return texture(swatch.map, swatchUV).rgb.div(mean).mul(tone);
   };
   // A class with no swatch borrows the other class's texture rather than losing the term: a step
   // tread paved in the wall's stone reads as stone, where the cook's plain fill reads as nothing.
@@ -335,7 +354,15 @@ export function courtyardSurfaces(
   const swatch =
     wallTone === undefined || groundTone === undefined
       ? undefined
-      : { wall: wallTone, ground: groundTone };
+      : {
+          wall: wallTone,
+          ground: groundTone,
+          // Up close the atlas is magnified and the swatch is what it was a blur of; where the bake
+          // painted nothing it stands in for the atlas at every range, and its own colour carries there
+          // because `tone` is the fill's real colour again. Painted brick keeps today's far look: the
+          // bake's own mask says a view painted it.
+          weight: max(swatchNear, paintedTexel.oneMinus()),
+        };
   const floorPaint = paintRgb.mul(mix(1, variation, FLOOR_DETAIL));
   const floorMaterial = new MeshStandardNodeMaterial();
   // PRD-916 phase 2u: the floor is the ground swatch at every range, not the magnified paint: the paint
@@ -353,10 +380,9 @@ export function courtyardSurfaces(
   // carries the pores and grain a player can see when they lean in. Derived from `plane`, so it lands in
   // the same projection.
   const stonePlane = plane.mul(float(WALL_TILE / STONE_TILE));
-  // PRD-916 phase 2w: the scan divided by its own local mean instead of by a global one, so it is a
-  // high-pass. Phase 2v's global mean left the scan's tonal blotches in the multiplier, and the judge read
-  // them as low-frequency mottling on the stone faces; the local mean cancels exactly the band the swatch
-  // below already carries, and the cracks and pores the judge wanted stronger survive at full strength.
+  // PRD-916 phase 2x keeps phase 2w's reading: the scan divided by its own local mean is a high-pass, so
+  // its tonal blotches stop reading as low-frequency mottling and the pores and cracks keep their contrast
+  // at full strength (a global mean left both).
   const stoneGrain = dot(texture(stone.map, stonePlane).rgb, vec3(0.2126, 0.7152, 0.0722)).div(
     dot(
       texture(stone.map, stonePlane).bias(float(STONE_LOCAL_MIPS)).rgb,
@@ -364,6 +390,11 @@ export function courtyardSurfaces(
     ),
   );
   const stoneRelief = texture(stone.normal, stonePlane).xyz.mul(2).sub(1);
+  const touch = smoothstep(
+    TOUCH_START,
+    TOUCH_END,
+    distance(positionWorld, cameraPosition),
+  ).oneMinus();
   // The relief's tangent frame is the projection's own: along u, and that crossed with the face
   // normal. The paint's atlas UVs are not the detail's, so a tangent frame from them would tilt it.
   const along = mix(vec3(1, 0, 0), vec3(0, 0, 1), across);
@@ -378,11 +409,24 @@ export function courtyardSurfaces(
   // 1 at arm's length and 0 by NEAR_END metres: the paint is only magnified where the player stands
   // close to a wall, so what magnification smears is only restored there.
   const near = smoothstep(NEAR_START, NEAR_END, distance(positionWorld, cameraPosition)).oneMinus();
+  // Unsharp mask: the paint minus the same paint two mips up, added back. Magnification makes the
+  // mortar joints a mip-0 blur no filter can undo, but the contrast across them is what reads as
+  // stone blocks, and it is exactly what subtracting the blurred copy restores. Clamped, so the
+  // overshoot cannot leave the paint's range and darken a bright joint or clip a dark one.
+  const sharpened = clamp(
+    paintRgb.add(
+      paintRgb
+        .sub(texture(paint, uv()).bias(float(SHARPEN_MIPS)).rgb)
+        .mul(near.mul(float(SHARPEN))),
+    ),
+  );
   const wallMaterial = new MeshStandardNodeMaterial();
-  // PRD-916 phase 2w: the wall takes the swatch at full weight at every range, exactly as the floor and
-  // the props already do — the wall swatch on a vertical face, the ground swatch on an upward one. The
-  // grain and relief stay on top: the swatch is what the paint was a blur of, not a different surface.
-  const wallRgb = swatch === undefined ? paintRgb : mix(swatch.wall, swatch.ground, up);
+  // The swatch replaces the magnified paint up close, and the grain and relief stay on top of it at
+  // every range: the swatch is what the paint was a blur of, not a different surface.
+  const wallRgb =
+    swatch === undefined
+      ? sharpened
+      : mix(sharpened, mix(swatch.wall, swatch.ground, up), swatch.weight);
   // The grain and relief the walls wear, with the fine stone scan added over the last half metre (phase 2v).
   const wallGrain = mix(1, grain, mix(WALL_DETAIL, WALL_DETAIL_NEAR, near));
   const wallRelief = relief.mul(mix(WALL_RELIEF, WALL_RELIEF_NEAR, near));
