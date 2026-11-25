@@ -38,6 +38,13 @@
       "release": true
     },
     {
+      "kind": "input",
+      "label": "back-off",
+      "press": "ArrowDown",
+      "holdTicks": 12,
+      "release": true
+    },
+    {
       "kind": "wait",
       "label": "close-settle",
       "waitTicks": 45,
